@@ -18,7 +18,7 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 - `feat(webhook): add message status tracking`
 - `fix(mcp): handle media download timeout`
 - `docs: update API documentation`
-- `chore(deps): upgrade prisma to 6.x`
+- `chore(deps): upgrade convex`
 
 ---
 
@@ -29,10 +29,10 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 ### What it does
 
 1. **Receives webhooks** from WhatsApp Cloud API (messages, status updates)
-2. **Stores messages** in PostgreSQL (Neon)
-3. **Downloads media** to Cloudflare R2 (since Meta URLs expire in 5 minutes)
+2. **Stores messages** in Convex database (real-time sync)
+3. **Downloads media** to Convex file storage (since Meta URLs expire in 5 minutes)
 4. **Exposes MCP server** for AI agents to interact with conversations
-5. **Provides web dashboard** for manual message management
+5. **Provides web dashboard** for manual message management (real-time updates)
 
 ---
 
@@ -46,31 +46,38 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
                                              │ MCP (HTTP)
                                              ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                            Next.js App (Vercel)                          │
+│                         Next.js App (Vercel)                             │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  ┌────────────────┐     ┌────────────────┐     ┌────────────────┐       │
 │  │  /api/webhook  │     │  /api/mcp      │     │  Dashboard     │       │
-│  │  (Meta calls)  │     │  (MCP HTTP)    │     │  + Auth        │       │
-│  └───────┬────────┘     └───────┬────────┘     └────────────────┘       │
-│          │                      │                                        │
-│          ▼                      ▼                                        │
-│  ┌─────────────────────────────────────────────────────────────┐        │
-│  │                    Vercel Workflows                          │        │
-│  │                                                              │        │
-│  │  processIncomingMessage    sendOutboundMessage              │        │
-│  │  ├─ parseWebhook           ├─ callMetaAPI                   │        │
-│  │  ├─ downloadMedia          ├─ storeMessage                  │        │
-│  │  ├─ uploadToR2             └─ updateStatus                  │        │
-│  │  └─ storeMessage                                            │        │
-│  └──────────────────────────────┬──────────────────────────────┘        │
-│                                 │                                        │
-│          ┌──────────────────────┴──────────────────────┐                │
-│          ▼                                              ▼                │
-│  ┌───────────────┐                             ┌───────────────┐        │
-│  │ Neon Postgres │                             │ Cloudflare R2 │        │
-│  │ (via Prisma)  │                             │ (Media files) │        │
-│  └───────────────┘                             └───────────────┘        │
+│  │  (Meta calls)  │     │  (MCP HTTP)    │     │  (real-time)   │       │
+│  └───────┬────────┘     └───────┬────────┘     └───────┬────────┘       │
+│          │                      │                      │                 │
+└──────────┼──────────────────────┼──────────────────────┼─────────────────┘
+           │                      │                      │
+           ▼                      ▼                      ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              Convex                                      │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
+│  │  Mutations  │  │   Queries   │  │   Actions   │  │ Convex Auth │    │
+│  │             │  │             │  │  (external) │  │             │    │
+│  │ storeMsg    │  │ listConvos  │  │             │  │ email/pass  │    │
+│  │ updateStatus│  │ getMessages │  │ downloadMed │  │ sessions    │    │
+│  │ upsertContact│ │ searchMsgs  │  │ callMetaAPI │  │             │    │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘    │
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │                      Convex Database                             │    │
+│  │  accounts | contacts | conversations | messages | templates      │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │                    Convex File Storage                           │    │
+│  │              (images, videos, audio, documents)                  │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
 │                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
                                              │
@@ -90,14 +97,18 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 |-----------|------------|
 | Framework | Next.js 15 (App Router) |
 | Language | TypeScript |
-| Database | PostgreSQL via Neon |
-| ORM | Prisma |
-| Auth | Better Auth |
-| API | tRPC |
-| Workflows | Vercel Workflows (`workflow` package) |
+| Backend | Convex (database, auth, file storage, actions) |
+| Auth | Convex Auth (email/password) |
 | MCP | `@modelcontextprotocol/sdk` |
-| Media Storage | Cloudflare R2 |
-| Hosting | Vercel |
+| Hosting | Vercel (Next.js) + Convex Cloud |
+
+### Why Convex?
+
+- **Real-time by default** - Conversations update instantly across all clients
+- **Integrated auth** - No separate auth service needed
+- **File storage** - Built-in media storage with automatic URLs
+- **Actions** - Background jobs for webhook processing, calling Meta API
+- **Type-safe** - End-to-end TypeScript from DB to frontend
 
 ---
 
@@ -114,19 +125,121 @@ Account (WhatsApp Business Account)
     │               │
     │               └── Message (Individual messages)
     │                       │
-    │                       └── Media (Images, videos, docs in R2)
+    │                       └── Media (in Convex file storage)
     │
     ├── Template (Pre-approved message templates)
     │
     └── WebhookLog (Raw payloads for debugging)
 ```
 
+### Convex Schema
+
+```typescript
+// convex/schema.ts
+accounts: defineTable({
+  name: v.string(),
+  wabaId: v.string(),              // WhatsApp Business Account ID
+  phoneNumberId: v.string(),        // Meta's phone number ID
+  phoneNumber: v.string(),          // Display: +1 555 123 4567
+  accessToken: v.string(),          // Encrypted
+  webhookVerifyToken: v.string(),
+  appSecret: v.string(),            // Encrypted
+  ownerId: v.id("users"),
+})
+
+contacts: defineTable({
+  accountId: v.id("accounts"),
+  waId: v.string(),                 // WhatsApp ID (phone)
+  phone: v.string(),                // E.164 format
+  name: v.optional(v.string()),     // Profile name
+})
+
+conversations: defineTable({
+  accountId: v.id("accounts"),
+  contactId: v.id("contacts"),
+  lastMessageAt: v.optional(v.number()),
+  lastMessagePreview: v.optional(v.string()),
+  unreadCount: v.number(),
+  windowExpiresAt: v.optional(v.number()),  // 24h window
+})
+
+messages: defineTable({
+  accountId: v.id("accounts"),
+  conversationId: v.id("conversations"),
+  waMessageId: v.string(),          // Meta's message ID
+  direction: v.union(v.literal("inbound"), v.literal("outbound")),
+  type: v.union(...),               // text, image, video, etc.
+  
+  // Content (varies by type)
+  text: v.optional(v.string()),
+  caption: v.optional(v.string()),
+  mediaId: v.optional(v.id("_storage")),  // Convex file storage
+  
+  // Status tracking
+  status: v.union(...),             // pending, sent, delivered, read, failed
+  timestamp: v.number(),
+})
+
+templates: defineTable({
+  accountId: v.id("accounts"),
+  name: v.string(),
+  language: v.string(),
+  category: v.union(...),           // marketing, utility, authentication
+  status: v.union(...),             // approved, pending, rejected
+  components: v.any(),
+})
+
+webhookLogs: defineTable({
+  accountId: v.optional(v.id("accounts")),
+  payload: v.any(),
+  processed: v.boolean(),
+  error: v.optional(v.string()),
+})
+```
+
 ### Key Design Decisions
 
 1. **Multi-tenant**: Multiple WhatsApp Business Accounts per deployment
-2. **Media stored in R2**: Meta URLs expire in 5 minutes, we download immediately
+2. **Media in Convex storage**: Meta URLs expire in 5 minutes, downloaded immediately via action
 3. **Raw webhook logs**: Stored for debugging and replay
 4. **24-hour window tracking**: `Conversation.windowExpiresAt` for template-only periods
+5. **Real-time subscriptions**: Dashboard updates instantly when messages arrive
+
+---
+
+## Convex Functions
+
+### Queries (real-time)
+```typescript
+// convex/conversations.ts
+export const list = query({...})           // List conversations for account
+export const get = query({...})            // Get single conversation with messages
+export const search = query({...})         // Search messages
+
+// convex/messages.ts  
+export const list = query({...})           // List messages in conversation
+export const get = query({...})            // Get single message
+```
+
+### Mutations
+```typescript
+// convex/messages.ts
+export const store = mutation({...})       // Store incoming message
+export const updateStatus = mutation({...}) // Update message status
+export const markRead = mutation({...})    // Mark conversation as read
+
+// convex/contacts.ts
+export const upsert = mutation({...})      // Create/update contact
+```
+
+### Actions (external API calls)
+```typescript
+// convex/whatsapp.ts
+export const sendText = action({...})      // Send text via Meta API
+export const sendTemplate = action({...})  // Send template via Meta API
+export const sendMedia = action({...})     // Send media via Meta API
+export const downloadMedia = action({...}) // Download from Meta, upload to Convex storage
+```
 
 ---
 
@@ -146,7 +259,7 @@ The MCP server exposes these tools to AI agents:
 
 ### Metadata
 - `get_templates` - List available message templates
-- `get_media_url` - Get R2 URL for a media attachment
+- `get_media_url` - Get URL for a media attachment
 
 ---
 
@@ -160,30 +273,31 @@ Meta sends webhook
 │ POST /api/webhook │
 │ • Verify signature│
 │ • Return 200 fast │
-│ • Start workflow  │
+│ • Call Convex     │
 └────────┬──────────┘
          │
          ▼
 ┌───────────────────┐
-│ processIncoming   │  (Vercel Workflow)
-│ Workflow          │
+│ Convex Action:    │
+│ processWebhook    │
 └────────┬──────────┘
          │
-         ├──► parseWebhookPayload (step)
+         ├──► Parse webhook payload
          │
-         ├──► downloadMedia (step, if media)
-         │         │
-         │         └──► GET graph.facebook.com/{media_id}
-         │         └──► Download binary (within 5 min!)
-         │         └──► Upload to R2
+         ├──► If media message:
+         │    │
+         │    └──► downloadMedia action
+         │         • GET graph.facebook.com/{media_id}
+         │         • Download binary (within 5 min!)
+         │         • Upload to Convex storage
          │
-         ├──► storeMessage (step)
-         │         │
-         │         └──► Upsert Contact
-         │         └──► Upsert Conversation
-         │         └──► Create Message
+         ├──► mutations.contacts.upsert
          │
-         └──► updateConversationWindow (step)
+         ├──► mutations.conversations.upsert
+         │
+         └──► mutations.messages.store
+                    │
+                    └──► Real-time update to all subscribed clients!
 ```
 
 ---
@@ -191,25 +305,16 @@ Meta sends webhook
 ## Environment Variables
 
 ```env
-# Database
-DATABASE_URL=postgresql://...
+# Convex
+CONVEX_DEPLOYMENT=your-deployment-name
+NEXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
 
-# Better Auth
-BETTER_AUTH_SECRET=...
-BETTER_AUTH_URL=https://your-domain.com
-
-# WhatsApp Cloud API (per-account, stored in DB)
-# These are stored encrypted in the Account table
-
-# Cloudflare R2
-R2_ACCOUNT_ID=
-R2_ACCESS_KEY_ID=
-R2_SECRET_ACCESS_KEY=
-R2_BUCKET_NAME=pons-media
-R2_PUBLIC_URL=https://media.your-domain.com
-
-# Vercel Workflows (auto-configured on Vercel)
-WORKFLOW_SECRET=
+# WhatsApp (per-account credentials stored in Convex DB)
+# Only needed for initial setup or single-tenant mode:
+# WHATSAPP_ACCESS_TOKEN=
+# WHATSAPP_PHONE_NUMBER_ID=
+# WHATSAPP_VERIFY_TOKEN=
+# WHATSAPP_APP_SECRET=
 ```
 
 ---
@@ -220,31 +325,29 @@ WORKFLOW_SECRET=
 src/
 ├── app/
 │   ├── api/
-│   │   ├── webhook/          # WhatsApp webhook endpoint
-│   │   ├── mcp/              # MCP HTTP transport
-│   │   ├── auth/             # Better Auth routes
-│   │   └── trpc/             # tRPC API
-│   ├── dashboard/            # Web UI for manual messaging
-│   └── (marketing)/          # Landing page
-├── server/
-│   ├── api/                  # tRPC routers
-│   ├── better-auth/          # Auth configuration
-│   ├── db.ts                 # Prisma client
-│   ├── whatsapp/             # WhatsApp API client
-│   │   ├── client.ts         # Send messages
-│   │   ├── webhook.ts        # Parse webhooks
-│   │   └── media.ts          # Download/upload media
-│   └── mcp/                  # MCP server implementation
-│       ├── server.ts         # MCP server setup
-│       └── tools/            # Individual tool handlers
-├── workflows/                # Vercel Workflows
-│   ├── process-incoming.ts   # Handle incoming messages
-│   └── send-outbound.ts      # Handle outgoing messages
+│   │   ├── webhook/           # WhatsApp webhook endpoint
+│   │   └── mcp/               # MCP HTTP transport
+│   ├── dashboard/             # Web UI (real-time with Convex)
+│   ├── auth/                  # Auth pages (Convex Auth)
+│   └── (marketing)/           # Landing page
+├── components/                # React components
 ├── lib/
-│   ├── r2.ts                 # Cloudflare R2 client
-│   └── crypto.ts             # Encryption for tokens
-└── prisma/
-    └── schema.prisma         # Database schema
+│   ├── mcp/                   # MCP server implementation
+│   │   ├── server.ts
+│   │   └── tools/
+│   └── whatsapp/              # WhatsApp helpers
+│       ├── signature.ts       # Webhook signature verification
+│       └── types.ts           # Meta API types
+convex/
+├── schema.ts                  # Database schema
+├── auth.ts                    # Convex Auth config
+├── accounts.ts                # Account queries/mutations
+├── contacts.ts                # Contact queries/mutations
+├── conversations.ts           # Conversation queries/mutations
+├── messages.ts                # Message queries/mutations
+├── templates.ts               # Template queries/mutations
+├── webhookLogs.ts             # Webhook log mutations
+└── whatsapp.ts                # Actions for Meta API calls
 ```
 
 ---
@@ -255,17 +358,10 @@ src/
 # Install dependencies
 pnpm install
 
-# Set up environment
-cp .env.example .env
-# Fill in your values
+# Set up Convex
+npx convex dev
 
-# Generate Prisma client
-pnpm db:generate
-
-# Run migrations
-pnpm db:push
-
-# Start dev server
+# In another terminal, start Next.js
 pnpm dev
 ```
 
@@ -283,12 +379,13 @@ ngrok http 3000
 
 ## Deployment
 
-1. Push to GitHub
-2. Connect to Vercel
-3. Add environment variables
-4. Deploy
+1. **Convex**: Automatically deployed when you push (via `convex dev` or CI)
+2. **Next.js**: Push to GitHub, Vercel auto-deploys
+3. **Environment**: Add `CONVEX_DEPLOYMENT` and `NEXT_PUBLIC_CONVEX_URL` to Vercel
 
-Vercel will automatically:
-- Build the Next.js app
-- Configure Workflows
-- Set up the serverless functions
+```bash
+# Deploy Convex to production
+npx convex deploy
+
+# Vercel will pick up the Next.js app automatically
+```
