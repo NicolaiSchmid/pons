@@ -1,103 +1,149 @@
-import { headers } from "next/headers";
-import Link from "next/link";
-import { redirect } from "next/navigation";
+"use client";
 
-import { LatestPost } from "@/app/_components/post";
-import { auth } from "@/server/better-auth";
-import { getSession } from "@/server/better-auth/server";
-import { api, HydrateClient } from "@/trpc/server";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { useConvexAuth } from "convex/react";
+import { useState } from "react";
 
-export default async function Home() {
-  const hello = await api.post.hello({ text: "from tRPC" });
-  const session = await getSession();
+export default function Home() {
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  const { signIn, signOut } = useAuthActions();
+  const [authMode, setAuthMode] = useState<"signIn" | "signUp">("signIn");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  if (session) {
-    void api.post.getLatest.prefetch();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      await signIn("password", {
+        email,
+        password,
+        flow: authMode,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Authentication failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-slate-900 to-slate-800">
+        <div className="text-white">Loading...</div>
+      </main>
+    );
   }
 
   return (
-    <HydrateClient>
-      <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c] text-white">
-        <div className="container flex flex-col items-center justify-center gap-12 px-4 py-16">
-          <h1 className="text-5xl font-extrabold tracking-tight sm:text-[5rem]">
-            Create <span className="text-[hsl(280,100%,70%)]">T3</span> App
-          </h1>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-8">
-            <Link
-              className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 hover:bg-white/20"
-              href="https://create.t3.gg/en/usage/first-steps"
-              target="_blank"
-            >
-              <h3 className="text-2xl font-bold">First Steps →</h3>
-              <div className="text-lg">
-                Just the basics - Everything you need to know to set up your
-                database and authentication.
-              </div>
-            </Link>
-            <Link
-              className="flex max-w-xs flex-col gap-4 rounded-xl bg-white/10 p-4 hover:bg-white/20"
-              href="https://create.t3.gg/en/introduction"
-              target="_blank"
-            >
-              <h3 className="text-2xl font-bold">Documentation →</h3>
-              <div className="text-lg">
-                Learn more about Create T3 App, the libraries it uses, and how
-                to deploy it.
-              </div>
-            </Link>
-          </div>
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-2xl text-white">
-              {hello ? hello.greeting : "Loading tRPC query..."}
-            </p>
+    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-slate-900 to-slate-800 text-white">
+      <div className="container flex flex-col items-center justify-center gap-8 px-4 py-16">
+        <h1 className="text-5xl font-extrabold tracking-tight sm:text-6xl">
+          <span className="text-emerald-400">Pons</span>
+        </h1>
+        <p className="max-w-md text-center text-lg text-slate-300">
+          Open-source WhatsApp Business Cloud API bridge with MCP support
+        </p>
 
-            <div className="flex flex-col items-center justify-center gap-4">
-              <p className="text-center text-2xl text-white">
-                {session && <span>Logged in as {session.user?.name}</span>}
+        {isAuthenticated ? (
+          <div className="flex flex-col items-center gap-6">
+            <div className="rounded-lg bg-slate-800 p-6 text-center">
+              <p className="text-lg text-slate-300">
+                You&apos;re signed in! Dashboard coming soon.
               </p>
-              {!session ? (
-                <form>
-                  <button
-                    className="rounded-full bg-white/10 px-10 py-3 font-semibold no-underline transition hover:bg-white/20"
-                    formAction={async () => {
-                      "use server";
-                      const res = await auth.api.signInSocial({
-                        body: {
-                          provider: "github",
-                          callbackURL: "/",
-                        },
-                      });
-                      if (!res.url) {
-                        throw new Error("No URL returned from signInSocial");
-                      }
-                      redirect(res.url);
-                    }}
-                  >
-                    Sign in with Github
-                  </button>
-                </form>
-              ) : (
-                <form>
-                  <button
-                    className="rounded-full bg-white/10 px-10 py-3 font-semibold no-underline transition hover:bg-white/20"
-                    formAction={async () => {
-                      "use server";
-                      await auth.api.signOut({
-                        headers: await headers(),
-                      });
-                      redirect("/");
-                    }}
-                  >
-                    Sign out
-                  </button>
-                </form>
-              )}
             </div>
+            <button
+              onClick={() => void signOut()}
+              className="rounded-full bg-slate-700 px-8 py-3 font-semibold transition hover:bg-slate-600"
+            >
+              Sign out
+            </button>
           </div>
+        ) : (
+          <div className="w-full max-w-sm">
+            <div className="mb-6 flex rounded-lg bg-slate-800 p-1">
+              <button
+                onClick={() => setAuthMode("signIn")}
+                className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition ${
+                  authMode === "signIn"
+                    ? "bg-emerald-500 text-white"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => setAuthMode("signUp")}
+                className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition ${
+                  authMode === "signUp"
+                    ? "bg-emerald-500 text-white"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                Sign Up
+              </button>
+            </div>
 
-          {session?.user && <LatestPost />}
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="rounded-lg bg-slate-800 px-4 py-3 text-white placeholder-slate-500 outline-none ring-emerald-500 focus:ring-2"
+              />
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+                className="rounded-lg bg-slate-800 px-4 py-3 text-white placeholder-slate-500 outline-none ring-emerald-500 focus:ring-2"
+              />
+              {error && (
+                <p className="text-sm text-red-400">{error}</p>
+              )}
+              <button
+                type="submit"
+                disabled={loading}
+                className="rounded-lg bg-emerald-500 px-4 py-3 font-semibold transition hover:bg-emerald-600 disabled:opacity-50"
+              >
+                {loading
+                  ? "Loading..."
+                  : authMode === "signIn"
+                    ? "Sign In"
+                    : "Sign Up"}
+              </button>
+            </form>
+          </div>
+        )}
+
+        <div className="mt-8 flex gap-4 text-sm text-slate-500">
+          <a
+            href="https://github.com/NicolaiSchmid/pons"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-slate-300"
+          >
+            GitHub
+          </a>
+          <span>·</span>
+          <a
+            href="https://developers.facebook.com/docs/whatsapp/cloud-api"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-slate-300"
+          >
+            WhatsApp Cloud API Docs
+          </a>
         </div>
-      </main>
-    </HydrateClient>
+      </div>
+    </main>
   );
 }
