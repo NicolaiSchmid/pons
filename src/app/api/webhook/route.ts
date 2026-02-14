@@ -125,64 +125,153 @@ export async function GET(request: NextRequest) {
 	const token = searchParams.get("hub.verify_token");
 	const challenge = searchParams.get("hub.challenge");
 
-	// Meta sends this when setting up the webhook
+	console.log("[webhook:GET] Verification request", {
+		mode,
+		hasToken: !!token,
+		tokenPreview: token ? `${token.slice(0, 8)}...` : null,
+		hasChallenge: !!challenge,
+		url: request.nextUrl.pathname,
+	});
+
 	if (mode === "subscribe" && token && challenge) {
 		// TODO: Validate token against accounts in DB
-		console.log("Webhook verification request received");
+		console.log("[webhook:GET] ✓ Verification successful, returning challenge");
 		return new NextResponse(challenge, { status: 200 });
 	}
 
+	console.log(
+		"[webhook:GET] ✗ Verification failed — missing mode/token/challenge",
+	);
 	return new NextResponse("Forbidden", { status: 403 });
 }
 
 // Webhook notifications (POST request from Meta)
 export async function POST(request: NextRequest) {
-	const body = await request.text();
+	const startTime = Date.now();
+	const headers = Object.fromEntries(request.headers.entries());
 	const signature = request.headers.get("x-hub-signature-256");
+
+	console.log("[webhook:POST] Incoming webhook", {
+		url: request.nextUrl.pathname,
+		method: request.method,
+		hasSignature: !!signature,
+		signaturePreview: signature ? `${signature.slice(0, 20)}...` : null,
+		contentType: headers["content-type"],
+		userAgent: headers["user-agent"],
+	});
+
+	const body = await request.text();
+	console.log("[webhook:POST] Body received", {
+		length: body.length,
+		preview: body.slice(0, 200),
+	});
 
 	// Parse and validate the payload
 	let payload: WebhookPayload;
 	try {
 		const json: unknown = JSON.parse(body);
 		payload = webhookPayloadSchema.parse(json);
+		console.log("[webhook:POST] ✓ Payload parsed", {
+			object: payload.object,
+			entryCount: payload.entry.length,
+			entries: payload.entry.map((e) => ({
+				id: e.id,
+				changeCount: e.changes.length,
+				fields: e.changes.map((c) => c.field),
+			})),
+		});
 	} catch (error) {
 		if (error instanceof z.ZodError) {
-			console.error("Webhook validation error:", error.errors);
+			console.error("[webhook:POST] ✗ Zod validation error", {
+				errors: error.errors,
+				bodyPreview: body.slice(0, 500),
+			});
 			return new NextResponse("Invalid payload", { status: 400 });
 		}
+		console.error("[webhook:POST] ✗ JSON parse error", {
+			error: String(error),
+			bodyPreview: body.slice(0, 200),
+		});
 		return new NextResponse("Invalid JSON", { status: 400 });
 	}
 
 	if (payload.object !== "whatsapp_business_account") {
+		console.log("[webhook:POST] Skipping non-whatsapp payload", {
+			object: payload.object,
+		});
 		return new NextResponse("OK", { status: 200 });
 	}
 
-	// Process each change - use mutations which are durable and retried
+	// Process each change
 	for (const entry of payload.entry) {
 		for (const change of entry.changes) {
-			if (change.field !== "messages") continue;
+			if (change.field !== "messages") {
+				console.log("[webhook:POST] Skipping non-messages field", {
+					field: change.field,
+					entryId: entry.id,
+				});
+				continue;
+			}
 
 			const value = change.value;
 			const phoneNumberId = value.metadata.phone_number_id;
 
-			// Ingest messages - stored durably and processed async
+			console.log("[webhook:POST] Processing change", {
+				entryId: entry.id,
+				phoneNumberId,
+				displayPhone: value.metadata.display_phone_number,
+				messageCount: value.messages?.length ?? 0,
+				statusCount: value.statuses?.length ?? 0,
+				contacts: value.contacts?.map((c) => ({
+					name: c.profile.name,
+					waId: c.wa_id,
+				})),
+				errorCount: value.errors?.length ?? 0,
+			});
+
+			// Ingest messages
 			if (value.messages && value.messages.length > 0) {
+				for (const msg of value.messages) {
+					console.log("[webhook:POST] Message", {
+						id: msg.id,
+						from: msg.from,
+						type: msg.type,
+						timestamp: msg.timestamp,
+						hasText: !!msg.text,
+						textPreview: msg.text?.body?.slice(0, 80),
+					});
+				}
+
 				try {
 					await convex.mutation(api.webhook.ingestWebhook, {
 						phoneNumberId,
 						payload: value,
 						signature: signature ?? undefined,
 					});
+					console.log("[webhook:POST] ✓ Messages ingested", {
+						phoneNumberId,
+						count: value.messages.length,
+					});
 				} catch (error) {
-					console.error("Failed to ingest webhook:", error);
-					// Don't return error - we want Meta to stop retrying
-					// The webhook will be lost, but that's better than infinite retries
+					console.error("[webhook:POST] ✗ Failed to ingest messages", {
+						phoneNumberId,
+						error: String(error),
+						stack:
+							error instanceof Error ? error.stack?.slice(0, 300) : undefined,
+					});
 				}
 			}
 
-			// Ingest status updates - also durable mutations
+			// Ingest status updates
 			if (value.statuses) {
 				for (const status of value.statuses) {
+					console.log("[webhook:POST] Status update", {
+						waMessageId: status.id,
+						status: status.status,
+						recipientId: status.recipient_id,
+						hasErrors: !!status.errors?.length,
+					});
+
 					try {
 						await convex.mutation(api.webhook.ingestStatusUpdate, {
 							waMessageId: status.id,
@@ -191,15 +280,24 @@ export async function POST(request: NextRequest) {
 							errorCode: status.errors?.[0]?.code?.toString(),
 							errorMessage: status.errors?.[0]?.title,
 						});
+						console.log("[webhook:POST] ✓ Status ingested", {
+							waMessageId: status.id,
+							status: status.status,
+						});
 					} catch (error) {
-						console.error("Failed to ingest status update:", error);
+						console.error("[webhook:POST] ✗ Failed to ingest status", {
+							waMessageId: status.id,
+							error: String(error),
+						});
 					}
 				}
 			}
 		}
 	}
 
-	// Always return 200 to acknowledge receipt
+	const elapsed = Date.now() - startTime;
+	console.log("[webhook:POST] ✓ Done", { elapsed: `${elapsed}ms` });
+
 	return new NextResponse("OK", { status: 200 });
 }
 
