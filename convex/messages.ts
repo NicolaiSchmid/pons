@@ -123,7 +123,7 @@ export const createOutbound = mutation({
       mediaFilename: args.mediaFilename,
       templateName: args.templateName,
       templateLanguage: args.templateLanguage,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+       
       templateComponents: args.templateComponents,
       contextMessageId: args.contextMessageId,
       status: "pending",

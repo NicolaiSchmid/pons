@@ -1,6 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { ConvexHttpClient } from "convex/browser";
 import crypto from "crypto";
 import { z } from "zod";
+import { api } from "../../../../convex/_generated/api";
+
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 // Zod schemas for WhatsApp webhook payload
 const mediaContentSchema = z.object({
@@ -54,9 +58,7 @@ const webhookMessageSchema = z.object({
         .optional(),
     })
     .optional(),
-  reaction: z
-    .object({ message_id: z.string(), emoji: z.string() })
-    .optional(),
+  reaction: z.object({ message_id: z.string(), emoji: z.string() }).optional(),
   context: z.object({ message_id: z.string() }).optional(),
 });
 
@@ -113,32 +115,6 @@ const webhookPayloadSchema = z.object({
 });
 
 type WebhookPayload = z.infer<typeof webhookPayloadSchema>;
-type WebhookValue = z.infer<typeof webhookValueSchema>;
-type WebhookMessage = z.infer<typeof webhookMessageSchema>;
-type WebhookStatus = z.infer<typeof webhookStatusSchema>;
-type MediaContent = z.infer<typeof mediaContentSchema>;
-
-interface MessageData {
-  waMessageId: string;
-  type: string;
-  timestamp: number;
-  text?: string;
-  caption?: string;
-  mediaMimeType?: string;
-  mediaFilename?: string;
-  mediaMetaId?: string;
-  latitude?: number;
-  longitude?: number;
-  locationName?: string;
-  locationAddress?: string;
-  contactsData?: WebhookMessage["contacts"];
-  interactiveType?: string;
-  buttonId?: string;
-  buttonText?: string;
-  reactionEmoji?: string;
-  reactionToMessageId?: string;
-  contextMessageId?: string;
-}
 
 // Webhook verification (GET request from Meta)
 export async function GET(request: NextRequest) {
@@ -149,6 +125,7 @@ export async function GET(request: NextRequest) {
 
   // Meta sends this when setting up the webhook
   if (mode === "subscribe" && token && challenge) {
+    // TODO: Validate token against accounts in DB
     console.log("Webhook verification request received");
     return new NextResponse(challenge, { status: 200 });
   }
@@ -174,39 +151,11 @@ export async function POST(request: NextRequest) {
     return new NextResponse("Invalid JSON", { status: 400 });
   }
 
-  // Log the webhook (async, don't wait)
-  logWebhook(payload, signature);
-
-  // Process the webhook
-  try {
-    await processWebhook(payload, body, signature);
-  } catch (error) {
-    console.error("Webhook processing error:", error);
-    // Still return 200 to prevent Meta from retrying
-  }
-
-  // Always return 200 to acknowledge receipt
-  return new NextResponse("OK", { status: 200 });
-}
-
-function logWebhook(payload: WebhookPayload, signature: string | null) {
-  console.log(
-    "Webhook received:",
-    JSON.stringify(payload, null, 2),
-    "signature:",
-    signature
-  );
-}
-
-async function processWebhook(
-  payload: WebhookPayload,
-  _rawBody: string,
-  _signature: string | null
-) {
   if (payload.object !== "whatsapp_business_account") {
-    return;
+    return new NextResponse("OK", { status: 200 });
   }
 
+  // Process each change - use mutations which are durable and retried
   for (const entry of payload.entry) {
     for (const change of entry.changes) {
       if (change.field !== "messages") continue;
@@ -214,161 +163,45 @@ async function processWebhook(
       const value = change.value;
       const phoneNumberId = value.metadata.phone_number_id;
 
-      // Process messages
-      if (value.messages) {
-        for (const message of value.messages) {
-          await processInboundMessage(phoneNumberId, value, message);
+      // Ingest messages - stored durably and processed async
+      if (value.messages && value.messages.length > 0) {
+        try {
+          await convex.mutation(api.webhook.ingestWebhook, {
+            phoneNumberId,
+            payload: value,
+            signature: signature ?? undefined,
+          });
+        } catch (error) {
+          console.error("Failed to ingest webhook:", error);
+          // Don't return error - we want Meta to stop retrying
+          // The webhook will be lost, but that's better than infinite retries
         }
       }
 
-      // Process status updates
+      // Ingest status updates - also durable mutations
       if (value.statuses) {
         for (const status of value.statuses) {
-          await processStatusUpdate(status);
+          try {
+            await convex.mutation(api.webhook.ingestStatusUpdate, {
+              waMessageId: status.id,
+              status: status.status,
+              timestamp: parseInt(status.timestamp) * 1000,
+              errorCode: status.errors?.[0]?.code?.toString(),
+              errorMessage: status.errors?.[0]?.title,
+            });
+          } catch (error) {
+            console.error("Failed to ingest status update:", error);
+          }
         }
       }
     }
   }
+
+  // Always return 200 to acknowledge receipt
+  return new NextResponse("OK", { status: 200 });
 }
 
-function getMediaContent(message: WebhookMessage): MediaContent | undefined {
-  switch (message.type) {
-    case "image":
-      return message.image;
-    case "video":
-      return message.video;
-    case "audio":
-      return message.audio;
-    case "voice":
-      return message.voice;
-    case "document":
-      return message.document;
-    case "sticker":
-      return message.sticker;
-    default:
-      return undefined;
-  }
-}
-
-async function processInboundMessage(
-  phoneNumberId: string,
-  value: WebhookValue,
-  message: WebhookMessage
-) {
-  const contactInfo = value.contacts?.[0];
-  const waId = message.from;
-  const profileName = contactInfo?.profile.name;
-
-  const typeMap: Record<string, string> = {
-    text: "text",
-    image: "image",
-    video: "video",
-    audio: "audio",
-    voice: "voice",
-    document: "document",
-    sticker: "sticker",
-    location: "location",
-    contacts: "contacts",
-    interactive: "interactive",
-    reaction: "reaction",
-  };
-  const messageType = typeMap[message.type] ?? "unknown";
-
-  const messageData: MessageData = {
-    waMessageId: message.id,
-    type: messageType,
-    timestamp: parseInt(message.timestamp) * 1000,
-  };
-
-  switch (message.type) {
-    case "text":
-      messageData.text = message.text?.body;
-      break;
-
-    case "image":
-    case "video":
-    case "audio":
-    case "voice":
-    case "document":
-    case "sticker": {
-      const media = getMediaContent(message);
-      if (media) {
-        messageData.mediaMimeType = media.mime_type;
-        messageData.mediaMetaId = media.id;
-        if (media.filename) messageData.mediaFilename = media.filename;
-        if (media.caption) messageData.caption = media.caption;
-      }
-      break;
-    }
-
-    case "location":
-      if (message.location) {
-        messageData.latitude = message.location.latitude;
-        messageData.longitude = message.location.longitude;
-        messageData.locationName = message.location.name;
-        messageData.locationAddress = message.location.address;
-      }
-      break;
-
-    case "contacts":
-      messageData.contactsData = message.contacts;
-      break;
-
-    case "interactive":
-      if (message.interactive) {
-        messageData.interactiveType = message.interactive.type;
-        const reply =
-          message.interactive.button_reply ?? message.interactive.list_reply;
-        if (reply) {
-          messageData.buttonId = reply.id;
-          messageData.buttonText = reply.title;
-        }
-      }
-      break;
-
-    case "reaction":
-      if (message.reaction) {
-        messageData.reactionEmoji = message.reaction.emoji;
-        messageData.reactionToMessageId = message.reaction.message_id;
-      }
-      break;
-  }
-
-  if (message.context) {
-    messageData.contextMessageId = message.context.message_id;
-  }
-
-  // Log message data for now
-  // TODO: Call Convex mutations here
-  console.log("Processed inbound message:", {
-    phoneNumberId,
-    waId,
-    profileName,
-    ...messageData,
-  });
-}
-
-async function processStatusUpdate(status: WebhookStatus) {
-  const statusMap: Record<string, string> = {
-    sent: "sent",
-    delivered: "delivered",
-    read: "read",
-    failed: "failed",
-  };
-
-  const mappedStatus = statusMap[status.status] ?? "sent";
-
-  // TODO: Call Convex mutation here
-  console.log("Status update:", {
-    waMessageId: status.id,
-    status: mappedStatus,
-    timestamp: parseInt(status.timestamp) * 1000,
-    errorCode: status.errors?.[0]?.code?.toString(),
-    errorMessage: status.errors?.[0]?.title,
-  });
-}
-
-// Verify webhook signature
+// Verify webhook signature - for future use with per-account verification
 export function verifySignature(
   rawBody: string,
   signature: string,
