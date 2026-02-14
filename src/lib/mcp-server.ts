@@ -1,0 +1,415 @@
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ConvexHttpClient } from "convex/browser";
+import { z } from "zod";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
+
+function getConvexUrl(): string {
+	const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+	if (!url) {
+		throw new Error("NEXT_PUBLIC_CONVEX_URL is not set");
+	}
+	return url;
+}
+
+// Create a new MCP server instance for each request
+export function createMcpServer(accountId: Id<"accounts">) {
+	const convex = new ConvexHttpClient(getConvexUrl());
+
+	const server = new McpServer({
+		name: "pons-whatsapp",
+		version: "1.0.0",
+	});
+
+	// ============================================
+	// Tool: list_conversations
+	// ============================================
+	server.tool(
+		"list_conversations",
+		"List recent WhatsApp conversations with contacts",
+		{
+			limit: z
+				.number()
+				.optional()
+				.describe("Max conversations to return (default 50)"),
+		},
+		async ({ limit }) => {
+			const conversations = await convex.query(
+				api.mcp.listConversationsInternal,
+				{
+					accountId,
+					limit: limit ?? 50,
+				},
+			);
+
+			const text = conversations
+				.map((c) => {
+					const time = c.lastMessageAt
+						? new Date(c.lastMessageAt).toISOString()
+						: "Never";
+					const unread = c.unreadCount > 0 ? ` (${c.unreadCount} unread)` : "";
+					const window = c.windowOpen ? " [24h window open]" : "";
+					return `- ${c.contactName} (${c.contactPhone})${unread}${window}\n  Last: ${c.lastMessagePreview ?? "No messages"} at ${time}\n  ID: ${c.id}`;
+				})
+				.join("\n\n");
+
+			return {
+				content: [
+					{
+						type: "text",
+						text: text || "No conversations found.",
+					},
+				],
+			};
+		},
+	);
+
+	// ============================================
+	// Tool: get_conversation
+	// ============================================
+	server.tool(
+		"get_conversation",
+		"Get a conversation with its recent messages",
+		{
+			conversationId: z.string().describe("The conversation ID"),
+			messageLimit: z
+				.number()
+				.optional()
+				.describe("Max messages to return (default 50)"),
+		},
+		async ({ conversationId, messageLimit }) => {
+			const conversation = await convex.query(api.mcp.getConversationInternal, {
+				accountId,
+				conversationId: conversationId as Id<"conversations">,
+				messageLimit: messageLimit ?? 50,
+			});
+
+			if (!conversation) {
+				return {
+					content: [{ type: "text", text: "Conversation not found." }],
+				};
+			}
+
+			const windowStatus =
+				conversation.windowOpen && conversation.windowExpiresAt
+					? `Open until ${new Date(conversation.windowExpiresAt).toISOString()}`
+					: "Closed (template required)";
+
+			const messagesText = conversation.messages
+				.map((m) => {
+					const dir = m.direction === "inbound" ? "←" : "→";
+					const time = new Date(m.timestamp).toISOString();
+					const status = m.direction === "outbound" ? ` [${m.status}]` : "";
+					return `${dir} [${time}]${status} ${m.text ?? `[${m.type}]`}`;
+				})
+				.join("\n");
+
+			const text = `Contact: ${conversation.contact.name} (${conversation.contact.phone})
+24-hour Window: ${windowStatus}
+
+Messages:
+${messagesText || "No messages yet."}`;
+
+			return {
+				content: [{ type: "text", text }],
+			};
+		},
+	);
+
+	// ============================================
+	// Tool: search_messages
+	// ============================================
+	server.tool(
+		"search_messages",
+		"Search for messages containing specific text",
+		{
+			query: z.string().describe("Text to search for in messages"),
+			limit: z.number().optional().describe("Max results (default 20)"),
+		},
+		async ({ query, limit }) => {
+			const results = await convex.query(api.mcp.searchMessagesInternal, {
+				accountId,
+				query,
+				limit: limit ?? 20,
+			});
+
+			const text = results
+				.map((m) => {
+					const dir = m.direction === "inbound" ? "←" : "→";
+					const time = new Date(m.timestamp).toISOString();
+					return `${dir} ${m.contactName} (${m.contactPhone}) at ${time}:\n  "${m.text}"\n  Conversation: ${m.conversationId}`;
+				})
+				.join("\n\n");
+
+			return {
+				content: [
+					{
+						type: "text",
+						text: text || `No messages found matching "${query}".`,
+					},
+				],
+			};
+		},
+	);
+
+	// ============================================
+	// Tool: send_text
+	// ============================================
+	server.tool(
+		"send_text",
+		"Send a text message to a WhatsApp contact. Requires an open 24-hour window or use send_template for first contact.",
+		{
+			phone: z
+				.string()
+				.describe("Phone number in E.164 format (e.g., +491234567890)"),
+			text: z.string().describe("Message text to send"),
+			replyToMessageId: z
+				.string()
+				.optional()
+				.describe("WhatsApp message ID to reply to (optional)"),
+		},
+		async ({ phone, text, replyToMessageId }) => {
+			// Get or create contact and conversation
+			const { conversationId } = await convex.mutation(
+				api.mcp.getOrCreateContact,
+				{
+					accountId,
+					phone,
+				},
+			);
+
+			try {
+				const result = await convex.action(api.whatsapp.sendTextMessage, {
+					accountId,
+					conversationId,
+					to: phone,
+					text,
+					replyToMessageId,
+				});
+
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Message sent successfully!\nMessage ID: ${result.waMessageId}`,
+						},
+					],
+				};
+			} catch (error) {
+				const errorMessage =
+					error instanceof Error ? error.message : "Unknown error";
+
+				// Check if it's a window error
+				if (errorMessage.includes("outside") || errorMessage.includes("24")) {
+					return {
+						content: [
+							{
+								type: "text",
+								text: `Failed to send: 24-hour messaging window is closed. Use send_template to send a template message first, which will open a new conversation window when the customer responds.`,
+							},
+						],
+					};
+				}
+
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Failed to send message: ${errorMessage}`,
+						},
+					],
+				};
+			}
+		},
+	);
+
+	// ============================================
+	// Tool: send_template
+	// ============================================
+	server.tool(
+		"send_template",
+		"Send a pre-approved template message. Use this for first contact or when the 24-hour window is closed.",
+		{
+			phone: z
+				.string()
+				.describe("Phone number in E.164 format (e.g., +491234567890)"),
+			templateName: z.string().describe("Name of the approved template"),
+			templateLanguage: z
+				.string()
+				.describe("Language code (e.g., en_US, de_DE)"),
+			components: z
+				.any()
+				.optional()
+				.describe(
+					"Template components (header, body, button variables) as JSON",
+				),
+		},
+		async ({ phone, templateName, templateLanguage, components }) => {
+			// Get or create contact and conversation
+			const { conversationId } = await convex.mutation(
+				api.mcp.getOrCreateContact,
+				{
+					accountId,
+					phone,
+				},
+			);
+
+			try {
+				const result = await convex.action(api.whatsapp.sendTemplateMessage, {
+					accountId,
+					conversationId,
+					to: phone,
+					templateName,
+					templateLanguage,
+					components,
+				});
+
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Template message sent successfully!\nTemplate: ${templateName}\nMessage ID: ${result.waMessageId}`,
+						},
+					],
+				};
+			} catch (error) {
+				const errorMessage =
+					error instanceof Error ? error.message : "Unknown error";
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Failed to send template: ${errorMessage}`,
+						},
+					],
+				};
+			}
+		},
+	);
+
+	// ============================================
+	// Tool: list_templates
+	// ============================================
+	server.tool(
+		"list_templates",
+		"List available message templates for this account",
+		{},
+		async () => {
+			const templates = await convex.query(api.mcp.listTemplatesInternal, {
+				accountId,
+			});
+
+			if (templates.length === 0) {
+				return {
+					content: [
+						{
+							type: "text",
+							text: "No templates found. Templates must be created and approved in the Meta Business Suite.",
+						},
+					],
+				};
+			}
+
+			const text = templates
+				.map(
+					(t) =>
+						`- ${t.name} (${t.language}) [${t.status}]\n  Category: ${t.category}\n  ID: ${t.id}`,
+				)
+				.join("\n\n");
+
+			return {
+				content: [{ type: "text", text }],
+			};
+		},
+	);
+
+	// ============================================
+	// Tool: mark_as_read
+	// ============================================
+	server.tool(
+		"mark_as_read",
+		"Mark a message as read (sends read receipt to sender)",
+		{
+			waMessageId: z
+				.string()
+				.describe("The WhatsApp message ID (wamid.xxx) to mark as read"),
+		},
+		async ({ waMessageId }) => {
+			try {
+				await convex.action(api.whatsapp.markAsRead, {
+					accountId,
+					waMessageId,
+				});
+
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Message marked as read: ${waMessageId}`,
+						},
+					],
+				};
+			} catch (error) {
+				const errorMessage =
+					error instanceof Error ? error.message : "Unknown error";
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Failed to mark as read: ${errorMessage}`,
+						},
+					],
+				};
+			}
+		},
+	);
+
+	// ============================================
+	// Tool: send_reaction
+	// ============================================
+	server.tool(
+		"send_reaction",
+		"React to a message with an emoji",
+		{
+			conversationId: z.string().describe("The conversation ID"),
+			phone: z
+				.string()
+				.describe("Phone number of the recipient in E.164 format"),
+			waMessageId: z.string().describe("The WhatsApp message ID to react to"),
+			emoji: z.string().describe("Emoji to react with (e.g., 👍, ❤️, 😂)"),
+		},
+		async ({ conversationId, phone, waMessageId, emoji }) => {
+			try {
+				await convex.action(api.whatsapp.sendReaction, {
+					accountId,
+					conversationId: conversationId as Id<"conversations">,
+					to: phone,
+					messageId: waMessageId,
+					emoji,
+				});
+
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Reaction ${emoji} sent to message ${waMessageId}`,
+						},
+					],
+				};
+			} catch (error) {
+				const errorMessage =
+					error instanceof Error ? error.message : "Unknown error";
+				return {
+					content: [
+						{
+							type: "text",
+							text: `Failed to send reaction: ${errorMessage}`,
+						},
+					],
+				};
+			}
+		},
+	);
+
+	return server;
+}

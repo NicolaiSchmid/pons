@@ -13,6 +13,8 @@ import type * as auth from "../auth.js";
 import type * as contacts from "../contacts.js";
 import type * as conversations from "../conversations.js";
 import type * as helpers from "../helpers.js";
+import type * as mcp from "../mcp.js";
+import type * as mcpNode from "../mcpNode.js";
 import type * as messages from "../messages.js";
 import type * as webhook from "../webhook.js";
 import type * as whatsapp from "../whatsapp.js";
@@ -29,6 +31,8 @@ declare const fullApi: ApiFromModules<{
   contacts: typeof contacts;
   conversations: typeof conversations;
   helpers: typeof helpers;
+  mcp: typeof mcp;
+  mcpNode: typeof mcpNode;
   messages: typeof messages;
   webhook: typeof webhook;
   whatsapp: typeof whatsapp;
