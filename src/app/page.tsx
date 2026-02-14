@@ -28,18 +28,28 @@ export default function Home() {
 				flow: authMode,
 			});
 
-			if (result.signingIn) {
-				// User is being signed in, useConvexAuth will update
+			console.log("signIn result:", result);
+
+			// Check if redirect is needed (OAuth flows)
+			if (result.redirect) {
+				window.location.href = result.redirect.toString();
 				return;
 			}
 
-			// For signUp, show success and switch to signIn mode
-			if (authMode === "signUp") {
+			// For signUp without auto-signin, show success
+			if (authMode === "signUp" && !result.signingIn) {
 				setSuccess("Account created! Please sign in.");
 				setAuthMode("signIn");
 				setPassword("");
 			}
+
+			// If signingIn is true, the auth state should update automatically
+			// via useConvexAuth - but let's log to debug
+			if (result.signingIn) {
+				console.log("User should be signing in...");
+			}
 		} catch (err) {
+			console.error("signIn error:", err);
 			setError(err instanceof Error ? err.message : "Authentication failed");
 		} finally {
 			setLoading(false);
