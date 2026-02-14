@@ -6,6 +6,7 @@ import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AccountSelector } from "./AccountSelector";
+import { ApiKeyManager } from "./ApiKeyManager";
 import { ConversationList } from "./ConversationList";
 import { MessageThread } from "./MessageThread";
 import { SetupAccount } from "./SetupAccount";
@@ -21,6 +22,7 @@ export function Dashboard() {
 		Id<"conversations"> | undefined
 	>();
 	const [showSetup, setShowSetup] = useState(false);
+	const [showApiKeys, setShowApiKeys] = useState(false);
 
 	// Loading state
 	if (accounts === undefined) {
@@ -71,6 +73,15 @@ export function Dashboard() {
 					/>
 				</div>
 				<div className="flex items-center gap-4">
+					{selectedAccountId && (
+						<button
+							className="text-slate-400 text-sm hover:text-slate-200"
+							onClick={() => setShowApiKeys(true)}
+							type="button"
+						>
+							API Keys
+						</button>
+					)}
 					<button
 						className="text-slate-400 text-sm hover:text-slate-200"
 						onClick={() => setShowSetup(true)}
@@ -125,6 +136,14 @@ export function Dashboard() {
 					)}
 				</div>
 			</div>
+
+			{/* API Key Manager Modal */}
+			{showApiKeys && selectedAccountId && (
+				<ApiKeyManager
+					accountId={selectedAccountId}
+					onClose={() => setShowApiKeys(false)}
+				/>
+			)}
 		</div>
 	);
 }
