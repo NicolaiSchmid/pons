@@ -12,19 +12,33 @@ export default function Home() {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [error, setError] = useState<string | null>(null);
+	const [success, setSuccess] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setError(null);
+		setSuccess(null);
 		setLoading(true);
 
 		try {
-			await signIn("password", {
+			const result = await signIn("password", {
 				email,
 				password,
 				flow: authMode,
 			});
+
+			if (result.signingIn) {
+				// User is being signed in, useConvexAuth will update
+				return;
+			}
+
+			// For signUp, show success and switch to signIn mode
+			if (authMode === "signUp") {
+				setSuccess("Account created! Please sign in.");
+				setAuthMode("signIn");
+				setPassword("");
+			}
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Authentication failed");
 		} finally {
@@ -99,6 +113,7 @@ export default function Home() {
 							value={password}
 						/>
 						{error && <p className="text-red-400 text-sm">{error}</p>}
+						{success && <p className="text-emerald-400 text-sm">{success}</p>}
 						<button
 							className="rounded-lg bg-emerald-500 px-4 py-3 font-semibold transition hover:bg-emerald-600 disabled:opacity-50"
 							disabled={loading}
