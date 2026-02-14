@@ -13,6 +13,7 @@ import type * as auth from "../auth.js";
 import type * as contacts from "../contacts.js";
 import type * as conversations from "../conversations.js";
 import type * as helpers from "../helpers.js";
+import type * as http from "../http.js";
 import type * as mcp from "../mcp.js";
 import type * as mcpNode from "../mcpNode.js";
 import type * as messages from "../messages.js";
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   contacts: typeof contacts;
   conversations: typeof conversations;
   helpers: typeof helpers;
+  http: typeof http;
   mcp: typeof mcp;
   mcpNode: typeof mcpNode;
   messages: typeof messages;
