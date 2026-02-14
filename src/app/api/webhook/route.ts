@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
 }
 
 // Verify webhook signature - for future use with per-account verification
-function verifySignature(
+function _verifySignature(
 	rawBody: string,
 	signature: string,
 	appSecret: string,
