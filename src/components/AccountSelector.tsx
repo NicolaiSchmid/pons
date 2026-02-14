@@ -42,13 +42,13 @@ export function AccountSelector({
 			value={selectedAccountId ?? ""}
 		>
 			<option value="">Select account...</option>
-		{accounts.map((account) =>
-			account ? (
-				<option key={account._id} value={account._id}>
-					{account.name} • {account.phoneNumber}
-				</option>
-			) : null,
-		)}
+			{accounts.map((account) =>
+				account ? (
+					<option key={account._id} value={account._id}>
+						{account.name} • {account.phoneNumber}
+					</option>
+				) : null,
+			)}
 		</select>
 	);
 }
