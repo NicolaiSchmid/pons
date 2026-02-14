@@ -2,62 +2,14 @@
 
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth } from "convex/react";
-import { useState } from "react";
 import { Dashboard } from "../components/Dashboard";
 
 export default function Home() {
 	const { isAuthenticated, isLoading } = useConvexAuth();
 	const { signIn } = useAuthActions();
 
-	// Debug auth state
-	console.log("Auth state:", { isAuthenticated, isLoading });
-	const [authMode, setAuthMode] = useState<"signIn" | "signUp">("signIn");
-	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
-	const [error, setError] = useState<string | null>(null);
-	const [success, setSuccess] = useState<string | null>(null);
-	const [loading, setLoading] = useState(false);
-
-	const handleSubmit = async (e: React.FormEvent) => {
-		e.preventDefault();
-		setError(null);
-		setSuccess(null);
-		setLoading(true);
-
-		try {
-			const result = await signIn("password", {
-				email,
-				password,
-				flow: authMode,
-			});
-
-			console.log("signIn result:", result);
-
-			// Check if redirect is needed (OAuth flows)
-			if (result.redirect) {
-				window.location.href = result.redirect.toString();
-				return;
-			}
-
-			// For signUp without auto-signin, show success
-			if (authMode === "signUp" && !result.signingIn) {
-				setSuccess("Account created! Please sign in.");
-				setAuthMode("signIn");
-				setPassword("");
-			}
-
-			// If signingIn is true, the auth state should update automatically
-			// via useConvexAuth - force a page reload to ensure state updates
-			if (result.signingIn) {
-				console.log("User signed in, reloading page...");
-				window.location.reload();
-			}
-		} catch (err) {
-			console.error("signIn error:", err);
-			setError(err instanceof Error ? err.message : "Authentication failed");
-		} finally {
-			setLoading(false);
-		}
+	const handleGoogleSignIn = () => {
+		void signIn("google");
 	};
 
 	if (isLoading) {
@@ -82,65 +34,31 @@ export default function Home() {
 					Open-source WhatsApp Business Cloud API bridge with MCP support
 				</p>
 
-				<div className="w-full max-w-sm">
-					<div className="mb-6 flex rounded-lg bg-slate-800 p-1">
-						<button
-							className={`flex-1 rounded-md px-4 py-2 font-medium text-sm transition ${
-								authMode === "signIn"
-									? "bg-emerald-500 text-white"
-									: "text-slate-400 hover:text-white"
-							}`}
-							onClick={() => setAuthMode("signIn")}
-							type="button"
-						>
-							Sign In
-						</button>
-						<button
-							className={`flex-1 rounded-md px-4 py-2 font-medium text-sm transition ${
-								authMode === "signUp"
-									? "bg-emerald-500 text-white"
-									: "text-slate-400 hover:text-white"
-							}`}
-							onClick={() => setAuthMode("signUp")}
-							type="button"
-						>
-							Sign Up
-						</button>
-					</div>
-
-					<form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-						<input
-							className="rounded-lg bg-slate-800 px-4 py-3 text-white placeholder-slate-500 outline-none ring-emerald-500 focus:ring-2"
-							onChange={(e) => setEmail(e.target.value)}
-							placeholder="Email"
-							required
-							type="email"
-							value={email}
+				<button
+					className="flex items-center gap-3 rounded-lg bg-white px-6 py-3 font-semibold text-slate-800 transition hover:bg-slate-100"
+					onClick={handleGoogleSignIn}
+					type="button"
+				>
+					<svg aria-hidden="true" className="h-5 w-5" viewBox="0 0 24 24">
+						<path
+							d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+							fill="#4285F4"
 						/>
-						<input
-							className="rounded-lg bg-slate-800 px-4 py-3 text-white placeholder-slate-500 outline-none ring-emerald-500 focus:ring-2"
-							minLength={8}
-							onChange={(e) => setPassword(e.target.value)}
-							placeholder="Password"
-							required
-							type="password"
-							value={password}
+						<path
+							d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+							fill="#34A853"
 						/>
-						{error && <p className="text-red-400 text-sm">{error}</p>}
-						{success && <p className="text-emerald-400 text-sm">{success}</p>}
-						<button
-							className="rounded-lg bg-emerald-500 px-4 py-3 font-semibold transition hover:bg-emerald-600 disabled:opacity-50"
-							disabled={loading}
-							type="submit"
-						>
-							{loading
-								? "Loading..."
-								: authMode === "signIn"
-									? "Sign In"
-									: "Sign Up"}
-						</button>
-					</form>
-				</div>
+						<path
+							d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+							fill="#FBBC05"
+						/>
+						<path
+							d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+							fill="#EA4335"
+						/>
+					</svg>
+					Continue with Google
+				</button>
 
 				<div className="mt-8 flex gap-4 text-slate-500 text-sm">
 					<a
