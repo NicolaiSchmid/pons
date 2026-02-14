@@ -91,45 +91,6 @@ export function SetupAccount({ onComplete }: SetupAccountProps) {
 				</div>
 			</div>
 
-			{/* Webhook callback URL */}
-			<div className="mb-8 rounded-lg border bg-card p-4">
-				<Label className="mb-2 block text-muted-foreground text-xs">
-					Webhook Callback URL
-				</Label>
-				<div className="flex items-center gap-2">
-					<code className="flex-1 overflow-x-auto rounded-md bg-background px-3 py-2 font-mono text-foreground text-xs">
-						{webhookUrl}
-					</code>
-					<Button
-						className="shrink-0 gap-1.5"
-						onClick={copyWebhookUrl}
-						size="sm"
-						type="button"
-						variant="secondary"
-					>
-						{copiedWebhook ? (
-							<Check className="h-3.5 w-3.5" />
-						) : (
-							<Copy className="h-3.5 w-3.5" />
-						)}
-						{copiedWebhook ? "Copied" : "Copy"}
-					</Button>
-				</div>
-				<p className="mt-2 text-muted-foreground text-xs">
-					Paste this URL in{" "}
-					<a
-						className="inline-flex items-center gap-1 text-pons-green underline underline-offset-2 hover:text-pons-green-bright"
-						href="https://developers.facebook.com/apps"
-						rel="noopener noreferrer"
-						target="_blank"
-					>
-						Meta App Dashboard
-						<ExternalLink className="h-3 w-3" />
-					</a>{" "}
-					→ WhatsApp → Configuration → Callback URL
-				</p>
-			</div>
-
 			<form className="space-y-5" onSubmit={handleSubmit}>
 				<FormField
 					id="name"
@@ -188,6 +149,28 @@ export function SetupAccount({ onComplete }: SetupAccountProps) {
 				/>
 
 				<div className="space-y-2">
+					<Label className="text-muted-foreground text-xs">Callback URL</Label>
+					<div className="flex items-center gap-2">
+						<code className="flex-1 truncate rounded-md bg-muted px-3 py-2 font-mono text-foreground text-xs">
+							{webhookUrl}
+						</code>
+						<Button
+							className="shrink-0"
+							onClick={copyWebhookUrl}
+							size="icon"
+							type="button"
+							variant="ghost"
+						>
+							{copiedWebhook ? (
+								<Check className="h-3.5 w-3.5 text-pons-green" />
+							) : (
+								<Copy className="h-3.5 w-3.5" />
+							)}
+						</Button>
+					</div>
+				</div>
+
+				<div className="space-y-2">
 					<Label htmlFor="webhookVerifyToken">Webhook Verify Token</Label>
 					<div className="flex gap-2">
 						<Input
@@ -211,8 +194,7 @@ export function SetupAccount({ onComplete }: SetupAccountProps) {
 						</Button>
 					</div>
 					<p className="text-muted-foreground text-xs">
-						Use this token when configuring the webhook in Meta alongside the
-						callback URL above
+						Use both values above when configuring the webhook in Meta
 					</p>
 				</div>
 
