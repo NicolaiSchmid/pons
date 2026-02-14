@@ -1,9 +1,144 @@
-import { NextRequest, NextResponse } from "next/server";
-import { ConvexHttpClient } from "convex/browser";
-import { api } from "../../../../convex/_generated/api";
+import { type NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { z } from "zod";
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+// Zod schemas for WhatsApp webhook payload
+const mediaContentSchema = z.object({
+  id: z.string(),
+  mime_type: z.string(),
+  sha256: z.string(),
+  filename: z.string().optional(),
+  caption: z.string().optional(),
+});
+
+const webhookMessageSchema = z.object({
+  id: z.string(),
+  from: z.string(),
+  timestamp: z.string(),
+  type: z.string(),
+  text: z.object({ body: z.string() }).optional(),
+  image: mediaContentSchema.optional(),
+  video: mediaContentSchema.optional(),
+  audio: mediaContentSchema.optional(),
+  voice: mediaContentSchema.optional(),
+  document: mediaContentSchema.optional(),
+  sticker: mediaContentSchema.optional(),
+  location: z
+    .object({
+      latitude: z.number(),
+      longitude: z.number(),
+      name: z.string().optional(),
+      address: z.string().optional(),
+    })
+    .optional(),
+  contacts: z
+    .array(
+      z.object({
+        name: z.object({ formatted_name: z.string() }),
+        phones: z
+          .array(z.object({ phone: z.string(), type: z.string().optional() }))
+          .optional(),
+      })
+    )
+    .optional(),
+  interactive: z
+    .object({
+      type: z.string(),
+      button_reply: z.object({ id: z.string(), title: z.string() }).optional(),
+      list_reply: z
+        .object({
+          id: z.string(),
+          title: z.string(),
+          description: z.string().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+  reaction: z
+    .object({ message_id: z.string(), emoji: z.string() })
+    .optional(),
+  context: z.object({ message_id: z.string() }).optional(),
+});
+
+const webhookStatusSchema = z.object({
+  id: z.string(),
+  status: z.enum(["sent", "delivered", "read", "failed"]),
+  timestamp: z.string(),
+  recipient_id: z.string(),
+  errors: z
+    .array(z.object({ code: z.number(), title: z.string() }))
+    .optional(),
+});
+
+const webhookValueSchema = z.object({
+  messaging_product: z.string(),
+  metadata: z.object({
+    display_phone_number: z.string(),
+    phone_number_id: z.string(),
+  }),
+  contacts: z
+    .array(
+      z.object({
+        profile: z.object({ name: z.string() }),
+        wa_id: z.string(),
+      })
+    )
+    .optional(),
+  messages: z.array(webhookMessageSchema).optional(),
+  statuses: z.array(webhookStatusSchema).optional(),
+  errors: z
+    .array(
+      z.object({
+        code: z.number(),
+        title: z.string(),
+        message: z.string(),
+      })
+    )
+    .optional(),
+});
+
+const webhookPayloadSchema = z.object({
+  object: z.string(),
+  entry: z.array(
+    z.object({
+      id: z.string(),
+      changes: z.array(
+        z.object({
+          value: webhookValueSchema,
+          field: z.string(),
+        })
+      ),
+    })
+  ),
+});
+
+type WebhookPayload = z.infer<typeof webhookPayloadSchema>;
+type WebhookValue = z.infer<typeof webhookValueSchema>;
+type WebhookMessage = z.infer<typeof webhookMessageSchema>;
+type WebhookStatus = z.infer<typeof webhookStatusSchema>;
+type MediaContent = z.infer<typeof mediaContentSchema>;
+
+interface MessageData {
+  waMessageId: string;
+  type: string;
+  timestamp: number;
+  text?: string;
+  caption?: string;
+  mediaMimeType?: string;
+  mediaFilename?: string;
+  mediaMetaId?: string;
+  latitude?: number;
+  longitude?: number;
+  locationName?: string;
+  locationAddress?: string;
+  contactsData?: WebhookMessage["contacts"];
+  interactiveType?: string;
+  buttonId?: string;
+  buttonText?: string;
+  reactionEmoji?: string;
+  reactionToMessageId?: string;
+  contextMessageId?: string;
+}
 
 // Webhook verification (GET request from Meta)
 export async function GET(request: NextRequest) {
@@ -14,9 +149,6 @@ export async function GET(request: NextRequest) {
 
   // Meta sends this when setting up the webhook
   if (mode === "subscribe" && token && challenge) {
-    // We need to verify the token against an account
-    // For now, accept if token is provided (you'd want to validate against DB)
-    // In production, iterate accounts to find matching webhookVerifyToken
     console.log("Webhook verification request received");
     return new NextResponse(challenge, { status: 200 });
   }
@@ -29,11 +161,16 @@ export async function POST(request: NextRequest) {
   const body = await request.text();
   const signature = request.headers.get("x-hub-signature-256");
 
-  // Parse the payload
+  // Parse and validate the payload
   let payload: WebhookPayload;
   try {
-    payload = JSON.parse(body);
-  } catch {
+    const json: unknown = JSON.parse(body);
+    payload = webhookPayloadSchema.parse(json);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      console.error("Webhook validation error:", error.errors);
+      return new NextResponse("Invalid payload", { status: 400 });
+    }
     return new NextResponse("Invalid JSON", { status: 400 });
   }
 
@@ -52,92 +189,19 @@ export async function POST(request: NextRequest) {
   return new NextResponse("OK", { status: 200 });
 }
 
-// Types for WhatsApp webhook payload
-interface WebhookPayload {
-  object: string;
-  entry: Array<{
-    id: string;
-    changes: Array<{
-      value: WebhookValue;
-      field: string;
-    }>;
-  }>;
-}
-
-interface WebhookValue {
-  messaging_product: string;
-  metadata: {
-    display_phone_number: string;
-    phone_number_id: string;
-  };
-  contacts?: Array<{
-    profile: { name: string };
-    wa_id: string;
-  }>;
-  messages?: Array<WebhookMessage>;
-  statuses?: Array<WebhookStatus>;
-  errors?: Array<{
-    code: number;
-    title: string;
-    message: string;
-  }>;
-}
-
-interface WebhookMessage {
-  id: string;
-  from: string;
-  timestamp: string;
-  type: string;
-  text?: { body: string };
-  image?: { id: string; mime_type: string; sha256: string; caption?: string };
-  video?: { id: string; mime_type: string; sha256: string; caption?: string };
-  audio?: { id: string; mime_type: string; sha256: string };
-  voice?: { id: string; mime_type: string; sha256: string };
-  document?: {
-    id: string;
-    mime_type: string;
-    sha256: string;
-    filename: string;
-    caption?: string;
-  };
-  sticker?: { id: string; mime_type: string; sha256: string };
-  location?: {
-    latitude: number;
-    longitude: number;
-    name?: string;
-    address?: string;
-  };
-  contacts?: Array<{
-    name: { formatted_name: string };
-    phones?: Array<{ phone: string; type?: string }>;
-  }>;
-  interactive?: {
-    type: string;
-    button_reply?: { id: string; title: string };
-    list_reply?: { id: string; title: string; description?: string };
-  };
-  reaction?: { message_id: string; emoji: string };
-  context?: { message_id: string };
-}
-
-interface WebhookStatus {
-  id: string;
-  status: "sent" | "delivered" | "read" | "failed";
-  timestamp: string;
-  recipient_id: string;
-  errors?: Array<{ code: number; title: string }>;
-}
-
-async function logWebhook(payload: WebhookPayload, signature: string | null) {
-  // This would log to the webhookLogs table
-  // For now, just console log
-  console.log("Webhook received:", JSON.stringify(payload, null, 2));
+function logWebhook(payload: WebhookPayload, signature: string | null) {
+  console.log(
+    "Webhook received:",
+    JSON.stringify(payload, null, 2),
+    "signature:",
+    signature
+  );
 }
 
 async function processWebhook(
   payload: WebhookPayload,
-  rawBody: string,
-  signature: string | null
+  _rawBody: string,
+  _signature: string | null
 ) {
   if (payload.object !== "whatsapp_business_account") {
     return;
@@ -149,10 +213,6 @@ async function processWebhook(
 
       const value = change.value;
       const phoneNumberId = value.metadata.phone_number_id;
-
-      // Find account by phone number ID
-      // Note: In a real implementation, you'd have a Convex function to find by phoneNumberId
-      // For now, we'll need to verify signature per-account
 
       // Process messages
       if (value.messages) {
@@ -171,17 +231,34 @@ async function processWebhook(
   }
 }
 
+function getMediaContent(message: WebhookMessage): MediaContent | undefined {
+  switch (message.type) {
+    case "image":
+      return message.image;
+    case "video":
+      return message.video;
+    case "audio":
+      return message.audio;
+    case "voice":
+      return message.voice;
+    case "document":
+      return message.document;
+    case "sticker":
+      return message.sticker;
+    default:
+      return undefined;
+  }
+}
+
 async function processInboundMessage(
   phoneNumberId: string,
   value: WebhookValue,
   message: WebhookMessage
 ) {
-  // Get contact info
   const contactInfo = value.contacts?.[0];
   const waId = message.from;
   const profileName = contactInfo?.profile.name;
 
-  // Map message type
   const typeMap: Record<string, string> = {
     text: "text",
     image: "image",
@@ -197,14 +274,12 @@ async function processInboundMessage(
   };
   const messageType = typeMap[message.type] ?? "unknown";
 
-  // Build message data
-  const messageData: any = {
+  const messageData: MessageData = {
     waMessageId: message.id,
     type: messageType,
-    timestamp: parseInt(message.timestamp) * 1000, // Convert to milliseconds
+    timestamp: parseInt(message.timestamp) * 1000,
   };
 
-  // Handle different message types
   switch (message.type) {
     case "text":
       messageData.text = message.text?.body;
@@ -215,17 +290,16 @@ async function processInboundMessage(
     case "audio":
     case "voice":
     case "document":
-    case "sticker":
-      // Media messages - need to download the media
-      const media = message[message.type as keyof typeof message] as any;
+    case "sticker": {
+      const media = getMediaContent(message);
       if (media) {
         messageData.mediaMimeType = media.mime_type;
+        messageData.mediaMetaId = media.id;
         if (media.filename) messageData.mediaFilename = media.filename;
         if (media.caption) messageData.caption = media.caption;
-        // Note: Media download would happen via Convex action
-        // We'd need to trigger downloadMedia action here
       }
       break;
+    }
 
     case "location":
       if (message.location) {
@@ -260,13 +334,12 @@ async function processInboundMessage(
       break;
   }
 
-  // Handle reply context
   if (message.context) {
     messageData.contextMessageId = message.context.message_id;
   }
 
   // Log message data for now
-  // In production, you'd call Convex mutations here
+  // TODO: Call Convex mutations here
   console.log("Processed inbound message:", {
     phoneNumberId,
     waId,
@@ -285,8 +358,7 @@ async function processStatusUpdate(status: WebhookStatus) {
 
   const mappedStatus = statusMap[status.status] ?? "sent";
 
-  // Update message status via Convex
-  // In production: await convex.mutation(api.messages.updateStatus, {...})
+  // TODO: Call Convex mutation here
   console.log("Status update:", {
     waMessageId: status.id,
     status: mappedStatus,
@@ -297,7 +369,7 @@ async function processStatusUpdate(status: WebhookStatus) {
 }
 
 // Verify webhook signature
-function verifySignature(
+export function verifySignature(
   rawBody: string,
   signature: string,
   appSecret: string
