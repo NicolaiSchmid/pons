@@ -1,48 +1,41 @@
 {
-  "name": "pons",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "build": "next build",
-    "check": "eslint . && tsc --noEmit",
-    "dev": "npm-run-all --parallel dev:convex dev:next",
-    "dev:convex": "convex dev",
-    "dev:next": "next dev --turbo",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
-    "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
-    "lint": "eslint .",
-    "lint:fix": "eslint --fix .",
-    "preview": "next build && next start",
-    "start": "next start",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@auth/core": "^0.37.4",
-    "@convex-dev/auth": "^0.0.90",
-    "@t3-oss/env-nextjs": "^0.12.0",
-    "convex": "^1.31.7",
-    "next": "^15.2.3",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "server-only": "^0.0.1",
-    "zod": "^3.24.2"
-  },
-  "devDependencies": {
-    "@eslint/eslintrc": "^3.3.3",
-    "@tailwindcss/postcss": "^4.0.15",
-    "@types/node": "^20.14.10",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "eslint": "^9.23.0",
-    "eslint-config-next": "^15.2.3",
-    "npm-run-all": "^4.1.5",
-    "postcss": "^8.5.3",
-    "prettier": "^3.5.3",
-    "prettier-plugin-tailwindcss": "^0.6.11",
-    "tailwindcss": "^4.0.15",
-    "typescript": "^5.8.2",
-    "typescript-eslint": "^8.27.0"
-  },
-  "packageManager": "pnpm@10.28.0"
+	"name": "pons",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "next build",
+		"check": "biome check .",
+		"check:write": "biome check --write .",
+		"dev": "npm-run-all --parallel dev:convex dev:next",
+		"dev:convex": "convex dev",
+		"dev:next": "next dev --turbo",
+		"preview": "next build && next start",
+		"start": "next start",
+		"typecheck": "tsc --noEmit"
+	},
+	"dependencies": {
+		"@auth/core": "^0.37.4",
+		"@convex-dev/auth": "^0.0.90",
+		"@modelcontextprotocol/sdk": "^1.26.0",
+		"@t3-oss/env-nextjs": "^0.12.0",
+		"convex": "^1.31.7",
+		"next": "^15.2.3",
+		"react": "^19.0.0",
+		"react-dom": "^19.0.0",
+		"server-only": "^0.0.1",
+		"zod": "^3.24.2"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.3.15",
+		"@tailwindcss/postcss": "^4.0.15",
+		"@types/node": "^20.14.10",
+		"@types/react": "^19.0.0",
+		"@types/react-dom": "^19.0.0",
+		"npm-run-all": "^4.1.5",
+		"postcss": "^8.5.3",
+		"tailwindcss": "^4.0.15",
+		"typescript": "^5.8.2"
+	},
+	"packageManager": "pnpm@10.28.0"
 }
