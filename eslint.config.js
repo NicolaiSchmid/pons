@@ -35,6 +35,24 @@ export default tseslint.config(
       ],
     },
   },
+  // Relax type-checking rules for Convex files (api types are dynamically generated)
+  {
+    files: ["convex/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/no-unsafe-return": "off",
+    },
+  },
+  // Relax type-checking rules for files that use Convex api types
+  {
+    files: ["src/app/api/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+    },
+  },
   {
     linterOptions: {
       reportUnusedDisableDirectives: true,
