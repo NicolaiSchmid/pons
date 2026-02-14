@@ -8,6 +8,9 @@ export default function Home() {
 	const { isAuthenticated, isLoading } = useConvexAuth();
 	const { signIn } = useAuthActions();
 
+	// Debug
+	console.log("Auth state:", { isAuthenticated, isLoading });
+
 	const handleGoogleSignIn = () => {
 		void signIn("google");
 	};
