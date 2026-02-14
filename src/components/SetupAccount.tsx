@@ -1,7 +1,14 @@
 "use client";
 
 import { useMutation } from "convex/react";
-import { Dices, ExternalLink, Loader2, MessageSquare } from "lucide-react";
+import {
+	Check,
+	Copy,
+	Dices,
+	ExternalLink,
+	Loader2,
+	MessageSquare,
+} from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +23,7 @@ export function SetupAccount({ onComplete }: SetupAccountProps) {
 	const createAccount = useMutation(api.accounts.create);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [copiedWebhook, setCopiedWebhook] = useState(false);
 
 	const [formData, setFormData] = useState({
 		name: "",
@@ -26,6 +34,11 @@ export function SetupAccount({ onComplete }: SetupAccountProps) {
 		webhookVerifyToken: "",
 		appSecret: "",
 	});
+
+	const webhookUrl =
+		typeof window !== "undefined"
+			? `${window.location.origin}/api/webhook`
+			: "";
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -51,6 +64,12 @@ export function SetupAccount({ onComplete }: SetupAccountProps) {
 		setFormData((prev) => ({ ...prev, webhookVerifyToken: token }));
 	};
 
+	const copyWebhookUrl = () => {
+		navigator.clipboard.writeText(webhookUrl);
+		setCopiedWebhook(true);
+		setTimeout(() => setCopiedWebhook(false), 2000);
+	};
+
 	const updateField = (field: string, value: string) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));
 	};
@@ -70,6 +89,45 @@ export function SetupAccount({ onComplete }: SetupAccountProps) {
 						Enter your Meta Business API credentials to get started.
 					</p>
 				</div>
+			</div>
+
+			{/* Webhook callback URL */}
+			<div className="mb-8 rounded-lg border bg-card p-4">
+				<Label className="mb-2 block text-muted-foreground text-xs">
+					Webhook Callback URL
+				</Label>
+				<div className="flex items-center gap-2">
+					<code className="flex-1 overflow-x-auto rounded-md bg-background px-3 py-2 font-mono text-foreground text-xs">
+						{webhookUrl}
+					</code>
+					<Button
+						className="shrink-0 gap-1.5"
+						onClick={copyWebhookUrl}
+						size="sm"
+						type="button"
+						variant="secondary"
+					>
+						{copiedWebhook ? (
+							<Check className="h-3.5 w-3.5" />
+						) : (
+							<Copy className="h-3.5 w-3.5" />
+						)}
+						{copiedWebhook ? "Copied" : "Copy"}
+					</Button>
+				</div>
+				<p className="mt-2 text-muted-foreground text-xs">
+					Paste this URL in{" "}
+					<a
+						className="inline-flex items-center gap-1 text-pons-green underline underline-offset-2 hover:text-pons-green-bright"
+						href="https://developers.facebook.com/apps"
+						rel="noopener noreferrer"
+						target="_blank"
+					>
+						Meta App Dashboard
+						<ExternalLink className="h-3 w-3" />
+					</a>{" "}
+					→ WhatsApp → Configuration → Callback URL
+				</p>
 			</div>
 
 			<form className="space-y-5" onSubmit={handleSubmit}>
@@ -153,7 +211,8 @@ export function SetupAccount({ onComplete }: SetupAccountProps) {
 						</Button>
 					</div>
 					<p className="text-muted-foreground text-xs">
-						Use this token when configuring the webhook URL in Meta
+						Use this token when configuring the webhook in Meta alongside the
+						callback URL above
 					</p>
 				</div>
 

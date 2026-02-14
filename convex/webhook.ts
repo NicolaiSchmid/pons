@@ -7,7 +7,7 @@ import {
 	mutation,
 } from "./_generated/server";
 
-const META_API_VERSION = "v21.0";
+const META_API_VERSION = "v22.0";
 const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`;
 
 // Message types
