@@ -8,6 +8,9 @@ import { Dashboard } from "../components/Dashboard";
 export default function Home() {
 	const { isAuthenticated, isLoading } = useConvexAuth();
 	const { signIn } = useAuthActions();
+
+	// Debug auth state
+	console.log("Auth state:", { isAuthenticated, isLoading });
 	const [authMode, setAuthMode] = useState<"signIn" | "signUp">("signIn");
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
