@@ -233,6 +233,19 @@ export const addMember = mutation({
   },
 });
 
+// Get account by phone number ID (for webhook processing)
+export const getByPhoneNumberId = query({
+  args: { phoneNumberId: v.string() },
+  handler: async (ctx, args) => {
+    return ctx.db
+      .query("accounts")
+      .withIndex("by_phone_number_id", (q) =>
+        q.eq("phoneNumberId", args.phoneNumberId)
+      )
+      .first();
+  },
+});
+
 // Remove a member from an account
 export const removeMember = mutation({
   args: {
