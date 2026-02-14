@@ -1,7 +1,11 @@
 "use client";
 
 import { useMutation } from "convex/react";
+import { Dices, ExternalLink, Loader2, MessageSquare } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { api } from "../../convex/_generated/api";
 
 interface SetupAccountProps {
@@ -39,202 +43,185 @@ export function SetupAccount({ onComplete }: SetupAccountProps) {
 	};
 
 	const generateToken = () => {
-		const chars =
-			"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-		let result = "";
-		for (let i = 0; i < 32; i++) {
-			result += chars.charAt(Math.floor(Math.random() * chars.length));
-		}
-		setFormData((prev) => ({ ...prev, webhookVerifyToken: result }));
+		const array = new Uint8Array(24);
+		crypto.getRandomValues(array);
+		const token = Array.from(array, (b) => b.toString(36).padStart(2, "0"))
+			.join("")
+			.slice(0, 32);
+		setFormData((prev) => ({ ...prev, webhookVerifyToken: token }));
+	};
+
+	const updateField = (field: string, value: string) => {
+		setFormData((prev) => ({ ...prev, [field]: value }));
 	};
 
 	return (
-		<div className="mx-auto max-w-lg p-6">
-			<h2 className="mb-6 font-bold text-2xl text-white">
-				Set up WhatsApp Business Account
-			</h2>
-			<p className="mb-6 text-slate-400">
-				Connect your WhatsApp Business Account to start receiving and sending
-				messages.
-			</p>
-
-			<form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-				<div>
-					<label className="mb-1 block text-slate-300 text-sm" htmlFor="name">
-						Account Name
-					</label>
-					<input
-						className="w-full rounded-lg bg-slate-800 px-4 py-2 text-white placeholder-slate-500 outline-none ring-emerald-500 focus:ring-2"
-						id="name"
-						onChange={(e) =>
-							setFormData((prev) => ({ ...prev, name: e.target.value }))
-						}
-						placeholder="My Business"
-						required
-						type="text"
-						value={formData.name}
-					/>
+		<div className="mx-auto w-full max-w-lg px-6 py-12">
+			{/* Header */}
+			<div className="mb-8 flex flex-col items-center gap-4 text-center">
+				<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-pons-green/10 ring-1 ring-pons-green/20">
+					<MessageSquare className="h-6 w-6 text-pons-green" />
 				</div>
-
 				<div>
-					<label className="mb-1 block text-slate-300 text-sm" htmlFor="wabaId">
-						WhatsApp Business Account ID
-					</label>
-					<input
-						className="w-full rounded-lg bg-slate-800 px-4 py-2 text-white placeholder-slate-500 outline-none ring-emerald-500 focus:ring-2"
-						id="wabaId"
-						onChange={(e) =>
-							setFormData((prev) => ({ ...prev, wabaId: e.target.value }))
-						}
-						placeholder="1234567890123456"
-						required
-						type="text"
-						value={formData.wabaId}
-					/>
-					<p className="mt-1 text-slate-500 text-xs">
-						Find this in Meta Business Suite → WhatsApp → API Setup
+					<h2 className="font-display font-semibold text-xl tracking-tight">
+						Connect WhatsApp Business
+					</h2>
+					<p className="mt-1 text-muted-foreground text-sm">
+						Enter your Meta Business API credentials to get started.
 					</p>
 				</div>
+			</div>
 
-				<div>
-					<label
-						className="mb-1 block text-slate-300 text-sm"
-						htmlFor="phoneNumberId"
-					>
-						Phone Number ID
-					</label>
-					<input
-						className="w-full rounded-lg bg-slate-800 px-4 py-2 text-white placeholder-slate-500 outline-none ring-emerald-500 focus:ring-2"
-						id="phoneNumberId"
-						onChange={(e) =>
-							setFormData((prev) => ({
-								...prev,
-								phoneNumberId: e.target.value,
-							}))
-						}
-						placeholder="1234567890123456"
-						required
-						type="text"
-						value={formData.phoneNumberId}
-					/>
-				</div>
+			<form className="space-y-5" onSubmit={handleSubmit}>
+				<FormField
+					id="name"
+					label="Account Name"
+					onChange={(v) => updateField("name", v)}
+					placeholder="My Business"
+					value={formData.name}
+				/>
 
-				<div>
-					<label
-						className="mb-1 block text-slate-300 text-sm"
-						htmlFor="phoneNumber"
-					>
-						Display Phone Number
-					</label>
-					<input
-						className="w-full rounded-lg bg-slate-800 px-4 py-2 text-white placeholder-slate-500 outline-none ring-emerald-500 focus:ring-2"
-						id="phoneNumber"
-						onChange={(e) =>
-							setFormData((prev) => ({ ...prev, phoneNumber: e.target.value }))
-						}
-						placeholder="+1 555 123 4567"
-						required
-						type="text"
-						value={formData.phoneNumber}
-					/>
-				</div>
+				<FormField
+					hint={
+						<>
+							Find this in{" "}
+							<a
+								className="inline-flex items-center gap-1 text-pons-green underline underline-offset-2 hover:text-pons-green-bright"
+								href="https://business.facebook.com/settings/whatsapp-business-accounts"
+								rel="noopener noreferrer"
+								target="_blank"
+							>
+								Meta Business Suite
+								<ExternalLink className="h-3 w-3" />
+							</a>
+						</>
+					}
+					id="wabaId"
+					label="WhatsApp Business Account ID"
+					onChange={(v) => updateField("wabaId", v)}
+					placeholder="1234567890123456"
+					value={formData.wabaId}
+				/>
 
-				<div>
-					<label
-						className="mb-1 block text-slate-300 text-sm"
-						htmlFor="accessToken"
-					>
-						Access Token
-					</label>
-					<input
-						className="w-full rounded-lg bg-slate-800 px-4 py-2 text-white placeholder-slate-500 outline-none ring-emerald-500 focus:ring-2"
-						id="accessToken"
-						onChange={(e) =>
-							setFormData((prev) => ({ ...prev, accessToken: e.target.value }))
-						}
-						placeholder="EAAG..."
-						required
-						type="password"
-						value={formData.accessToken}
-					/>
-					<p className="mt-1 text-slate-500 text-xs">
-						Create a permanent token in System Users or use a temporary test
-						token
-					</p>
-				</div>
+				<FormField
+					id="phoneNumberId"
+					label="Phone Number ID"
+					onChange={(v) => updateField("phoneNumberId", v)}
+					placeholder="1234567890123456"
+					value={formData.phoneNumberId}
+				/>
 
-				<div>
-					<label
-						className="mb-1 block text-slate-300 text-sm"
-						htmlFor="webhookVerifyToken"
-					>
-						Webhook Verify Token
-					</label>
+				<FormField
+					id="phoneNumber"
+					label="Display Phone Number"
+					onChange={(v) => updateField("phoneNumber", v)}
+					placeholder="+1 555 123 4567"
+					value={formData.phoneNumber}
+				/>
+
+				<FormField
+					hint="Create a permanent token in System Users or use a temporary test token"
+					id="accessToken"
+					label="Access Token"
+					onChange={(v) => updateField("accessToken", v)}
+					placeholder="EAAG..."
+					type="password"
+					value={formData.accessToken}
+				/>
+
+				<div className="space-y-2">
+					<Label htmlFor="webhookVerifyToken">Webhook Verify Token</Label>
 					<div className="flex gap-2">
-						<input
-							className="flex-1 rounded-lg bg-slate-800 px-4 py-2 text-white placeholder-slate-500 outline-none ring-emerald-500 focus:ring-2"
+						<Input
 							id="webhookVerifyToken"
 							onChange={(e) =>
-								setFormData((prev) => ({
-									...prev,
-									webhookVerifyToken: e.target.value,
-								}))
+								updateField("webhookVerifyToken", e.target.value)
 							}
 							placeholder="random-string-here"
 							required
-							type="text"
 							value={formData.webhookVerifyToken}
 						/>
-						<button
-							className="rounded-lg bg-slate-700 px-3 py-2 text-slate-300 text-sm transition hover:bg-slate-600"
+						<Button
+							className="shrink-0 gap-1.5"
 							onClick={generateToken}
+							size="default"
 							type="button"
+							variant="secondary"
 						>
+							<Dices className="h-3.5 w-3.5" />
 							Generate
-						</button>
+						</Button>
 					</div>
-					<p className="mt-1 text-slate-500 text-xs">
-						Use this token when setting up the webhook URL in Meta
+					<p className="text-muted-foreground text-xs">
+						Use this token when configuring the webhook URL in Meta
 					</p>
 				</div>
 
-				<div>
-					<label
-						className="mb-1 block text-slate-300 text-sm"
-						htmlFor="appSecret"
-					>
-						App Secret
-					</label>
-					<input
-						className="w-full rounded-lg bg-slate-800 px-4 py-2 text-white placeholder-slate-500 outline-none ring-emerald-500 focus:ring-2"
-						id="appSecret"
-						onChange={(e) =>
-							setFormData((prev) => ({ ...prev, appSecret: e.target.value }))
-						}
-						placeholder="abc123..."
-						required
-						type="password"
-						value={formData.appSecret}
-					/>
-					<p className="mt-1 text-slate-500 text-xs">
-						Find this in your Meta App Settings → Basic
-					</p>
-				</div>
+				<FormField
+					hint="Find this in your Meta App Settings → Basic"
+					id="appSecret"
+					label="App Secret"
+					onChange={(v) => updateField("appSecret", v)}
+					placeholder="abc123..."
+					type="password"
+					value={formData.appSecret}
+				/>
 
 				{error && (
-					<div className="rounded bg-red-900/50 px-3 py-2 text-red-300 text-sm">
+					<div className="rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm">
 						{error}
 					</div>
 				)}
 
-				<button
-					className="mt-4 rounded-lg bg-emerald-500 px-4 py-3 font-semibold text-white transition hover:bg-emerald-600 disabled:opacity-50"
+				<Button
+					className="w-full bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
 					disabled={loading}
+					size="lg"
 					type="submit"
 				>
-					{loading ? "Creating..." : "Create Account"}
-				</button>
+					{loading ? (
+						<>
+							<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+							Connecting...
+						</>
+					) : (
+						"Connect Account"
+					)}
+				</Button>
 			</form>
+		</div>
+	);
+}
+
+function FormField({
+	id,
+	label,
+	placeholder,
+	type = "text",
+	hint,
+	value,
+	onChange,
+}: {
+	id: string;
+	label: string;
+	placeholder: string;
+	type?: string;
+	hint?: React.ReactNode;
+	value: string;
+	onChange: (value: string) => void;
+}) {
+	return (
+		<div className="space-y-2">
+			<Label htmlFor={id}>{label}</Label>
+			<Input
+				id={id}
+				onChange={(e) => onChange(e.target.value)}
+				placeholder={placeholder}
+				required
+				type={type}
+				value={value}
+			/>
+			{hint && <p className="text-muted-foreground text-xs">{hint}</p>}
 		</div>
 	);
 }

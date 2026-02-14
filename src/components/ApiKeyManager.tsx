@@ -1,7 +1,36 @@
 "use client";
 
 import { useAction, useMutation, useQuery } from "convex/react";
+import {
+	Check,
+	CheckCircle2,
+	Copy,
+	KeyRound,
+	Loader2,
+	Plus,
+	Trash2,
+} from "lucide-react";
 import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
@@ -11,13 +40,21 @@ interface ApiKeyManagerProps {
 }
 
 const AVAILABLE_SCOPES = [
-	{ id: "read", label: "Read", description: "View conversations and messages" },
+	{
+		id: "read",
+		label: "Read",
+		description: "View conversations and messages",
+	},
 	{
 		id: "write",
 		label: "Write",
 		description: "Mark as read, react to messages",
 	},
-	{ id: "send", label: "Send", description: "Send messages and templates" },
+	{
+		id: "send",
+		label: "Send",
+		description: "Send messages and templates",
+	},
 ];
 
 export function ApiKeyManager({ accountId, onClose }: ApiKeyManagerProps) {
@@ -32,9 +69,7 @@ export function ApiKeyManager({ accountId, onClose }: ApiKeyManagerProps) {
 		"write",
 		"send",
 	]);
-	const [expiresInDays, setExpiresInDays] = useState<number | undefined>(
-		undefined,
-	);
+	const [expiresInDays, setExpiresInDays] = useState<string>("");
 	const [creating, setCreating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [newlyCreatedKey, setNewlyCreatedKey] = useState<string | null>(null);
@@ -58,13 +93,13 @@ export function ApiKeyManager({ accountId, onClose }: ApiKeyManagerProps) {
 				accountId,
 				name: newKeyName.trim(),
 				scopes: newKeyScopes,
-				expiresInDays,
+				expiresInDays: expiresInDays ? Number(expiresInDays) : undefined,
 			});
 			setNewlyCreatedKey(apiKey);
 			setShowCreate(false);
 			setNewKeyName("");
 			setNewKeyScopes(["read", "write", "send"]);
-			setExpiresInDays(undefined);
+			setExpiresInDays("");
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to create API key");
 		} finally {
@@ -101,79 +136,49 @@ export function ApiKeyManager({ accountId, onClose }: ApiKeyManagerProps) {
 		);
 	};
 
-	const formatDate = (timestamp: number) => {
-		return new Date(timestamp).toLocaleDateString(undefined, {
-			year: "numeric",
-			month: "short",
-			day: "numeric",
-		});
-	};
-
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-			<div className="mx-4 w-full max-w-2xl rounded-lg bg-slate-800 p-6">
-				<div className="mb-6 flex items-center justify-between">
-					<h2 className="font-bold text-white text-xl">API Keys</h2>
-					<button
-						aria-label="Close"
-						className="text-slate-400 hover:text-white"
-						onClick={onClose}
-						type="button"
-					>
-						<svg
-							aria-hidden="true"
-							className="h-6 w-6"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
-							<path
-								d="M6 18L18 6M6 6l12 12"
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={2}
-							/>
-						</svg>
-					</button>
-				</div>
+		<Dialog onOpenChange={(open) => !open && onClose()} open>
+			<DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+				<DialogHeader>
+					<DialogTitle className="flex items-center gap-2 font-display">
+						<KeyRound className="h-4 w-4 text-pons-green" />
+						API Keys
+					</DialogTitle>
+					<DialogDescription>
+						Create and manage API keys for MCP client access.
+					</DialogDescription>
+				</DialogHeader>
 
 				{/* Newly created key alert */}
 				{newlyCreatedKey && (
-					<div className="mb-6 rounded-lg border border-emerald-500/50 bg-emerald-900/30 p-4">
-						<div className="mb-2 flex items-center gap-2 font-medium text-emerald-300">
-							<svg
-								aria-hidden="true"
-								className="h-5 w-5"
-								fill="none"
-								stroke="currentColor"
-								viewBox="0 0 24 24"
-							>
-								<path
-									d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									strokeWidth={2}
-								/>
-							</svg>
+					<div className="rounded-lg border border-pons-green/30 bg-pons-green-surface p-4">
+						<div className="mb-2 flex items-center gap-2 font-medium text-pons-green text-sm">
+							<CheckCircle2 className="h-4 w-4" />
 							API Key Created
 						</div>
-						<p className="mb-3 text-slate-300 text-sm">
-							Copy this key now. You won't be able to see it again.
+						<p className="mb-3 text-muted-foreground text-xs">
+							Copy this key now. You won&apos;t be able to see it again.
 						</p>
 						<div className="flex items-center gap-2">
-							<code className="flex-1 rounded bg-slate-900 px-3 py-2 font-mono text-emerald-400 text-sm">
+							<code className="flex-1 overflow-x-auto rounded-md bg-background px-3 py-2 font-mono text-pons-green text-xs">
 								{newlyCreatedKey}
 							</code>
-							<button
-								className="rounded bg-slate-700 px-3 py-2 text-sm text-white hover:bg-slate-600"
+							<Button
+								className="shrink-0 gap-1.5"
 								onClick={handleCopy}
-								type="button"
+								size="sm"
+								variant="secondary"
 							>
-								{copied ? "Copied!" : "Copy"}
-							</button>
+								{copied ? (
+									<Check className="h-3.5 w-3.5" />
+								) : (
+									<Copy className="h-3.5 w-3.5" />
+								)}
+								{copied ? "Copied" : "Copy"}
+							</Button>
 						</div>
 						<button
-							className="mt-3 text-slate-400 text-sm hover:text-white"
+							className="mt-3 text-muted-foreground text-xs transition hover:text-foreground"
 							onClick={() => setNewlyCreatedKey(null)}
 							type="button"
 						>
@@ -182,193 +187,201 @@ export function ApiKeyManager({ accountId, onClose }: ApiKeyManagerProps) {
 					</div>
 				)}
 
-				{/* Error alert */}
+				{/* Error */}
 				{error && (
-					<div className="mb-4 rounded bg-red-900/50 px-3 py-2 text-red-300 text-sm">
+					<div className="rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm">
 						{error}
 					</div>
 				)}
 
 				{/* Create form */}
 				{showCreate ? (
-					<div className="mb-6 rounded-lg border border-slate-700 p-4">
-						<h3 className="mb-4 font-medium text-white">Create New API Key</h3>
+					<div className="rounded-lg border bg-card p-4">
+						<h3 className="mb-4 font-medium text-sm">Create New API Key</h3>
 
-						<div className="mb-4">
-							<label
-								className="mb-1 block text-slate-300 text-sm"
-								htmlFor="key-name"
-							>
-								Name
-							</label>
-							<input
-								className="w-full rounded bg-slate-900 px-3 py-2 text-white placeholder-slate-500 outline-none ring-emerald-500 focus:ring-2"
-								id="key-name"
-								onChange={(e) => setNewKeyName(e.target.value)}
-								placeholder="e.g., Claude Desktop, Cursor, CI/CD"
-								type="text"
-								value={newKeyName}
-							/>
-						</div>
-
-						<fieldset className="mb-4">
-							<legend className="mb-2 block text-slate-300 text-sm">
-								Scopes
-							</legend>
+						<div className="space-y-4">
 							<div className="space-y-2">
+								<Label htmlFor="key-name">Name</Label>
+								<Input
+									id="key-name"
+									onChange={(e) => setNewKeyName(e.target.value)}
+									placeholder="e.g., Claude Desktop, Cursor, CI/CD"
+									value={newKeyName}
+								/>
+							</div>
+
+							<fieldset className="space-y-3">
+								<Label asChild>
+									<legend>Scopes</legend>
+								</Label>
 								{AVAILABLE_SCOPES.map((scope) => (
 									<label
 										className="flex cursor-pointer items-center gap-3"
+										htmlFor={`scope-${scope.id}`}
 										key={scope.id}
 									>
-										<input
+										<Checkbox
 											checked={newKeyScopes.includes(scope.id)}
-											className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-emerald-500 focus:ring-emerald-500"
-											onChange={() => toggleScope(scope.id)}
-											type="checkbox"
+											id={`scope-${scope.id}`}
+											onCheckedChange={() => toggleScope(scope.id)}
 										/>
-										<span className="text-white">{scope.label}</span>
-										<span className="text-slate-400 text-sm">
-											- {scope.description}
+										<span className="text-foreground text-sm">
+											{scope.label}
+										</span>
+										<span className="text-muted-foreground text-xs">
+											— {scope.description}
 										</span>
 									</label>
 								))}
+							</fieldset>
+
+							<div className="space-y-2">
+								<Label htmlFor="expires">Expires In</Label>
+								<Select onValueChange={setExpiresInDays} value={expiresInDays}>
+									<SelectTrigger className="w-full" id="expires">
+										<SelectValue placeholder="Never" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="never">Never</SelectItem>
+										<SelectItem value="7">7 days</SelectItem>
+										<SelectItem value="30">30 days</SelectItem>
+										<SelectItem value="90">90 days</SelectItem>
+										<SelectItem value="365">1 year</SelectItem>
+									</SelectContent>
+								</Select>
 							</div>
-						</fieldset>
 
-						<div className="mb-4">
-							<label
-								className="mb-1 block text-slate-300 text-sm"
-								htmlFor="expires"
-							>
-								Expires In
-							</label>
-							<select
-								className="w-full rounded bg-slate-900 px-3 py-2 text-white outline-none ring-emerald-500 focus:ring-2"
-								id="expires"
-								onChange={(e) =>
-									setExpiresInDays(
-										e.target.value ? Number(e.target.value) : undefined,
-									)
-								}
-								value={expiresInDays ?? ""}
-							>
-								<option value="">Never</option>
-								<option value="7">7 days</option>
-								<option value="30">30 days</option>
-								<option value="90">90 days</option>
-								<option value="365">1 year</option>
-							</select>
-						</div>
-
-						<div className="flex gap-2">
-							<button
-								className="rounded bg-emerald-500 px-4 py-2 font-medium text-white hover:bg-emerald-600 disabled:opacity-50"
-								disabled={creating}
-								onClick={handleCreate}
-								type="button"
-							>
-								{creating ? "Creating..." : "Create Key"}
-							</button>
-							<button
-								className="rounded bg-slate-700 px-4 py-2 text-white hover:bg-slate-600"
-								onClick={() => setShowCreate(false)}
-								type="button"
-							>
-								Cancel
-							</button>
+							<div className="flex gap-2 pt-1">
+								<Button
+									className="bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
+									disabled={creating}
+									onClick={handleCreate}
+									size="sm"
+								>
+									{creating ? (
+										<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+									) : null}
+									{creating ? "Creating..." : "Create Key"}
+								</Button>
+								<Button
+									onClick={() => setShowCreate(false)}
+									size="sm"
+									variant="ghost"
+								>
+									Cancel
+								</Button>
+							</div>
 						</div>
 					</div>
 				) : (
-					<button
-						className="mb-6 flex items-center gap-2 rounded bg-emerald-500 px-4 py-2 font-medium text-white hover:bg-emerald-600"
+					<Button
+						className="w-fit gap-1.5"
 						onClick={() => setShowCreate(true)}
-						type="button"
+						size="sm"
+						variant="secondary"
 					>
-						<svg
-							aria-hidden="true"
-							className="h-5 w-5"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-						>
-							<path
-								d="M12 4v16m8-8H4"
-								strokeLinecap="round"
-								strokeLinejoin="round"
-								strokeWidth={2}
-							/>
-						</svg>
+						<Plus className="h-3.5 w-3.5" />
 						Create New API Key
-					</button>
+					</Button>
 				)}
+
+				<Separator />
 
 				{/* Existing keys */}
 				<div>
-					<h3 className="mb-3 font-medium text-slate-300 text-sm">
+					<h3 className="mb-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">
 						Existing Keys
 					</h3>
 					{!apiKeys ? (
-						<div className="text-slate-400">Loading...</div>
+						<div className="flex items-center gap-2 text-muted-foreground text-sm">
+							<Loader2 className="h-3.5 w-3.5 animate-spin" />
+							Loading...
+						</div>
 					) : apiKeys.length === 0 ? (
-						<div className="rounded border border-slate-700 border-dashed p-4 text-center text-slate-400">
-							No API keys yet. Create one to use with MCP clients.
+						<div className="rounded-lg border border-dashed p-6 text-center">
+							<KeyRound className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
+							<p className="text-muted-foreground text-sm">No API keys yet</p>
+							<p className="mt-0.5 text-muted-foreground text-xs">
+								Create one to use with MCP clients
+							</p>
 						</div>
 					) : (
-						<div className="space-y-3">
+						<div className="space-y-2">
 							{apiKeys.map((key) => (
 								<div
-									className="flex items-center justify-between rounded border border-slate-700 bg-slate-900/50 p-4"
+									className="flex items-center justify-between rounded-lg border bg-card p-3"
 									key={key._id}
 								>
-									<div>
+									<div className="min-w-0">
 										<div className="flex items-center gap-2">
-											<span className="font-medium text-white">{key.name}</span>
-											<code className="rounded bg-slate-800 px-2 py-0.5 font-mono text-slate-400 text-xs">
+											<span className="font-medium text-foreground text-sm">
+												{key.name}
+											</span>
+											<code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
 												{key.keyPrefix}...
 											</code>
 										</div>
-										<div className="mt-1 flex items-center gap-3 text-slate-400 text-sm">
-											<span>Scopes: {key.scopes.join(", ")}</span>
-											<span>Created: {formatDate(key._creationTime)}</span>
+										<div className="mt-1 flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
+											<span className="flex gap-1">
+												{key.scopes.map((s) => (
+													<Badge
+														className="px-1.5 py-0 text-[10px]"
+														key={s}
+														variant="secondary"
+													>
+														{s}
+													</Badge>
+												))}
+											</span>
+											<span>·</span>
+											<span>{formatDate(key._creationTime)}</span>
 											{key.lastUsedAt && (
-												<span>Last used: {formatDate(key.lastUsedAt)}</span>
+												<>
+													<span>·</span>
+													<span>Used {formatDate(key.lastUsedAt)}</span>
+												</>
 											)}
 											{key.expiresAt && (
-												<span
-													className={
-														key.expiresAt < Date.now() ? "text-red-400" : ""
-													}
-												>
-													{key.expiresAt < Date.now()
-														? "Expired"
-														: `Expires: ${formatDate(key.expiresAt)}`}
-												</span>
+												<>
+													<span>·</span>
+													<span
+														className={
+															key.expiresAt < Date.now()
+																? "text-destructive"
+																: ""
+														}
+													>
+														{key.expiresAt < Date.now()
+															? "Expired"
+															: `Expires ${formatDate(key.expiresAt)}`}
+													</span>
+												</>
 											)}
 										</div>
 									</div>
-									<button
-										className="rounded bg-red-900/50 px-3 py-1 text-red-300 text-sm hover:bg-red-900"
+									<Button
+										className="shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
 										onClick={() => handleRevoke(key._id)}
-										type="button"
+										size="icon"
+										variant="ghost"
 									>
-										Revoke
-									</button>
+										<Trash2 className="h-3.5 w-3.5" />
+									</Button>
 								</div>
 							))}
 						</div>
 					)}
 				</div>
 
-				{/* Usage instructions */}
-				<div className="mt-6 rounded border border-slate-700 bg-slate-900/50 p-4">
-					<h3 className="mb-2 font-medium text-slate-300 text-sm">
-						MCP Configuration
-					</h3>
-					<p className="mb-3 text-slate-400 text-sm">
-						Add this to your Claude Desktop or Cursor MCP config:
+				<Separator />
+
+				{/* MCP Config */}
+				<div className="rounded-lg border bg-card p-4">
+					<h3 className="mb-1 font-medium text-sm">MCP Configuration</h3>
+					<p className="mb-3 text-muted-foreground text-xs">
+						Add this to your Claude Desktop or Cursor config:
 					</p>
-					<pre className="overflow-x-auto rounded bg-slate-950 p-3 font-mono text-slate-300 text-xs">
+					<pre className="overflow-x-auto rounded-md bg-background p-3 font-mono text-foreground text-xs leading-relaxed">
 						{`{
   "mcpServers": {
     "pons": {
@@ -381,7 +394,15 @@ export function ApiKeyManager({ accountId, onClose }: ApiKeyManagerProps) {
 }`}
 					</pre>
 				</div>
-			</div>
-		</div>
+			</DialogContent>
+		</Dialog>
 	);
+}
+
+function formatDate(timestamp: number) {
+	return new Date(timestamp).toLocaleDateString(undefined, {
+		year: "numeric",
+		month: "short",
+		day: "numeric",
+	});
 }
