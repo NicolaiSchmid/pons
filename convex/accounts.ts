@@ -126,7 +126,7 @@ export const remove = mutation({
       )
       .first();
 
-    if (!membership || membership.role !== "owner") {
+    if (membership?.role !== "owner") {
       throw new Error("Only owners can delete accounts");
     }
 
