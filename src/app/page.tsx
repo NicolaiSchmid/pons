@@ -47,9 +47,10 @@ export default function Home() {
 			}
 
 			// If signingIn is true, the auth state should update automatically
-			// via useConvexAuth - but let's log to debug
+			// via useConvexAuth - force a page reload to ensure state updates
 			if (result.signingIn) {
-				console.log("User should be signing in...");
+				console.log("User signed in, reloading page...");
+				window.location.reload();
 			}
 		} catch (err) {
 			console.error("signIn error:", err);
