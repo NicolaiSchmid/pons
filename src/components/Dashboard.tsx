@@ -8,6 +8,7 @@ import {
 	LogOut,
 	MessageSquare,
 	Plus,
+	Settings,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import {
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AccountSelector } from "./AccountSelector";
+import { AccountSettings } from "./AccountSettings";
 import { ApiKeyManager } from "./ApiKeyManager";
 import { ConversationList } from "./ConversationList";
 import { MessageThread } from "./MessageThread";
@@ -38,6 +40,7 @@ export function Dashboard() {
 	>();
 	const [showSetup, setShowSetup] = useState(false);
 	const [showApiKeys, setShowApiKeys] = useState(false);
+	const [showSettings, setShowSettings] = useState(false);
 
 	// Loading state
 	if (accounts === undefined) {
@@ -93,20 +96,35 @@ export function Dashboard() {
 
 					<div className="flex items-center gap-1">
 						{selectedAccountId && (
-							<Tooltip>
-								<TooltipTrigger asChild>
-									<Button
-										className="h-8 gap-1.5 text-muted-foreground text-xs hover:text-foreground"
-										onClick={() => setShowApiKeys(true)}
-										size="sm"
-										variant="ghost"
-									>
-										<KeyRound className="h-3.5 w-3.5" />
-										<span className="hidden sm:inline">API Keys</span>
-									</Button>
-								</TooltipTrigger>
-								<TooltipContent>Manage MCP API keys</TooltipContent>
-							</Tooltip>
+							<>
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Button
+											className="h-8 gap-1.5 text-muted-foreground text-xs hover:text-foreground"
+											onClick={() => setShowApiKeys(true)}
+											size="sm"
+											variant="ghost"
+										>
+											<KeyRound className="h-3.5 w-3.5" />
+											<span className="hidden sm:inline">API Keys</span>
+										</Button>
+									</TooltipTrigger>
+									<TooltipContent>Manage MCP API keys</TooltipContent>
+								</Tooltip>
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<Button
+											className="h-8 w-8 text-muted-foreground hover:text-foreground"
+											onClick={() => setShowSettings(true)}
+											size="icon"
+											variant="ghost"
+										>
+											<Settings className="h-3.5 w-3.5" />
+										</Button>
+									</TooltipTrigger>
+									<TooltipContent>Account settings</TooltipContent>
+								</Tooltip>
+							</>
 						)}
 						<Tooltip>
 							<TooltipTrigger asChild>
@@ -181,11 +199,17 @@ export function Dashboard() {
 					</div>
 				</div>
 
-				{/* API Key Manager Modal */}
+				{/* Modals */}
 				{showApiKeys && selectedAccountId && (
 					<ApiKeyManager
 						accountId={selectedAccountId}
 						onClose={() => setShowApiKeys(false)}
+					/>
+				)}
+				{showSettings && selectedAccountId && (
+					<AccountSettings
+						accountId={selectedAccountId}
+						onClose={() => setShowSettings(false)}
 					/>
 				)}
 			</div>
