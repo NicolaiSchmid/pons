@@ -1,21 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { auth } from "./auth";
-
-// Helper to check account access
-async function checkAccountAccess(
-  ctx: { db: any },
-  userId: any,
-  accountId: any
-) {
-  const membership = await ctx.db
-    .query("accountMembers")
-    .withIndex("by_account_user", (q: any) =>
-      q.eq("accountId", accountId).eq("userId", userId)
-    )
-    .first();
-  return !!membership;
-}
+import { checkAccountAccess } from "./helpers";
 
 // List contacts for an account
 export const list = query({

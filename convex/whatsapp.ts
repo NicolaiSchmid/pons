@@ -131,6 +131,7 @@ export const sendTemplateMessage = action({
       type: "template",
       templateName: args.templateName,
       templateLanguage: args.templateLanguage,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       templateComponents: args.components,
     });
 
@@ -142,6 +143,7 @@ export const sendTemplateMessage = action({
       template: {
         name: args.templateName,
         language: { code: args.templateLanguage },
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         components: args.components,
       },
     };

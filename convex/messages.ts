@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { auth } from "./auth";
+import { checkAccountAccess } from "./helpers";
 
 // Message type validator
 const messageTypeValidator = v.union(
@@ -27,21 +28,6 @@ const statusValidator = v.union(
   v.literal("failed")
 );
 
-// Helper to check account access
-async function checkAccountAccess(
-  ctx: { db: any },
-  userId: any,
-  accountId: any
-) {
-  const membership = await ctx.db
-    .query("accountMembers")
-    .withIndex("by_account_user", (q: any) =>
-      q.eq("accountId", accountId).eq("userId", userId)
-    )
-    .first();
-  return !!membership;
-}
-
 // List messages for a conversation
 export const list = query({
   args: {
@@ -65,14 +51,14 @@ export const list = query({
 
     const limit = args.limit ?? 50;
 
-    let query = ctx.db
+    const messagesQuery = ctx.db
       .query("messages")
       .withIndex("by_conversation_timestamp", (q) =>
         q.eq("conversationId", args.conversationId)
       )
       .order("desc");
 
-    const messages = await query.take(limit + 1);
+    const messages = await messagesQuery.take(limit + 1);
     const hasMore = messages.length > limit;
 
     return {
@@ -137,6 +123,7 @@ export const createOutbound = mutation({
       mediaFilename: args.mediaFilename,
       templateName: args.templateName,
       templateLanguage: args.templateLanguage,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       templateComponents: args.templateComponents,
       contextMessageId: args.contextMessageId,
       status: "pending",
@@ -175,13 +162,21 @@ export const updateStatus = mutation({
   handler: async (ctx, args) => {
     const message = await ctx.db
       .query("messages")
-      .withIndex("by_wa_message_id", (q) => q.eq("waMessageId", args.waMessageId))
+      .withIndex("by_wa_message_id", (q) =>
+        q.eq("waMessageId", args.waMessageId)
+      )
       .first();
 
     if (!message) return;
 
     // Only update if status is "higher" (sent < delivered < read)
-    const statusOrder = { pending: 0, sent: 1, delivered: 2, read: 3, failed: 4 };
+    const statusOrder = {
+      pending: 0,
+      sent: 1,
+      delivered: 2,
+      read: 3,
+      failed: 4,
+    };
     if (
       statusOrder[args.status] <= statusOrder[message.status] &&
       args.status !== "failed"
@@ -227,7 +222,9 @@ export const createInbound = mutation({
     // Check if message already exists (deduplication)
     const existing = await ctx.db
       .query("messages")
-      .withIndex("by_wa_message_id", (q) => q.eq("waMessageId", args.waMessageId))
+      .withIndex("by_wa_message_id", (q) =>
+        q.eq("waMessageId", args.waMessageId)
+      )
       .first();
 
     if (existing) return existing._id;
@@ -248,7 +245,7 @@ export const getMediaUrl = query({
     if (!userId) return null;
 
     const message = await ctx.db.get(args.messageId);
-    if (!message || !message.mediaId) return null;
+    if (!message?.mediaId) return null;
 
     const hasAccess = await checkAccountAccess(ctx, userId, message.accountId);
     if (!hasAccess) return null;
