@@ -430,19 +430,19 @@ export default function Home() {
 				</h2>
 				<div className="overflow-hidden rounded-lg border border-border/60 bg-[oklch(0.08_0.005_260)] p-6 sm:p-8">
 					<pre className="overflow-x-auto font-mono text-muted-foreground text-xs leading-relaxed sm:text-sm">
-						{`┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│              │     │              │     │              │
-│  Claude /    │────▶│  Pons MCP    │────▶│   Convex     │
-│  Cursor      │ MCP │  Endpoint    │     │   Backend    │
-│              │     │  (Next.js)   │     │              │
-└──────────────┘     └──────┬───────┘     └──────┬───────┘
-                            │                    │
-                     ┌──────┴───────┐     ┌──────┴───────┐
-                     │              │     │              │
-                     │  Pons Web    │     │  Meta Graph  │
-                     │  Dashboard   │     │  API v22.0   │
-                     │              │     │              │
-                     └──────────────┘     └──────────────┘`}
+						{`+--------------+     +--------------+     +--------------+
+|              |     |              |     |              |
+|  Claude /    |---->|  Pons MCP    |---->|   Convex     |
+|  Cursor      | MCP |  Endpoint    |     |   Backend    |
+|              |     |  (Next.js)   |     |              |
++--------------+     +------+-------+     +------+-------+
+                            |                    |
+                     +------+-------+     +------+-------+
+                     |              |     |              |
+                     |  Pons Web    |     |  Meta Graph  |
+                     |  Dashboard   |     |  API v22.0   |
+                     |              |     |              |
+                     +--------------+     +--------------+`}
 					</pre>
 				</div>
 
@@ -453,13 +453,13 @@ export default function Home() {
 					</h3>
 					<pre className="overflow-x-auto font-mono text-muted-foreground text-xs leading-relaxed">
 						{`Account (WhatsApp Business Account)
-├── AccountMember (owner / admin / member)
-├── Contact (customer phone numbers)
-│   └── Conversation (thread with a contact)
-│       └── Message (text, media, location, reaction...)
-├── Template (pre-approved message templates)
-├── ApiKey (scoped MCP authentication)
-└── WebhookLog (raw payloads for debugging)`}
+|-- AccountMember (owner / admin / member)
+|-- Contact (customer phone numbers)
+|   +-- Conversation (thread with a contact)
+|       +-- Message (text, media, location, reaction...)
+|-- Template (pre-approved message templates)
+|-- ApiKey (scoped MCP authentication)
++-- WebhookLog (raw payloads for debugging)`}
 					</pre>
 				</div>
 			</section>
