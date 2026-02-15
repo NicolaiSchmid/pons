@@ -8,6 +8,7 @@ import {
 	mutation,
 	query,
 } from "./_generated/server";
+import { auth } from "./auth";
 
 // ============================================
 // API Key Management (requires user auth)
@@ -56,8 +57,6 @@ export const createApiKeyInternal = internalMutation({
 		expiresInDays: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
-		// Import auth dynamically to avoid circular dependency
-		const { auth } = await import("./auth");
 		const userId = await auth.getUserId(ctx);
 		if (!userId) throw new Error("Unauthorized");
 
@@ -90,7 +89,6 @@ export const createApiKeyInternal = internalMutation({
 export const listApiKeys = query({
 	args: { accountId: v.id("accounts") },
 	handler: async (ctx, args) => {
-		const { auth } = await import("./auth");
 		const userId = await auth.getUserId(ctx);
 		if (!userId) return [];
 
@@ -124,7 +122,6 @@ export const listApiKeys = query({
 export const revokeApiKey = mutation({
 	args: { keyId: v.id("apiKeys") },
 	handler: async (ctx, args) => {
-		const { auth } = await import("./auth");
 		const userId = await auth.getUserId(ctx);
 		if (!userId) throw new Error("Unauthorized");
 

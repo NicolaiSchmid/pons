@@ -233,6 +233,165 @@ export const addMember = mutation({
 	},
 });
 
+// Add a member by email address (looks up the user first)
+export const addMemberByEmail = mutation({
+	args: {
+		accountId: v.id("accounts"),
+		email: v.string(),
+		role: v.union(v.literal("admin"), v.literal("member")),
+	},
+	handler: async (ctx, args) => {
+		const currentUserId = await auth.getUserId(ctx);
+		if (!currentUserId) throw new Error("Unauthorized");
+
+		// Check admin/owner role
+		const membership = await ctx.db
+			.query("accountMembers")
+			.withIndex("by_account_user", (q) =>
+				q.eq("accountId", args.accountId).eq("userId", currentUserId),
+			)
+			.first();
+
+		if (!membership || membership.role === "member") {
+			throw new Error("Only admins and owners can add members");
+		}
+
+		// Look up user by email
+		const user = await ctx.db
+			.query("users")
+			.withIndex("email", (q) => q.eq("email", args.email))
+			.first();
+
+		if (!user) {
+			throw new Error(
+				"No user found with that email. They must sign in at least once first.",
+			);
+		}
+
+		// Check if already a member
+		const existing = await ctx.db
+			.query("accountMembers")
+			.withIndex("by_account_user", (q) =>
+				q.eq("accountId", args.accountId).eq("userId", user._id),
+			)
+			.first();
+
+		if (existing) {
+			throw new Error("User is already a member");
+		}
+
+		return ctx.db.insert("accountMembers", {
+			accountId: args.accountId,
+			userId: user._id,
+			role: args.role,
+		});
+	},
+});
+
+// List members for an account (with user details)
+export const listMembers = query({
+	args: { accountId: v.id("accounts") },
+	handler: async (ctx, args) => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) return [];
+
+		// Check the caller has access
+		const callerMembership = await ctx.db
+			.query("accountMembers")
+			.withIndex("by_account_user", (q) =>
+				q.eq("accountId", args.accountId).eq("userId", userId),
+			)
+			.first();
+		if (!callerMembership) return [];
+
+		const memberships = await ctx.db
+			.query("accountMembers")
+			.withIndex("by_account", (q) => q.eq("accountId", args.accountId))
+			.collect();
+
+		const members = await Promise.all(
+			memberships.map(async (m) => {
+				const user = await ctx.db.get(m.userId);
+				return {
+					membershipId: m._id,
+					userId: m.userId,
+					role: m.role,
+					name: user?.name ?? null,
+					email: user?.email ?? null,
+					image: user?.image ?? null,
+				};
+			}),
+		);
+
+		// Sort: owner first, then admin, then member
+		const roleOrder = { owner: 0, admin: 1, member: 2 };
+		return members.sort((a, b) => roleOrder[a.role] - roleOrder[b.role]);
+	},
+});
+
+// Find a user by email (for inviting)
+export const findUserByEmail = query({
+	args: { email: v.string() },
+	handler: async (ctx, args) => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) return null;
+
+		const user = await ctx.db
+			.query("users")
+			.withIndex("email", (q) => q.eq("email", args.email))
+			.first();
+
+		if (!user) return null;
+
+		return {
+			userId: user._id,
+			name: user.name ?? null,
+			email: user.email ?? null,
+			image: user.image ?? null,
+		};
+	},
+});
+
+// Update a member's role
+export const updateMemberRole = mutation({
+	args: {
+		accountId: v.id("accounts"),
+		userId: v.id("users"),
+		role: v.union(v.literal("admin"), v.literal("member")),
+	},
+	handler: async (ctx, args) => {
+		const currentUserId = await auth.getUserId(ctx);
+		if (!currentUserId) throw new Error("Unauthorized");
+
+		// Check caller is owner or admin
+		const callerMembership = await ctx.db
+			.query("accountMembers")
+			.withIndex("by_account_user", (q) =>
+				q.eq("accountId", args.accountId).eq("userId", currentUserId),
+			)
+			.first();
+
+		if (!callerMembership || callerMembership.role === "member") {
+			throw new Error("Only owners and admins can change roles");
+		}
+
+		// Can't change the owner's role
+		const targetMembership = await ctx.db
+			.query("accountMembers")
+			.withIndex("by_account_user", (q) =>
+				q.eq("accountId", args.accountId).eq("userId", args.userId),
+			)
+			.first();
+
+		if (!targetMembership) throw new Error("User is not a member");
+		if (targetMembership.role === "owner") {
+			throw new Error("Cannot change the owner's role");
+		}
+
+		await ctx.db.patch(targetMembership._id, { role: args.role });
+	},
+});
+
 // Get account by phone number ID (for webhook processing)
 export const getByPhoneNumberId = query({
 	args: { phoneNumberId: v.string() },
