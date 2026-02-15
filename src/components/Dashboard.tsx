@@ -11,6 +11,7 @@ import {
 	Settings,
 } from "lucide-react";
 import { useState } from "react";
+import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -77,85 +78,72 @@ export function Dashboard() {
 		<TooltipProvider delayDuration={300}>
 			<div className="flex h-screen flex-col">
 				{/* Header */}
-				<header className="flex h-14 shrink-0 items-center justify-between border-b px-4">
-					<div className="flex items-center gap-3">
-						<div className="flex items-center gap-2">
-							<div className="flex h-7 w-7 items-center justify-center rounded-md bg-pons-green/10">
-								<MessageSquare className="h-3.5 w-3.5 text-pons-green" />
-							</div>
-							<span className="font-display font-semibold text-sm tracking-tight">
-								Pons
-							</span>
-						</div>
-						<Separator className="!h-5" orientation="vertical" />
-						<AccountSelector
-							onSelectAccount={setSelectedAccountId}
-							selectedAccountId={selectedAccountId}
-						/>
-						{selectedAccountId && (
-							<Tooltip>
-								<TooltipTrigger asChild>
-									<Button
-										className="h-7 w-7 text-muted-foreground hover:text-foreground"
-										onClick={() => setShowSettings(true)}
-										size="icon"
-										variant="ghost"
-									>
-										<Settings className="h-3.5 w-3.5" />
-									</Button>
-								</TooltipTrigger>
-								<TooltipContent>Account settings</TooltipContent>
-							</Tooltip>
-						)}
-					</div>
-
-					<div className="flex items-center gap-1">
-						{selectedAccountId && (
-							<Tooltip>
-								<TooltipTrigger asChild>
-									<Button
-										className="h-8 gap-1.5 text-muted-foreground text-xs hover:text-foreground"
-										onClick={() => setShowApiKeys(true)}
-										size="sm"
-										variant="ghost"
-									>
-										<KeyRound className="h-3.5 w-3.5" />
-										<span className="hidden sm:inline">API Keys</span>
-									</Button>
-								</TooltipTrigger>
-								<TooltipContent>Manage MCP API keys</TooltipContent>
-							</Tooltip>
-						)}
+				<Navbar>
+					<AccountSelector
+						onSelectAccount={setSelectedAccountId}
+						selectedAccountId={selectedAccountId}
+					/>
+					{selectedAccountId && (
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<Button
+									className="h-7 w-7 text-muted-foreground hover:text-foreground"
+									onClick={() => setShowSettings(true)}
+									size="icon"
+									variant="ghost"
+								>
+									<Settings className="h-3.5 w-3.5" />
+								</Button>
+							</TooltipTrigger>
+							<TooltipContent>Account settings</TooltipContent>
+						</Tooltip>
+					)}
+					<Separator className="!h-5 mx-1" orientation="vertical" />
+					{selectedAccountId && (
 						<Tooltip>
 							<TooltipTrigger asChild>
 								<Button
 									className="h-8 gap-1.5 text-muted-foreground text-xs hover:text-foreground"
-									onClick={() => setShowSetup(true)}
+									onClick={() => setShowApiKeys(true)}
 									size="sm"
 									variant="ghost"
 								>
-									<Plus className="h-3.5 w-3.5" />
-									<span className="hidden sm:inline">Add Account</span>
+									<KeyRound className="h-3.5 w-3.5" />
+									<span className="hidden sm:inline">API Keys</span>
 								</Button>
 							</TooltipTrigger>
-							<TooltipContent>Connect a WhatsApp account</TooltipContent>
+							<TooltipContent>Manage MCP API keys</TooltipContent>
 						</Tooltip>
-						<Separator className="!h-5 mx-1" orientation="vertical" />
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<Button
-									className="h-8 w-8 text-muted-foreground hover:text-foreground"
-									onClick={() => void signOut()}
-									size="icon"
-									variant="ghost"
-								>
-									<LogOut className="h-3.5 w-3.5" />
-								</Button>
-							</TooltipTrigger>
-							<TooltipContent>Sign out</TooltipContent>
-						</Tooltip>
-					</div>
-				</header>
+					)}
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Button
+								className="h-8 gap-1.5 text-muted-foreground text-xs hover:text-foreground"
+								onClick={() => setShowSetup(true)}
+								size="sm"
+								variant="ghost"
+							>
+								<Plus className="h-3.5 w-3.5" />
+								<span className="hidden sm:inline">Add Account</span>
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent>Connect a WhatsApp account</TooltipContent>
+					</Tooltip>
+					<Separator className="!h-5 mx-1" orientation="vertical" />
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<Button
+								className="h-8 w-8 text-muted-foreground hover:text-foreground"
+								onClick={() => void signOut()}
+								size="icon"
+								variant="ghost"
+							>
+								<LogOut className="h-3.5 w-3.5" />
+							</Button>
+						</TooltipTrigger>
+						<TooltipContent>Sign out</TooltipContent>
+					</Tooltip>
+				</Navbar>
 
 				{/* Main content */}
 				<div className="flex flex-1 overflow-hidden">
@@ -219,15 +207,7 @@ export function Dashboard() {
 
 function Header({ onSignOut }: { onSignOut: () => void }) {
 	return (
-		<header className="flex h-14 shrink-0 items-center justify-between border-b px-4">
-			<div className="flex items-center gap-2">
-				<div className="flex h-7 w-7 items-center justify-center rounded-md bg-pons-green/10">
-					<MessageSquare className="h-3.5 w-3.5 text-pons-green" />
-				</div>
-				<span className="font-display font-semibold text-sm tracking-tight">
-					Pons
-				</span>
-			</div>
+		<Navbar>
 			<Button
 				className="h-8 text-muted-foreground text-xs hover:text-foreground"
 				onClick={onSignOut}
@@ -237,7 +217,7 @@ function Header({ onSignOut }: { onSignOut: () => void }) {
 				<LogOut className="mr-1.5 h-3.5 w-3.5" />
 				Sign out
 			</Button>
-		</header>
+		</Navbar>
 	);
 }
 

@@ -16,6 +16,7 @@ import {
 	Users,
 } from "lucide-react";
 import { useCallback, useState } from "react";
+import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Dashboard } from "../components/Dashboard";
 
@@ -199,8 +200,19 @@ export default function Home() {
 
 	return (
 		<main className="relative min-h-screen overflow-hidden bg-noise">
+			<Navbar>
+				<Button
+					className="h-8 gap-2 rounded-md bg-foreground px-4 font-medium text-background text-xs hover:bg-foreground/90"
+					onClick={handleGoogleSignIn}
+					size="sm"
+				>
+					<GoogleIcon />
+					Sign in
+				</Button>
+			</Navbar>
+
 			{/* ── Hero ── */}
-			<section className="relative flex flex-col items-center px-6 pt-24 pb-20">
+			<section className="relative flex flex-col items-center px-6 pt-20 pb-20">
 				{/* Gradient orb */}
 				<div className="pointer-events-none absolute top-0 left-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/4 rounded-full bg-pons-green/6 blur-[150px]" />
 
@@ -252,29 +264,6 @@ export default function Home() {
 						<p className="text-muted-foreground text-xs">
 							Sign in to connect your WhatsApp Business account
 						</p>
-					</div>
-
-					{/* Quick links */}
-					<div className="flex items-center gap-5 text-muted-foreground text-sm">
-						<a className="transition hover:text-foreground" href="/docs">
-							Docs
-						</a>
-						<span className="h-3 w-px bg-border" />
-						<a
-							className="transition hover:text-foreground"
-							href="https://github.com/NicolaiSchmid/pons"
-							rel="noopener noreferrer"
-							target="_blank"
-						>
-							GitHub
-						</a>
-						<span className="h-3 w-px bg-border" />
-						<a
-							className="transition hover:text-foreground"
-							href="/docs/mcp-tools"
-						>
-							MCP Tools
-						</a>
 					</div>
 				</div>
 			</section>
