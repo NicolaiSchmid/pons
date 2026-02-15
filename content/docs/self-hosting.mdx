@@ -1,0 +1,98 @@
+---
+title: Self-Hosting
+description: Deploy your own instance of Pons.
+---
+
+## Prerequisites
+
+- Node.js 18+ and pnpm
+- A [Convex](https://convex.dev) account (free tier available)
+- A [Vercel](https://vercel.com) account (or any Node.js hosting)
+- A [Meta Business App](https://developers.facebook.com) with WhatsApp Cloud API access
+
+## 1. Clone and install
+
+```bash
+git clone https://github.com/NicolaiSchmid/pons.git
+cd pons
+pnpm install
+```
+
+## 2. Set up Convex
+
+```bash
+# Start Convex dev (opens browser for auth on first run)
+npx convex dev
+```
+
+This will create a new Convex project and deploy the schema. Note the deployment URL.
+
+## 3. Configure environment
+
+Create `.env.local`:
+
+```env
+NEXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
+CONVEX_AUTH_SECRET=<generate with: openssl rand -base64 32>
+```
+
+Also set `CONVEX_AUTH_SECRET` in the Convex dashboard under Settings > Environment Variables.
+
+## 4. Configure Google OAuth
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Create a new project or select an existing one
+3. Enable the Google+ API
+4. Create OAuth 2.0 credentials (Web application)
+5. Add your domain to Authorized redirect URIs
+6. Set `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` in Convex environment variables
+
+## 5. Run locally
+
+```bash
+# Terminal 1: Convex dev server
+npx convex dev
+
+# Terminal 2: Next.js dev server
+pnpm run dev:next
+```
+
+Visit `http://localhost:3000` to see the app.
+
+## 6. Deploy to Vercel
+
+1. Push your fork to GitHub
+2. Connect the repo to Vercel
+3. Set environment variables:
+   - `NEXT_PUBLIC_CONVEX_URL` — your Convex deployment URL
+   - `CONVEX_DEPLOY_KEY` — from Convex dashboard (Settings > Deploy Key)
+4. Build command is pre-configured: `pnpm convex deploy --cmd 'pnpm run build'`
+5. **Disable Deployment Protection** for production (WhatsApp webhooks need unauthenticated access to `/api/webhook`)
+
+### Region selection
+
+For best latency, deploy Vercel and Convex in the same region. The default Pons setup uses:
+- Vercel: `FRA1` (Frankfurt)
+- Convex: `eu-west-1` (Ireland)
+
+Configure this in `vercel.json`:
+
+```json
+{
+  "regions": ["fra1"]
+}
+```
+
+## 7. Set up WhatsApp
+
+Follow the [WhatsApp Setup](/docs/whatsapp-setup) guide, replacing `pons.chat` with your own domain.
+
+## Development commands
+
+```bash
+pnpm dev              # Convex + Next.js in parallel
+pnpm run dev:next     # Just Next.js
+pnpm run check:write  # Biome lint + format (auto-fix)
+pnpm run typecheck    # TypeScript check
+pnpm run build        # Production build
+```

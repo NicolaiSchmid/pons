@@ -1,0 +1,15 @@
+{
+	"title": "Docs",
+	"pages": [
+		"---Getting Started---",
+		"index",
+		"whatsapp-setup",
+		"mcp-setup",
+		"---Reference---",
+		"mcp-tools",
+		"api-keys",
+		"---Internals---",
+		"architecture",
+		"self-hosting"
+	]
+}

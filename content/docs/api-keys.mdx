@@ -1,0 +1,81 @@
+---
+title: API Keys
+description: Create and manage scoped API keys for MCP access.
+---
+
+## Overview
+
+API keys authenticate MCP clients to your Pons account. Each key is scoped to specific permissions and tied to a single WhatsApp Business Account.
+
+## Creating a Key
+
+1. Sign in to [pons.chat](https://pons.chat)
+2. Click the **key icon** (🔑) in the top navigation
+3. Click **Create Key**
+4. Enter a name (e.g., "Claude Desktop", "Cursor", "Monitoring")
+5. Select the scopes:
+   - **read** — view conversations, messages, templates
+   - **write** — mark as read, send reactions
+   - **send** — send text and template messages
+6. Click **Create**
+7. **Copy the key immediately** — it will not be shown again
+
+## Key Format
+
+Keys follow the format: `pons_` followed by a random string.
+
+```
+pons_a1b2c3d4e5f6...
+```
+
+## Using a Key
+
+Pass the key as a Bearer token in the Authorization header:
+
+```
+Authorization: Bearer pons_your_api_key_here
+```
+
+In MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "pons": {
+      "url": "https://pons.chat/api/mcp",
+      "headers": {
+        "Authorization": "Bearer pons_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+## Scopes
+
+| Scope | Tools | Description |
+|:------|:------|:------------|
+| **read** | `list_conversations`, `list_unanswered`, `get_conversation`, `search_messages`, `list_templates` | View data only |
+| **write** | `mark_as_read`, `send_reaction` | Modify message state |
+| **send** | `send_text`, `send_template` | Send messages to contacts |
+
+### Recommended scope combinations
+
+- **Read-only monitoring:** `read`
+- **Full assistant access:** `read` + `write` + `send`
+- **Send-only automation:** `read` + `send` (needs read to look up conversations)
+
+## Revoking a Key
+
+1. Open the API Key Manager (key icon in the nav)
+2. Click the **trash icon** next to the key you want to revoke
+3. Confirm deletion
+
+Revoked keys are immediately invalidated. Any MCP client using that key will receive authentication errors.
+
+## Security
+
+- Keys are hashed before storage — we cannot retrieve your key after creation
+- Each key is tied to a specific account — it cannot access other accounts
+- Keys work across all users who are members of the account
+- Rotate keys regularly, especially if a client is decommissioned

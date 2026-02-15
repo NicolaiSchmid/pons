@@ -1,0 +1,80 @@
+---
+title: WhatsApp Setup
+description: Connect your WhatsApp Business Account to Pons.
+---
+
+## Prerequisites
+
+- A [Meta Business Account](https://business.facebook.com/)
+- A [Meta Developer Account](https://developers.facebook.com/)
+- A phone number for WhatsApp Business (can be a test number from Meta)
+
+## 1. Create a Meta Business App
+
+1. Go to [developers.facebook.com](https://developers.facebook.com) and create a new app
+2. Select **Business** as the app type
+3. Add the **WhatsApp** product to your app
+
+## 2. Get your credentials
+
+From the WhatsApp product page in your Meta app, you'll need:
+
+| Credential | Where to find it |
+|:-----------|:-----------------|
+| **WABA ID** | WhatsApp > Getting Started > WhatsApp Business Account ID |
+| **Phone Number ID** | WhatsApp > Getting Started > Phone number ID |
+| **Access Token** | WhatsApp > Getting Started > Temporary access token (or create a permanent System User token) |
+| **App Secret** | App Settings > Basic > App Secret |
+
+### Permanent Access Token
+
+The temporary token from the Getting Started page expires after 24 hours. For production:
+
+1. Go to **Business Settings** > **System Users**
+2. Create a System User with **Admin** access
+3. Assign the WhatsApp Business Account
+4. Generate a token with `whatsapp_business_management` and `whatsapp_business_messaging` permissions
+
+## 3. Create an Account in Pons
+
+1. Sign in to [pons.chat](https://pons.chat) with Google
+2. Click **Setup Account** (or the + button if you already have accounts)
+3. Fill in:
+   - **Account Name** — a friendly name (e.g., "My Business")
+   - **WABA ID** — WhatsApp Business Account ID
+   - **Phone Number ID** — from Meta dashboard
+   - **Phone Number** — your WhatsApp number (e.g., +1 555 123 4567)
+   - **Access Token** — your permanent token
+   - **App Secret** — for webhook signature verification
+   - **Webhook Verify Token** — auto-generated, you'll need this for Meta
+
+## 4. Configure the Webhook
+
+1. Copy the **Webhook URL** shown after creating your account: `https://pons.chat/api/webhook`
+2. Copy the **Webhook Verify Token**
+3. In Meta Developer Console, go to WhatsApp > Configuration > Webhook
+4. Paste the callback URL and verify token
+5. Click **Verify and Save**
+6. Subscribe to the `messages` webhook field
+
+## 5. Test it
+
+Send a message to your WhatsApp Business number from any phone. You should see it appear in the Pons dashboard in real-time.
+
+## Troubleshooting
+
+### Webhook not receiving messages
+
+- Ensure you subscribed to the `messages` field in Meta webhook configuration
+- Check that your App Secret is correct (used for signature verification)
+- Verify the webhook URL is `https://pons.chat/api/webhook` (no trailing slash)
+
+### "Access token expired" errors
+
+- Use a permanent System User token instead of the temporary one
+- Ensure the token has `whatsapp_business_messaging` permission
+
+### Messages not showing in dashboard
+
+- Check that the Phone Number ID in Pons matches the one in Meta
+- Ensure you're looking at the correct account in the account switcher

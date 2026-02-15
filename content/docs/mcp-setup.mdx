@@ -1,0 +1,120 @@
+---
+title: MCP Setup
+description: Connect Pons to Claude Desktop, Cursor, OpenCode, or any MCP client.
+---
+
+## Overview
+
+Pons exposes a [Model Context Protocol](https://modelcontextprotocol.io/) server via Streamable HTTP transport. Any MCP-compatible client can connect to it using an API key.
+
+## 1. Create an API Key
+
+1. Sign in to [pons.chat](https://pons.chat)
+2. Click the **key icon** in the top navigation bar to open the API Key Manager
+3. Click **Create Key**
+4. Choose a name and select the scopes you need:
+   - **read** — list conversations, search messages, view templates
+   - **write** — mark messages as read, send reactions
+   - **send** — send text and template messages
+5. Copy the key — it won't be shown again
+
+## 2. Configure your MCP client
+
+Add this to your MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "pons": {
+      "url": "https://pons.chat/api/mcp",
+      "headers": {
+        "Authorization": "Bearer pons_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+### Claude Desktop
+
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+
+```json
+{
+  "mcpServers": {
+    "pons": {
+      "url": "https://pons.chat/api/mcp",
+      "headers": {
+        "Authorization": "Bearer pons_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop after saving.
+
+### Cursor
+
+Open Cursor Settings > MCP Servers > Add Server. Use:
+
+- **Type:** HTTP
+- **URL:** `https://pons.chat/api/mcp`
+- **Headers:** `Authorization: Bearer pons_your_api_key_here`
+
+Or edit `.cursor/mcp.json` in your project root:
+
+```json
+{
+  "mcpServers": {
+    "pons": {
+      "url": "https://pons.chat/api/mcp",
+      "headers": {
+        "Authorization": "Bearer pons_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+### OpenCode
+
+Edit `~/.config/opencode/config.json`:
+
+```json
+{
+  "mcp": {
+    "pons": {
+      "type": "remote",
+      "url": "https://pons.chat/api/mcp",
+      "headers": {
+        "Authorization": "Bearer pons_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+### Any MCP Client
+
+Pons uses **Streamable HTTP** transport at `https://pons.chat/api/mcp`. Pass the API key as a `Bearer` token in the `Authorization` header. No stdio, no SSE — just standard HTTP.
+
+## 3. Verify
+
+Ask your AI assistant:
+
+> "List my WhatsApp conversations"
+
+It should call the `list_conversations` tool and return your recent chats.
+
+## Scopes
+
+API keys are scoped to control what your AI can do:
+
+| Scope | Permissions |
+|:------|:-----------|
+| **read** | `list_conversations`, `list_unanswered`, `get_conversation`, `search_messages`, `list_templates` |
+| **write** | `mark_as_read`, `send_reaction` |
+| **send** | `send_text`, `send_template` |
+
+Create separate keys with different scopes for different use cases. For example, a read-only key for monitoring dashboards, and a full-access key for your personal AI assistant.

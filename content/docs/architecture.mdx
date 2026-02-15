@@ -1,0 +1,133 @@
+---
+title: Architecture
+description: How Pons works under the hood.
+---
+
+## Overview
+
+Pons is a Next.js application backed by [Convex](https://convex.dev) for real-time database, authentication, file storage, and background actions. It sits between WhatsApp's Cloud API and MCP clients.
+
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│              │     │              │     │              │
+│  Claude /    │────▶│  Pons MCP    │────▶│   Convex     │
+│  Cursor      │ MCP │  Endpoint    │     │   Backend    │
+│              │     │  (Next.js)   │     │              │
+└──────────────┘     └──────┬───────┘     └──────┬───────┘
+                            │                    │
+                     ┌──────┴───────┐     ┌──────┴───────┐
+                     │              │     │              │
+                     │  Pons Web    │     │  Meta Graph  │
+                     │  Dashboard   │     │  API v22.0   │
+                     │              │     │              │
+                     └──────────────┘     └──────────────┘
+```
+
+## Tech Stack
+
+| Layer | Technology |
+|:------|:-----------|
+| Framework | Next.js 16 (App Router, Turbopack) |
+| Backend | Convex (database, auth, file storage, scheduled actions) |
+| Auth | Convex Auth (Google OAuth) |
+| MCP | `@modelcontextprotocol/sdk` — Streamable HTTP transport |
+| UI | shadcn/ui + Tailwind CSS v4 |
+| Hosting | Vercel (FRA1) + Convex Cloud (eu-west-1) |
+
+## Data Model
+
+```
+Account (WhatsApp Business Account)
+├── AccountMember (owner / admin / member)
+├── Contact (customer phone numbers)
+│   └── Conversation (thread with a contact)
+│       └── Message (text, media, location, reaction...)
+├── Template (pre-approved message templates)
+├── ApiKey (scoped MCP authentication)
+└── WebhookLog (raw payloads for debugging)
+```
+
+### Key design decisions
+
+- **Multi-tenant:** Multiple WhatsApp Business Accounts per deployment, each with their own members
+- **Media in Convex storage:** Meta media URLs expire after 5 minutes, so media is downloaded immediately via a Convex action and stored permanently
+- **24h window tracking:** `conversation.windowExpiresAt` tracks when you can send free-form vs. template-only messages
+- **Webhook signature verification:** Each account has its own `appSecret`, verified per-request using HMAC-SHA256
+
+## Request Flows
+
+### Incoming message (webhook)
+
+1. Meta sends POST to `/api/webhook` with HMAC signature
+2. Next.js route parses the payload and verifies signature against the account's `appSecret`
+3. Calls `convex/webhook.ingestWebhook` mutation to:
+   - Upsert the contact
+   - Upsert the conversation (update window, preview, timestamp)
+   - Store the message
+4. If the message contains media, a Convex action downloads it from Meta's API and uploads to Convex file storage
+5. All subscribed clients (dashboard, etc.) update in real-time
+
+### Outbound message (MCP or dashboard)
+
+1. MCP client calls `send_text` tool (or user types in dashboard)
+2. `convex/whatsapp.sendTextMessage` action:
+   - Stores a pending message in the database
+   - Calls Meta Graph API v22.0 to send
+   - Updates message status to `sent`
+3. Meta sends webhook status updates (`delivered`, `read`) which update the message status
+
+### MCP tool call
+
+1. Client sends HTTP request to `/api/mcp` with Bearer token
+2. Route validates the API key and resolves the account
+3. Creates a fresh `McpServer` instance scoped to that account
+4. Executes the requested tool against Convex queries/mutations/actions
+5. Returns the result
+
+## Webhook Verification
+
+Pons verifies every incoming webhook request:
+
+1. Parse the payload to extract the `phone_number_id`
+2. Look up the account by phone number ID
+3. Verify the `X-Hub-Signature-256` header using the account's `appSecret` with HMAC-SHA256
+4. Reject with 401 if the signature is invalid
+
+This is done per-account since each WhatsApp Business Account has its own app secret.
+
+## File Structure
+
+```
+pons/
+├── convex/                    # Backend
+│   ├── schema.ts              # Database schema
+│   ├── auth.ts                # Convex Auth (Google OAuth)
+│   ├── accounts.ts            # Account + member management
+│   ├── conversations.ts       # Conversation queries
+│   ├── messages.ts            # Message CRUD
+│   ├── mcp.ts                 # MCP queries + API key management
+│   ├── mcpNode.ts             # Crypto operations (Node.js runtime)
+│   ├── webhook.ts             # Webhook ingestion + media download
+│   ├── whatsapp.ts            # Meta Graph API actions
+│   └── templates.ts           # Template queries
+├── src/
+│   ├── app/
+│   │   ├── api/mcp/           # MCP HTTP endpoint
+│   │   ├── api/webhook/       # WhatsApp webhook handler
+│   │   ├── docs/              # Documentation (fumadocs)
+│   │   └── page.tsx           # Landing + auth gate
+│   ├── components/
+│   │   ├── Dashboard.tsx      # Main shell
+│   │   ├── ConversationList.tsx
+│   │   ├── MessageThread.tsx  # Chat view + template picker
+│   │   ├── AccountSettings.tsx
+│   │   ├── ApiKeyManager.tsx
+│   │   └── ui/               # shadcn/ui primitives
+│   └── lib/
+│       ├── mcp-server.ts      # MCP tool definitions
+│       ├── source.ts          # Fumadocs source loader
+│       └── og/                # OG image generation
+├── content/docs/              # Documentation MDX content
+├── middleware.ts               # Auth middleware (webhook excluded)
+└── vercel.json                # Vercel config (FRA1 region)
+```
