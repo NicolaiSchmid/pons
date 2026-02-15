@@ -20,7 +20,7 @@
 Bridge the WhatsApp Business Cloud API to any MCP-compatible client.<br />
 Send and receive messages from Claude, Cursor, or your own tools.
 
-[pons.chat](https://pons.chat) · [Report Bug](https://github.com/NicolaiSchmid/pons/issues) · [Request Feature](https://github.com/NicolaiSchmid/pons/issues)
+[pons.chat](https://pons.chat) · [Docs](https://pons.chat/docs) · [Report Bug](https://github.com/NicolaiSchmid/pons/issues) · [Request Feature](https://github.com/NicolaiSchmid/pons/issues)
 
 <br />
 

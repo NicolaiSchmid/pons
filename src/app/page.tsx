@@ -256,6 +256,10 @@ export default function Home() {
 
 					{/* Quick links */}
 					<div className="flex items-center gap-5 text-muted-foreground text-sm">
+						<a className="transition hover:text-foreground" href="/docs">
+							Docs
+						</a>
+						<span className="h-3 w-px bg-border" />
 						<a
 							className="transition hover:text-foreground"
 							href="https://github.com/NicolaiSchmid/pons"
@@ -267,18 +271,7 @@ export default function Home() {
 						<span className="h-3 w-px bg-border" />
 						<a
 							className="transition hover:text-foreground"
-							href="https://github.com/NicolaiSchmid/pons#quick-start"
-							rel="noopener noreferrer"
-							target="_blank"
-						>
-							Quick Start
-						</a>
-						<span className="h-3 w-px bg-border" />
-						<a
-							className="transition hover:text-foreground"
-							href="https://github.com/NicolaiSchmid/pons#mcp-tools"
-							rel="noopener noreferrer"
-							target="_blank"
+							href="/docs/mcp-tools"
 						>
 							MCP Tools
 						</a>
@@ -539,6 +532,9 @@ export default function Home() {
 						<span>MIT License</span>
 					</div>
 					<div className="flex items-center gap-4 text-muted-foreground text-xs">
+						<a className="transition hover:text-foreground" href="/docs">
+							Docs
+						</a>
 						<a
 							className="transition hover:text-foreground"
 							href="https://github.com/NicolaiSchmid/pons"
