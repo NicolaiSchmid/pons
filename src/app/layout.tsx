@@ -7,10 +7,28 @@ import { Geist, Geist_Mono, Sora } from "next/font/google";
 import { ConvexClientProvider } from "./ConvexClientProvider";
 
 export const metadata: Metadata = {
+	metadataBase: new URL("https://pons.chat"),
 	title: "Pons — WhatsApp Business API Bridge",
 	description:
-		"Open-source WhatsApp Business Cloud API bridge with MCP support",
+		"Open-source WhatsApp Business Cloud API bridge with MCP support. Connect AI agents via MCP, manage conversations, send messages.",
 	icons: [{ rel: "icon", url: "/favicon.ico" }],
+	openGraph: {
+		title: "Pons — WhatsApp Business API Bridge",
+		description:
+			"Open-source bridge for the WhatsApp Cloud API. Connect AI agents via MCP, manage conversations, send messages.",
+		url: "https://pons.chat",
+		siteName: "Pons",
+		type: "website",
+	},
+	twitter: {
+		card: "summary",
+		title: "Pons — WhatsApp Business API Bridge",
+		description:
+			"Open-source bridge for the WhatsApp Cloud API. Connect AI agents via MCP.",
+	},
+	alternates: {
+		canonical: "https://pons.chat",
+	},
 };
 
 const geist = Geist({

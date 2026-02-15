@@ -20,7 +20,7 @@
 Bridge the WhatsApp Business Cloud API to any MCP-compatible client.<br />
 Send and receive messages from Claude, Cursor, or your own tools.
 
-[Live Demo](https://pons-wasc.vercel.app) · [Report Bug](https://github.com/NicolaiSchmid/pons/issues) · [Request Feature](https://github.com/NicolaiSchmid/pons/issues)
+[pons.chat](https://pons.chat) · [Report Bug](https://github.com/NicolaiSchmid/pons/issues) · [Request Feature](https://github.com/NicolaiSchmid/pons/issues)
 
 <br />
 
@@ -52,6 +52,7 @@ WhatsApp Business has a powerful API, but it's locked behind REST calls, webhook
 | Auth | **Convex Auth** (Google OAuth) |
 | MCP | `@modelcontextprotocol/sdk` — Streamable HTTP transport |
 | UI | **shadcn/ui** + Tailwind CSS v4 |
+| Domain | **[pons.chat](https://pons.chat)** |
 | Hosting | **Vercel** (FRA1) + **Convex Cloud** (eu-west-1) |
 
 ## Quick Start
