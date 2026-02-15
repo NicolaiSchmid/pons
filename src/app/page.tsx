@@ -205,8 +205,17 @@ export default function Home() {
 				<div className="pointer-events-none absolute top-0 left-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/4 rounded-full bg-pons-green/6 blur-[150px]" />
 
 				<div className="relative z-10 flex flex-col items-center gap-8">
-					{/* Logo */}
-					<div className="flex items-center gap-3">
+					{/* ASCII Logo */}
+					<pre className="hidden select-none font-mono text-pons-green text-xs leading-tight sm:block sm:text-sm">
+						{`██████╗  ██████╗ ███╗   ██╗███████╗
+██╔══██╗██╔═══██╗████╗  ██║██╔════╝
+██████╔╝██║   ██║██╔██╗ ██║███████╗
+██╔═══╝ ██║   ██║██║╚██╗██║╚════██║
+██║     ╚██████╔╝██║ ╚████║███████║
+╚═╝      ╚═════╝ ╚═╝  ╚═══╝╚══════╝`}
+					</pre>
+					{/* Mobile fallback */}
+					<div className="flex items-center gap-3 sm:hidden">
 						<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-pons-green/10 ring-1 ring-pons-green/20">
 							<MessageSquare className="h-5 w-5 text-pons-green" />
 						</div>
