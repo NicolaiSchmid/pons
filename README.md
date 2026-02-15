@@ -1,93 +1,91 @@
-# Pons
+<div align="center">
 
-WhatsApp Business Cloud API bridge with MCP (Model Context Protocol) support. Send and receive WhatsApp messages from Claude, Cursor, or any MCP-compatible client.
+<br />
 
-## Features
+```
+ ┌─────────────────────────────────────────┐
+ │                                         │
+ │   ██████╗  ██████╗ ███╗   ██╗███████╗   │
+ │   ██╔══██╗██╔═══██╗████╗  ██║██╔════╝   │
+ │   ██████╔╝██║   ██║██╔██╗ ██║███████╗   │
+ │   ██╔═══╝ ██║   ██║██║╚██╗██║╚════██║   │
+ │   ██║     ╚██████╔╝██║ ╚████║███████║   │
+ │   ╚═╝      ╚═════╝ ╚═╝  ╚═══╝╚══════╝   │
+ │                                         │
+ └─────────────────────────────────────────┘
+```
 
-- **Multi-tenant**: Support multiple WhatsApp Business Accounts per deployment
-- **Real-time**: Live message updates via Convex subscriptions
-- **MCP Integration**: Expose WhatsApp messaging as tools for AI assistants
-- **Media Handling**: Automatic download of images, videos, documents to Convex storage (Meta URLs expire in 5 minutes)
-- **24-hour Window Tracking**: Know when you can send free-form messages vs templates only
+**WhatsApp in your terminal. Messages in your AI.**
+
+Bridge the WhatsApp Business Cloud API to any MCP-compatible client.<br />
+Send and receive messages from Claude, Cursor, or your own tools.
+
+[Live Demo](https://pons-wasc.vercel.app) · [Report Bug](https://github.com/NicolaiSchmid/pons/issues) · [Request Feature](https://github.com/NicolaiSchmid/pons/issues)
+
+<br />
+
+</div>
+
+---
+
+## The Problem
+
+WhatsApp Business has a powerful API, but it's locked behind REST calls, webhook plumbing, and token management. There's no way to plug it into the tools you actually use — AI assistants, dev environments, automation pipelines.
+
+**Pons** (_Latin for "bridge"_) connects WhatsApp to the [Model Context Protocol](https://modelcontextprotocol.io/), so your AI assistant can read, search, and send WhatsApp messages as naturally as it reads files or searches the web.
+
+## What It Does
+
+- **Full WhatsApp inbox** — real-time web UI with conversations, media, delivery receipts
+- **MCP server** — expose WhatsApp as tools for Claude Desktop, Cursor, or any MCP client
+- **Multi-tenant** — multiple WhatsApp Business Accounts, multiple users per account
+- **Media handling** — images, videos, documents auto-downloaded to Convex storage (Meta URLs expire in 5 min)
+- **24h window tracking** — know when you can send free-form vs. template-only messages
+- **API key management** — scoped keys for different clients with expiration
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Framework | Next.js 15 (App Router) |
-| Backend | Convex (database, auth, file storage, actions) |
-| Auth | Convex Auth (email/password) |
-| MCP | `@modelcontextprotocol/sdk` with Streamable HTTP transport |
-| Hosting | Vercel + Convex Cloud |
+| Layer | Choice |
+|:------|:-------|
+| Framework | **Next.js 16** (App Router, Turbopack) |
+| Backend | **Convex** (database, auth, file storage, scheduled actions) |
+| Auth | **Convex Auth** (Google OAuth) |
+| MCP | `@modelcontextprotocol/sdk` — Streamable HTTP transport |
+| UI | **shadcn/ui** + Tailwind CSS v4 |
+| Hosting | **Vercel** (FRA1) + **Convex Cloud** (eu-west-1) |
 
 ## Quick Start
 
 ### Prerequisites
 
-- Node.js 18+
-- pnpm
-- A Meta Business App with WhatsApp Cloud API access
+- Node.js 18+, pnpm
+- A [Meta Business App](https://developers.facebook.com) with WhatsApp Cloud API access
 
-### Setup
+### 1. Install & configure
 
 ```bash
-# Clone and install
 git clone https://github.com/NicolaiSchmid/pons.git
 cd pons
 pnpm install
 
-# Start Convex (opens browser for auth on first run)
+# Start Convex dev (opens browser for auth on first run)
 npx convex dev
 
-# Generate auth secret
-openssl rand -base64 32
-# Add this to both .env.local AND Convex dashboard (Settings > Environment Variables)
-
-# Create .env.local
-cat > .env.local << EOF
-NEXT_PUBLIC_CONVEX_URL="https://your-project.convex.cloud"
-CONVEX_AUTH_SECRET="<your-generated-secret>"
-EOF
-
-# Run dev server
-pnpm dev
+# In another terminal
+pnpm run dev:next
 ```
 
-### WhatsApp Setup
+### 2. Connect WhatsApp
 
-1. Create a Meta Business App at [developers.facebook.com](https://developers.facebook.com)
-2. Add WhatsApp product and get a test phone number
-3. Sign up/login to Pons at `http://localhost:3000`
-4. Create an Account with:
-   - **WABA ID**: WhatsApp Business Account ID
-   - **Phone Number ID**: Meta's phone number ID
-   - **Access Token**: Permanent access token (create via System Users)
-   - **Webhook Verify Token**: Random string (click "Generate")
-   - **App Secret**: From Meta App Settings > Basic
-5. Set webhook URL in Meta to `https://your-domain.com/api/webhook`
+1. Create a Meta Business App → add WhatsApp product → get test phone number
+2. Sign in to Pons at `http://localhost:3000`
+3. Create an Account with your WABA ID, Phone Number ID, Access Token, and App Secret
+4. Set webhook URL in Meta to `https://your-domain.com/api/webhook`
+5. Use the generated Webhook Verify Token to verify
 
-## MCP Integration
+### 3. Connect your AI
 
-Pons exposes WhatsApp messaging via MCP, allowing AI assistants to send/receive messages.
-
-### Available Tools
-
-| Tool | Description |
-|------|-------------|
-| `list_conversations` | List recent conversations with preview |
-| `get_conversation` | Get conversation details with messages |
-| `search_messages` | Search messages by content |
-| `send_text` | Send a text message |
-| `send_template` | Send a template message (for closed windows) |
-| `list_templates` | List available message templates |
-| `mark_as_read` | Mark conversation as read |
-| `send_reaction` | React to a message with emoji |
-
-### Setup in Claude Desktop / Cursor
-
-1. Go to **API Keys** in the Pons dashboard
-2. Create a new API key with desired scopes
-3. Add to your MCP config:
+Go to **API Keys** in the dashboard, create a key, and add to your MCP config:
 
 ```json
 {
@@ -102,85 +100,99 @@ Pons exposes WhatsApp messaging via MCP, allowing AI assistants to send/receive 
 }
 ```
 
-### API Key Scopes
+## MCP Tools
 
-| Scope | Permissions |
-|-------|-------------|
-| `read` | View conversations and messages |
-| `write` | Mark as read, react to messages |
-| `send` | Send text messages and templates |
+| Tool | Scope | Description |
+|:-----|:------|:------------|
+| `list_conversations` | read | List recent conversations with preview |
+| `get_conversation` | read | Get full conversation with messages |
+| `search_messages` | read | Search messages by content |
+| `send_text` | send | Send a text message |
+| `send_template` | send | Send a template message (for closed windows) |
+| `list_templates` | read | List available message templates |
+| `mark_as_read` | write | Mark conversation as read |
+| `send_reaction` | write | React to a message with emoji |
+
+**Scopes**: `read` (view), `write` (mark read, react), `send` (send messages). Assign per key.
+
+## Architecture
+
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│              │     │              │     │              │
+│  Claude /    │────▶│  Pons MCP    │────▶│   Convex     │
+│  Cursor      │ MCP │  Endpoint    │     │   Backend    │
+│              │     │  (Next.js)   │     │              │
+└──────────────┘     └──────┬───────┘     └──────┬───────┘
+                            │                    │
+                     ┌──────┴───────┐     ┌──────┴───────┐
+                     │              │     │              │
+                     │  Pons Web    │     │  Meta Graph  │
+                     │  Dashboard   │     │  API v22.0   │
+                     │              │     │              │
+                     └──────────────┘     └──────────────┘
+```
+
+### Data Model
+
+```
+Account (WhatsApp Business Account)
+├── AccountMember (owner / admin / member)
+├── Contact (customer phone numbers)
+│   └── Conversation (thread with a contact)
+│       └── Message (text, media, location, reaction...)
+├── Template (pre-approved message templates)
+├── ApiKey (scoped MCP authentication)
+└── WebhookLog (raw payloads for debugging)
+```
 
 ## Project Structure
 
 ```
 pons/
-├── convex/
-│   ├── schema.ts          # Database schema
-│   ├── auth.ts            # Convex Auth config
-│   ├── accounts.ts        # WhatsApp account management
-│   ├── conversations.ts   # Conversation queries
-│   ├── messages.ts        # Message storage
-│   ├── mcp.ts             # MCP queries/mutations
-│   ├── mcpNode.ts         # API key crypto (Node.js)
-│   ├── webhook.ts         # Webhook processing
-│   └── whatsapp.ts        # Meta API actions
+├── convex/                 # Backend
+│   ├── schema.ts           # Database schema
+│   ├── auth.ts             # Convex Auth (Google OAuth)
+│   ├── accounts.ts         # Account + member management
+│   ├── conversations.ts    # Conversation queries
+│   ├── messages.ts         # Message CRUD
+│   ├── mcp.ts              # MCP queries + API key management
+│   ├── mcpNode.ts          # Crypto operations (Node.js runtime)
+│   ├── webhook.ts          # Webhook ingestion + media download
+│   └── whatsapp.ts         # Meta Graph API actions
 ├── src/
 │   ├── app/
-│   │   ├── api/mcp/       # MCP HTTP endpoint
-│   │   ├── api/webhook/   # WhatsApp webhook
-│   │   └── page.tsx       # Dashboard
+│   │   ├── api/mcp/        # MCP HTTP endpoint
+│   │   ├── api/webhook/    # WhatsApp webhook handler
+│   │   └── page.tsx        # Landing + auth gate
 │   ├── components/
-│   │   ├── Dashboard.tsx
-│   │   ├── ConversationList.tsx
-│   │   ├── MessageThread.tsx
-│   │   ├── ApiKeyManager.tsx
-│   │   └── SetupAccount.tsx
-│   └── lib/
-│       └── mcp-server.ts  # MCP server definition
-└── biome.json             # Linting config
-```
-
-## Data Model
-
-```
-Account (WhatsApp Business Account)
-├── Contact (Customer phone numbers)
-│   └── Conversation (Thread with a contact)
-│       └── Message (with media in Convex storage)
-├── Template (Pre-approved message templates)
-├── ApiKey (MCP authentication)
-└── WebhookLog (Raw payloads for debugging)
+│   │   ├── Dashboard.tsx           # Main shell
+│   │   ├── ConversationList.tsx    # Sidebar
+│   │   ├── MessageThread.tsx       # Chat view
+│   │   ├── AccountSettings.tsx     # Settings + member management
+│   │   ├── ApiKeyManager.tsx       # API key CRUD
+│   │   ├── AccountSelector.tsx     # Account switcher
+│   │   └── SetupAccount.tsx        # Onboarding
+│   └── components/ui/      # shadcn/ui primitives
+├── middleware.ts            # Auth middleware (webhook excluded)
+└── vercel.json             # Vercel config (FRA1 region)
 ```
 
 ## Development
 
 ```bash
-# Run all checks
-pnpm run check
-
-# Auto-fix lint/format issues
-pnpm run check:write
-
-# Type check
-pnpm run typecheck
-
-# Build
-pnpm run build
+pnpm dev              # Convex + Next.js in parallel
+pnpm run check:write  # Biome lint + format (auto-fix)
+pnpm run typecheck    # TypeScript check
+pnpm run build        # Production build
 ```
 
 ## Deployment
 
-### Vercel
-
-1. Connect your GitHub repo to Vercel
-2. Add environment variables:
-   - `NEXT_PUBLIC_CONVEX_URL`
-   - `CONVEX_AUTH_SECRET`
-3. Deploy
-
-### Convex
-
-Convex deploys automatically when you run `npx convex deploy` or via CI.
+1. Connect GitHub repo to **Vercel**
+2. Set environment variables: `NEXT_PUBLIC_CONVEX_URL`, `CONVEX_DEPLOY_KEY`
+3. Build command is pre-configured: `pnpm convex deploy --cmd 'pnpm run build'`
+4. Disable Vercel Deployment Protection for production (webhook needs unauthenticated access)
 
 ## License
 
