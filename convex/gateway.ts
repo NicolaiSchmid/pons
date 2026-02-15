@@ -26,10 +26,9 @@ export const mcpTool = action({
 		const keyHash = await ctx.runAction(internal.mcpNode.hashApiKeyAction, {
 			apiKey: args.apiKey,
 		});
-		const validation = await ctx.runQuery(
-			internal.mcp.validateApiKeyInternal,
-			{ keyHash },
-		);
+		const validation = await ctx.runQuery(internal.mcp.validateApiKeyInternal, {
+			keyHash,
+		});
 		if (!validation) {
 			throw new Error("Invalid or expired API key");
 		}
@@ -101,14 +100,11 @@ export const mcpTool = action({
 				});
 			}
 			case "send_text": {
-				const contact = await ctx.runMutation(
-					internal.mcp.getOrCreateContact,
-					{
-						accountId,
-						phone: toolArgs.phone as string,
-						name: toolArgs.name as string | undefined,
-					},
-				);
+				const contact = await ctx.runMutation(internal.mcp.getOrCreateContact, {
+					accountId,
+					phone: toolArgs.phone as string,
+					name: toolArgs.name as string | undefined,
+				});
 
 				return ctx.runAction(internal.whatsapp.sendTextMessage, {
 					accountId,
@@ -200,7 +196,7 @@ export const webhookIngest = action({
 		}
 
 		// Ingest the webhook payload
-		return ctx.runMutation(internal.webhook.ingestWebhook, {
+		await ctx.runMutation(internal.webhook.ingestWebhook, {
 			phoneNumberId: args.phoneNumberId,
 			payload: args.payload,
 			signature: args.signature,
@@ -222,7 +218,7 @@ export const webhookStatusUpdate = action({
 		errorCode: v.optional(v.string()),
 		errorMessage: v.optional(v.string()),
 	},
-	handler: async (ctx, args) => {
+	handler: async (ctx, args): Promise<void> => {
 		// Look up account
 		const account = await ctx.runQuery(
 			internal.accounts.getByPhoneNumberIdInternal,
@@ -249,7 +245,7 @@ export const webhookStatusUpdate = action({
 			throw new Error("Invalid webhook signature");
 		}
 
-		return ctx.runMutation(internal.webhook.ingestStatusUpdate, {
+		await ctx.runMutation(internal.webhook.ingestStatusUpdate, {
 			waMessageId: args.waMessageId,
 			status: args.status,
 			timestamp: args.timestamp,

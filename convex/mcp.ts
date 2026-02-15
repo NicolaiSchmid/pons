@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
 import {
 	action,
 	internalMutation,
@@ -146,18 +145,6 @@ export const revokeApiKey = mutation({
 // ============================================
 // Internal queries for MCP (API key auth)
 // ============================================
-
-// Type for API key validation result
-type ApiKeyValidationResult = {
-	keyId: Id<"apiKeys">;
-	accountId: Id<"accounts">;
-	scopes: string[];
-	account: {
-		_id: Id<"accounts">;
-		name: string;
-		phoneNumber: string;
-	};
-} | null;
 
 // Internal query to validate by hash
 export const validateApiKeyInternal = internalQuery({

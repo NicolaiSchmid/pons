@@ -391,10 +391,10 @@ export const sendTextMessageUI = action({
 		const userId = await auth.getUserId(ctx);
 		if (!userId) throw new Error("Unauthorized");
 
-		const membership = await ctx.runQuery(
-			internal.accounts.checkMembership,
-			{ accountId: args.accountId, userId },
-		);
+		const membership = await ctx.runQuery(internal.accounts.checkMembership, {
+			accountId: args.accountId,
+			userId,
+		});
 		if (!membership) throw new Error("Access denied");
 
 		return ctx.runAction(internal.whatsapp.sendTextMessage, args);
@@ -417,10 +417,10 @@ export const sendTemplateMessageUI = action({
 		const userId = await auth.getUserId(ctx);
 		if (!userId) throw new Error("Unauthorized");
 
-		const membership = await ctx.runQuery(
-			internal.accounts.checkMembership,
-			{ accountId: args.accountId, userId },
-		);
+		const membership = await ctx.runQuery(internal.accounts.checkMembership, {
+			accountId: args.accountId,
+			userId,
+		});
 		if (!membership) throw new Error("Access denied");
 
 		return ctx.runAction(internal.whatsapp.sendTemplateMessage, args);

@@ -105,12 +105,9 @@ export function createMcpServer(apiKey: string) {
 				.describe("Max conversations to return (default 20)"),
 		},
 		async ({ limit }) => {
-			const conversations = (await callTool(
-				convex,
-				apiKey,
-				"list_unanswered",
-				{ limit: limit ?? 20 },
-			)) as Array<{
+			const conversations = (await callTool(convex, apiKey, "list_unanswered", {
+				limit: limit ?? 20,
+			})) as Array<{
 				id: Id<"conversations">;
 				contactName: string;
 				contactPhone: string;
@@ -177,12 +174,10 @@ export function createMcpServer(apiKey: string) {
 				.describe("Max messages to return (default 50)"),
 		},
 		async ({ conversationId, messageLimit }) => {
-			const conversation = (await callTool(
-				convex,
-				apiKey,
-				"get_conversation",
-				{ conversationId, messageLimit: messageLimit ?? 50 },
-			)) as {
+			const conversation = (await callTool(convex, apiKey, "get_conversation", {
+				conversationId,
+				messageLimit: messageLimit ?? 50,
+			})) as {
 				id: Id<"conversations">;
 				contact: { id?: Id<"contacts">; name: string; phone: string };
 				windowOpen: boolean;
@@ -394,7 +389,12 @@ ${messagesText || "No messages yet."}`;
 		"List available message templates for this account",
 		{},
 		async () => {
-			const templates = (await callTool(convex, apiKey, "list_templates", {})) as Array<{
+			const templates = (await callTool(
+				convex,
+				apiKey,
+				"list_templates",
+				{},
+			)) as Array<{
 				id: Id<"templates">;
 				name: string;
 				language: string;
