@@ -23,6 +23,14 @@ export const list = query({
 	},
 });
 
+// Get account by ID for internal/action use (no user auth — caller must validate access)
+export const getInternal = query({
+	args: { accountId: v.id("accounts") },
+	handler: async (ctx, args) => {
+		return ctx.db.get(args.accountId);
+	},
+});
+
 // Get a single account by ID (with access check)
 export const get = query({
 	args: { accountId: v.id("accounts") },

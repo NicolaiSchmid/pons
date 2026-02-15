@@ -132,6 +132,46 @@ export const createOutbound = mutation({
 	},
 });
 
+// Create outbound message for internal/action use (no user auth — caller must validate access)
+export const createOutboundInternal = mutation({
+	args: {
+		accountId: v.id("accounts"),
+		conversationId: v.id("conversations"),
+		type: messageTypeValidator,
+		text: v.optional(v.string()),
+		caption: v.optional(v.string()),
+		mediaId: v.optional(v.id("_storage")),
+		mediaMimeType: v.optional(v.string()),
+		mediaFilename: v.optional(v.string()),
+		templateName: v.optional(v.string()),
+		templateLanguage: v.optional(v.string()),
+		templateComponents: v.optional(v.any()),
+		contextMessageId: v.optional(v.string()),
+	},
+	handler: async (ctx, args) => {
+		const now = Date.now();
+
+		return ctx.db.insert("messages", {
+			accountId: args.accountId,
+			conversationId: args.conversationId,
+			waMessageId: `pending_${now}`,
+			direction: "outbound",
+			type: args.type,
+			text: args.text,
+			caption: args.caption,
+			mediaId: args.mediaId,
+			mediaMimeType: args.mediaMimeType,
+			mediaFilename: args.mediaFilename,
+			templateName: args.templateName,
+			templateLanguage: args.templateLanguage,
+			templateComponents: args.templateComponents,
+			contextMessageId: args.contextMessageId,
+			status: "pending",
+			timestamp: now,
+		});
+	},
+});
+
 // Update message after API call
 export const updateAfterSend = mutation({
 	args: {

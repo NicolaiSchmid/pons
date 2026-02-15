@@ -19,20 +19,23 @@ export const sendTextMessage = action({
 		ctx,
 		args,
 	): Promise<{ messageId: Id<"messages">; waMessageId: string }> => {
-		// Get account for API credentials
-		const account = await ctx.runQuery(api.accounts.get, {
+		// Get account for API credentials (no user auth — MCP authenticates via API key)
+		const account = await ctx.runQuery(api.accounts.getInternal, {
 			accountId: args.accountId,
 		});
 		if (!account) throw new Error("Account not found");
 
-		// Create message record
-		const messageId = await ctx.runMutation(api.messages.createOutbound, {
-			accountId: args.accountId,
-			conversationId: args.conversationId,
-			type: "text",
-			text: args.text,
-			contextMessageId: args.replyToMessageId,
-		});
+		// Create message record (no user auth — MCP authenticates via API key)
+		const messageId = await ctx.runMutation(
+			api.messages.createOutboundInternal,
+			{
+				accountId: args.accountId,
+				conversationId: args.conversationId,
+				type: "text",
+				text: args.text,
+				contextMessageId: args.replyToMessageId,
+			},
+		);
 
 		// Build API request
 		const body: Record<string, unknown> = {
@@ -120,20 +123,23 @@ export const sendTemplateMessage = action({
 		ctx,
 		args,
 	): Promise<{ messageId: Id<"messages">; waMessageId: string }> => {
-		const account = await ctx.runQuery(api.accounts.get, {
+		const account = await ctx.runQuery(api.accounts.getInternal, {
 			accountId: args.accountId,
 		});
 		if (!account) throw new Error("Account not found");
 
-		const messageId = await ctx.runMutation(api.messages.createOutbound, {
-			accountId: args.accountId,
-			conversationId: args.conversationId,
-			type: "template",
-			templateName: args.templateName,
-			templateLanguage: args.templateLanguage,
+		const messageId = await ctx.runMutation(
+			api.messages.createOutboundInternal,
+			{
+				accountId: args.accountId,
+				conversationId: args.conversationId,
+				type: "template",
+				templateName: args.templateName,
+				templateLanguage: args.templateLanguage,
 
-			templateComponents: args.components,
-		});
+				templateComponents: args.components,
+			},
+		);
 
 		const body: Record<string, unknown> = {
 			messaging_product: "whatsapp",
