@@ -10,21 +10,23 @@ export const metadata: Metadata = {
 	metadataBase: new URL("https://pons.chat"),
 	title: "Pons — WhatsApp Business API Bridge",
 	description:
-		"Open-source WhatsApp Business Cloud API bridge with MCP support. Connect AI agents via MCP, manage conversations, send messages.",
+		"WhatsApp in your terminal. Messages in your AI. Bridge the WhatsApp Business Cloud API to any MCP-compatible client.",
 	icons: [{ rel: "icon", url: "/favicon.ico" }],
 	openGraph: {
 		title: "Pons — WhatsApp Business API Bridge",
 		description:
-			"Open-source bridge for the WhatsApp Cloud API. Connect AI agents via MCP, manage conversations, send messages.",
+			"WhatsApp in your terminal. Messages in your AI. Send and receive messages from Claude, Cursor, or your own tools.",
 		url: "https://pons.chat",
 		siteName: "Pons",
 		type: "website",
+		// Image auto-injected by opengraph-image.tsx
 	},
 	twitter: {
-		card: "summary",
+		card: "summary_large_image",
 		title: "Pons — WhatsApp Business API Bridge",
 		description:
-			"Open-source bridge for the WhatsApp Cloud API. Connect AI agents via MCP.",
+			"WhatsApp in your terminal. Messages in your AI. Open-source bridge with MCP support.",
+		// Image auto-injected by twitter-image.tsx
 	},
 	alternates: {
 		canonical: "https://pons.chat",
