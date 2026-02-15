@@ -198,3 +198,7 @@ pnpm run build        # Production build
 ## License
 
 MIT
+
+---
+
+Built by [nicolaischmid.com](https://nicolaischmid.com)

@@ -530,6 +530,18 @@ export default function Home() {
 						<span>Pons</span>
 						<span className="text-border">·</span>
 						<span>MIT License</span>
+						<span className="text-border">·</span>
+						<span>
+							Built by{" "}
+							<a
+								className="text-foreground/70 underline decoration-border underline-offset-2 transition hover:text-foreground hover:decoration-foreground/40"
+								href="https://nicolaischmid.com"
+								rel="noopener noreferrer"
+								target="_blank"
+							>
+								nicolaischmid.com
+							</a>
+						</span>
 					</div>
 					<div className="flex items-center gap-4 text-muted-foreground text-xs">
 						<a className="transition hover:text-foreground" href="/docs">
@@ -542,14 +554,6 @@ export default function Home() {
 							target="_blank"
 						>
 							GitHub
-						</a>
-						<a
-							className="transition hover:text-foreground"
-							href="https://nicolaischmid.com"
-							rel="noopener noreferrer"
-							target="_blank"
-						>
-							@nicolaischmid
 						</a>
 					</div>
 				</div>
