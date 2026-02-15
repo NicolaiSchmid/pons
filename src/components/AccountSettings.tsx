@@ -15,6 +15,7 @@ import {
 	User,
 	UserPlus,
 } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -343,10 +344,12 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 								key={member.userId}
 							>
 								{member.image ? (
-									<img
+									<Image
 										alt=""
 										className="h-7 w-7 rounded-full"
+										height={28}
 										src={member.image}
+										width={28}
 									/>
 								) : (
 									<div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground">

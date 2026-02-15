@@ -92,39 +92,39 @@ export function Dashboard() {
 							onSelectAccount={setSelectedAccountId}
 							selectedAccountId={selectedAccountId}
 						/>
+						{selectedAccountId && (
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										className="h-7 w-7 text-muted-foreground hover:text-foreground"
+										onClick={() => setShowSettings(true)}
+										size="icon"
+										variant="ghost"
+									>
+										<Settings className="h-3.5 w-3.5" />
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>Account settings</TooltipContent>
+							</Tooltip>
+						)}
 					</div>
 
 					<div className="flex items-center gap-1">
 						{selectedAccountId && (
-							<>
-								<Tooltip>
-									<TooltipTrigger asChild>
-										<Button
-											className="h-8 gap-1.5 text-muted-foreground text-xs hover:text-foreground"
-											onClick={() => setShowApiKeys(true)}
-											size="sm"
-											variant="ghost"
-										>
-											<KeyRound className="h-3.5 w-3.5" />
-											<span className="hidden sm:inline">API Keys</span>
-										</Button>
-									</TooltipTrigger>
-									<TooltipContent>Manage MCP API keys</TooltipContent>
-								</Tooltip>
-								<Tooltip>
-									<TooltipTrigger asChild>
-										<Button
-											className="h-8 w-8 text-muted-foreground hover:text-foreground"
-											onClick={() => setShowSettings(true)}
-											size="icon"
-											variant="ghost"
-										>
-											<Settings className="h-3.5 w-3.5" />
-										</Button>
-									</TooltipTrigger>
-									<TooltipContent>Account settings</TooltipContent>
-								</Tooltip>
-							</>
+							<Tooltip>
+								<TooltipTrigger asChild>
+									<Button
+										className="h-8 gap-1.5 text-muted-foreground text-xs hover:text-foreground"
+										onClick={() => setShowApiKeys(true)}
+										size="sm"
+										variant="ghost"
+									>
+										<KeyRound className="h-3.5 w-3.5" />
+										<span className="hidden sm:inline">API Keys</span>
+									</Button>
+								</TooltipTrigger>
+								<TooltipContent>Manage MCP API keys</TooltipContent>
+							</Tooltip>
 						)}
 						<Tooltip>
 							<TooltipTrigger asChild>
