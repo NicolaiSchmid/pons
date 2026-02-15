@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { auth } from "./auth";
 import { checkAccountAccess } from "./helpers";
 
@@ -132,8 +132,8 @@ export const createOutbound = mutation({
 	},
 });
 
-// Create outbound message for internal/action use (no user auth — caller must validate access)
-export const createOutboundInternal = mutation({
+// Create outbound message (internal only — called from send actions)
+export const createOutboundInternal = internalMutation({
 	args: {
 		accountId: v.id("accounts"),
 		conversationId: v.id("conversations"),
@@ -172,8 +172,8 @@ export const createOutboundInternal = mutation({
 	},
 });
 
-// Update message after API call
-export const updateAfterSend = mutation({
+// Update message after API call (internal only)
+export const updateAfterSend = internalMutation({
 	args: {
 		messageId: v.id("messages"),
 		waMessageId: v.string(),
@@ -190,8 +190,8 @@ export const updateAfterSend = mutation({
 	},
 });
 
-// Update message status (from webhook)
-export const updateStatus = mutation({
+// Update message status (internal only — called from webhook processing)
+export const updateStatus = internalMutation({
 	args: {
 		waMessageId: v.string(),
 		status: statusValidator,
@@ -233,8 +233,8 @@ export const updateStatus = mutation({
 	},
 });
 
-// Create inbound message (from webhook)
-export const createInbound = mutation({
+// Create inbound message (internal only — called from webhook processing)
+export const createInbound = internalMutation({
 	args: {
 		accountId: v.id("accounts"),
 		conversationId: v.id("conversations"),

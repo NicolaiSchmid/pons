@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { auth } from "./auth";
 import { checkAccountAccess } from "./helpers";
 
@@ -86,8 +86,8 @@ export const getOrCreate = mutation({
 	},
 });
 
-// Update conversation after a new message
-export const updateLastMessage = mutation({
+// Update conversation after a new message (internal only)
+export const updateLastMessage = internalMutation({
 	args: {
 		conversationId: v.id("conversations"),
 		preview: v.string(),
@@ -129,8 +129,8 @@ export const markAsRead = mutation({
 	},
 });
 
-// Update the 24-hour customer service window
-export const updateWindow = mutation({
+// Update the 24-hour customer service window (internal only)
+export const updateWindow = internalMutation({
 	args: {
 		conversationId: v.id("conversations"),
 		windowExpiresAt: v.number(),
@@ -142,8 +142,8 @@ export const updateWindow = mutation({
 	},
 });
 
-// Internal mutation for webhook processing (no auth check)
-export const getOrCreateInternal = mutation({
+// Get or create conversation (internal only — called from webhook processing)
+export const getOrCreateInternal = internalMutation({
 	args: {
 		accountId: v.id("accounts"),
 		contactId: v.id("contacts"),

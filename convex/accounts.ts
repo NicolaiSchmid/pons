@@ -1,6 +1,30 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalQuery, mutation, query } from "./_generated/server";
 import { auth } from "./auth";
+
+// Safe account fields returned to the browser (no secrets)
+function stripSecrets(account: {
+	_id: import("./_generated/dataModel").Id<"accounts">;
+	_creationTime: number;
+	name: string;
+	wabaId: string;
+	phoneNumberId: string;
+	phoneNumber: string;
+	accessToken: string;
+	webhookVerifyToken: string;
+	appSecret: string;
+	ownerId: import("./_generated/dataModel").Id<"users">;
+}) {
+	return {
+		_id: account._id,
+		_creationTime: account._creationTime,
+		name: account.name,
+		wabaId: account.wabaId,
+		phoneNumberId: account.phoneNumberId,
+		phoneNumber: account.phoneNumber,
+		ownerId: account.ownerId,
+	};
+}
 
 // Get all accounts the current user has access to
 export const list = query({
@@ -19,19 +43,13 @@ export const list = query({
 			memberships.map((m) => ctx.db.get(m.accountId)),
 		);
 
-		return accounts.filter(Boolean);
+		return accounts
+			.filter((a): a is NonNullable<typeof a> => a !== null)
+			.map(stripSecrets);
 	},
 });
 
-// Get account by ID for internal/action use (no user auth — caller must validate access)
-export const getInternal = query({
-	args: { accountId: v.id("accounts") },
-	handler: async (ctx, args) => {
-		return ctx.db.get(args.accountId);
-	},
-});
-
-// Get a single account by ID (with access check)
+// Get a single account by ID (with access check, no secrets)
 export const get = query({
 	args: { accountId: v.id("accounts") },
 	handler: async (ctx, args) => {
@@ -48,7 +66,76 @@ export const get = query({
 
 		if (!membership) return null;
 
+		const account = await ctx.db.get(args.accountId);
+		if (!account) return null;
+
+		return stripSecrets(account);
+	},
+});
+
+// Get account secrets for admin settings page (admin/owner only)
+export const getSecrets = query({
+	args: { accountId: v.id("accounts") },
+	handler: async (ctx, args) => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) return null;
+
+		// Check admin/owner role
+		const membership = await ctx.db
+			.query("accountMembers")
+			.withIndex("by_account_user", (q) =>
+				q.eq("accountId", args.accountId).eq("userId", userId),
+			)
+			.first();
+
+		if (!membership || membership.role === "member") return null;
+
+		const account = await ctx.db.get(args.accountId);
+		if (!account) return null;
+
+		return {
+			accessToken: account.accessToken,
+			webhookVerifyToken: account.webhookVerifyToken,
+			appSecret: account.appSecret,
+		};
+	},
+});
+
+// Get full account by ID (internal only — includes secrets for server-side use)
+export const getInternal = internalQuery({
+	args: { accountId: v.id("accounts") },
+	handler: async (ctx, args) => {
 		return ctx.db.get(args.accountId);
+	},
+});
+
+// Get account by phone number ID (internal only — includes appSecret for webhook verification)
+export const getByPhoneNumberIdInternal = internalQuery({
+	args: { phoneNumberId: v.string() },
+	handler: async (ctx, args) => {
+		return ctx.db
+			.query("accounts")
+			.withIndex("by_phone_number_id", (q) =>
+				q.eq("phoneNumberId", args.phoneNumberId),
+			)
+			.first();
+	},
+});
+
+// Check if a user is a member of an account (internal — used by UI action wrappers)
+export const checkMembership = internalQuery({
+	args: {
+		accountId: v.id("accounts"),
+		userId: v.id("users"),
+	},
+	handler: async (ctx, args) => {
+		const membership = await ctx.db
+			.query("accountMembers")
+			.withIndex("by_account_user", (q) =>
+				q.eq("accountId", args.accountId).eq("userId", args.userId),
+			)
+			.first();
+		return !!membership;
 	},
 });
 
@@ -397,32 +484,6 @@ export const updateMemberRole = mutation({
 		}
 
 		await ctx.db.patch(targetMembership._id, { role: args.role });
-	},
-});
-
-// Get account by phone number ID (for webhook processing)
-// NOTE: This is a public query because the webhook route uses ConvexHttpClient.
-// Only returns fields needed for webhook processing — no access token.
-export const getByPhoneNumberId = query({
-	args: { phoneNumberId: v.string() },
-	handler: async (ctx, args) => {
-		const account = await ctx.db
-			.query("accounts")
-			.withIndex("by_phone_number_id", (q) =>
-				q.eq("phoneNumberId", args.phoneNumberId),
-			)
-			.first();
-
-		if (!account) return null;
-
-		return {
-			_id: account._id,
-			name: account.name,
-			phoneNumberId: account.phoneNumberId,
-			phoneNumber: account.phoneNumber,
-			appSecret: account.appSecret,
-			webhookVerifyToken: account.webhookVerifyToken,
-		};
 	},
 });
 

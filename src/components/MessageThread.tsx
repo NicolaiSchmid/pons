@@ -33,8 +33,8 @@ export function MessageThread({
 	const messagesResult = useQuery(api.messages.list, { conversationId });
 	const templates = useQuery(api.templates.list, { accountId });
 	const markAsRead = useMutation(api.conversations.markAsRead);
-	const sendTextMessage = useAction(api.whatsapp.sendTextMessage);
-	const sendTemplateMessage = useAction(api.whatsapp.sendTemplateMessage);
+	const sendTextMessage = useAction(api.whatsapp.sendTextMessageUI);
+	const sendTemplateMessage = useAction(api.whatsapp.sendTemplateMessageUI);
 
 	const [messageText, setMessageText] = useState("");
 	const [sending, setSending] = useState(false);

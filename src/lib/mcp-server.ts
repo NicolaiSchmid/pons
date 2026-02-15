@@ -23,8 +23,18 @@ function getConvexUrl(): string {
 	return url;
 }
 
+// Helper to call the gateway action — all auth happens inside
+async function callTool(
+	convex: ConvexHttpClient,
+	apiKey: string,
+	tool: string,
+	toolArgs: Record<string, unknown>,
+): Promise<unknown> {
+	return convex.action(api.gateway.mcpTool, { apiKey, tool, toolArgs });
+}
+
 // Create a new MCP server instance for each request
-export function createMcpServer(accountId: Id<"accounts">) {
+export function createMcpServer(apiKey: string) {
 	const convex = new ConvexHttpClient(getConvexUrl());
 
 	const server = new McpServer({
@@ -45,13 +55,20 @@ export function createMcpServer(accountId: Id<"accounts">) {
 				.describe("Max conversations to return (default 50)"),
 		},
 		async ({ limit }) => {
-			const conversations = await convex.query(
-				api.mcp.listConversationsInternal,
-				{
-					accountId,
-					limit: limit ?? 50,
-				},
-			);
+			const conversations = (await callTool(
+				convex,
+				apiKey,
+				"list_conversations",
+				{ limit: limit ?? 50 },
+			)) as Array<{
+				id: Id<"conversations">;
+				contactName: string;
+				contactPhone: string;
+				lastMessageAt?: number;
+				lastMessagePreview?: string;
+				unreadCount: number;
+				windowOpen: boolean;
+			}>;
 
 			const text = conversations
 				.map((c) => {
@@ -88,10 +105,27 @@ export function createMcpServer(accountId: Id<"accounts">) {
 				.describe("Max conversations to return (default 20)"),
 		},
 		async ({ limit }) => {
-			const conversations = await convex.query(api.mcp.listUnansweredInternal, {
-				accountId,
-				limit: limit ?? 20,
-			});
+			const conversations = (await callTool(
+				convex,
+				apiKey,
+				"list_unanswered",
+				{ limit: limit ?? 20 },
+			)) as Array<{
+				id: Id<"conversations">;
+				contactName: string;
+				contactPhone: string;
+				lastMessageAt?: number;
+				lastMessagePreview?: string;
+				unreadCount: number;
+				windowOpen: boolean;
+				lastInboundMessage: {
+					id: Id<"messages">;
+					waMessageId: string;
+					text?: string;
+					type: string;
+					timestamp: number;
+				};
+			}>;
 
 			if (conversations.length === 0) {
 				return {
@@ -143,11 +177,26 @@ export function createMcpServer(accountId: Id<"accounts">) {
 				.describe("Max messages to return (default 50)"),
 		},
 		async ({ conversationId, messageLimit }) => {
-			const conversation = await convex.query(api.mcp.getConversationInternal, {
-				accountId,
-				conversationId: conversationId as Id<"conversations">,
-				messageLimit: messageLimit ?? 50,
-			});
+			const conversation = (await callTool(
+				convex,
+				apiKey,
+				"get_conversation",
+				{ conversationId, messageLimit: messageLimit ?? 50 },
+			)) as {
+				id: Id<"conversations">;
+				contact: { id?: Id<"contacts">; name: string; phone: string };
+				windowOpen: boolean;
+				windowExpiresAt?: number;
+				messages: Array<{
+					id: Id<"messages">;
+					waMessageId: string;
+					direction: string;
+					type: string;
+					text?: string;
+					timestamp: number;
+					status: string;
+				}>;
+			} | null;
 
 			if (!conversation) {
 				return {
@@ -192,11 +241,19 @@ ${messagesText || "No messages yet."}`;
 			limit: z.number().optional().describe("Max results (default 20)"),
 		},
 		async ({ query, limit }) => {
-			const results = await convex.query(api.mcp.searchMessagesInternal, {
-				accountId,
+			const results = (await callTool(convex, apiKey, "search_messages", {
 				query,
 				limit: limit ?? 20,
-			});
+			})) as Array<{
+				id: Id<"messages">;
+				conversationId: Id<"conversations">;
+				contactName: string;
+				contactPhone: string;
+				direction: string;
+				type: string;
+				text?: string;
+				timestamp: number;
+			}>;
 
 			const text = results
 				.map((m) => {
@@ -234,23 +291,12 @@ ${messagesText || "No messages yet."}`;
 				.describe("WhatsApp message ID to reply to (optional)"),
 		},
 		async ({ phone, text, replyToMessageId }) => {
-			// Get or create contact and conversation
-			const { conversationId } = await convex.mutation(
-				api.mcp.getOrCreateContact,
-				{
-					accountId,
-					phone,
-				},
-			);
-
 			try {
-				const result = await convex.action(api.whatsapp.sendTextMessage, {
-					accountId,
-					conversationId,
-					to: phone,
+				const result = (await callTool(convex, apiKey, "send_text", {
+					phone,
 					text,
 					replyToMessageId,
-				});
+				})) as { messageId: Id<"messages">; waMessageId: string };
 
 				return {
 					content: [
@@ -264,13 +310,12 @@ ${messagesText || "No messages yet."}`;
 				const errorMessage =
 					error instanceof Error ? error.message : "Unknown error";
 
-				// Check if it's a window error
 				if (errorMessage.includes("outside") || errorMessage.includes("24")) {
 					return {
 						content: [
 							{
 								type: "text",
-								text: `Failed to send: 24-hour messaging window is closed. Use send_template to send a template message first, which will open a new conversation window when the customer responds.`,
+								text: "Failed to send: 24-hour messaging window is closed. Use send_template to send a template message first, which will open a new conversation window when the customer responds.",
 							},
 						],
 					};
@@ -310,24 +355,13 @@ ${messagesText || "No messages yet."}`;
 				),
 		},
 		async ({ phone, templateName, templateLanguage, components }) => {
-			// Get or create contact and conversation
-			const { conversationId } = await convex.mutation(
-				api.mcp.getOrCreateContact,
-				{
-					accountId,
-					phone,
-				},
-			);
-
 			try {
-				const result = await convex.action(api.whatsapp.sendTemplateMessage, {
-					accountId,
-					conversationId,
-					to: phone,
+				const result = (await callTool(convex, apiKey, "send_template", {
+					phone,
 					templateName,
 					templateLanguage,
 					components,
-				});
+				})) as { messageId: Id<"messages">; waMessageId: string };
 
 				return {
 					content: [
@@ -360,9 +394,13 @@ ${messagesText || "No messages yet."}`;
 		"List available message templates for this account",
 		{},
 		async () => {
-			const templates = await convex.query(api.mcp.listTemplatesInternal, {
-				accountId,
-			});
+			const templates = (await callTool(convex, apiKey, "list_templates", {})) as Array<{
+				id: Id<"templates">;
+				name: string;
+				language: string;
+				category: string;
+				status: string;
+			}>;
 
 			if (templates.length === 0) {
 				return {
@@ -401,10 +439,7 @@ ${messagesText || "No messages yet."}`;
 		},
 		async ({ waMessageId }) => {
 			try {
-				await convex.action(api.whatsapp.markAsRead, {
-					accountId,
-					waMessageId,
-				});
+				await callTool(convex, apiKey, "mark_as_read", { waMessageId });
 
 				return {
 					content: [
@@ -445,11 +480,10 @@ ${messagesText || "No messages yet."}`;
 		},
 		async ({ conversationId, phone, waMessageId, emoji }) => {
 			try {
-				await convex.action(api.whatsapp.sendReaction, {
-					accountId,
-					conversationId: conversationId as Id<"conversations">,
-					to: phone,
-					messageId: waMessageId,
+				await callTool(convex, apiKey, "send_reaction", {
+					conversationId,
+					phone,
+					waMessageId,
 					emoji,
 				});
 

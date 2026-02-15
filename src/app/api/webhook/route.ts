@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import { ConvexHttpClient } from "convex/browser";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -134,43 +133,26 @@ export async function GET(request: NextRequest) {
 	});
 
 	if (mode === "subscribe" && token && challenge) {
-		// TODO: Validate token against accounts in DB
-		console.log("[webhook:GET] ✓ Verification successful, returning challenge");
-		return new NextResponse(challenge, { status: 200 });
+		// Validate token against accounts in DB via gateway
+		const isValid = await convex.action(api.gateway.webhookVerify, {
+			verifyToken: token,
+		});
+
+		if (isValid) {
+			console.log(
+				"[webhook:GET] ✓ Verification successful, returning challenge",
+			);
+			return new NextResponse(challenge, { status: 200 });
+		}
+
+		console.log("[webhook:GET] ✗ Verification failed — token not recognized");
+		return new NextResponse("Forbidden", { status: 403 });
 	}
 
 	console.log(
 		"[webhook:GET] ✗ Verification failed — missing mode/token/challenge",
 	);
 	return new NextResponse("Forbidden", { status: 403 });
-}
-
-// Verify webhook signature using HMAC-SHA256
-function verifySignature(
-	rawBody: string,
-	signature: string,
-	appSecret: string,
-): boolean {
-	const expectedSignature = `sha256=${crypto.createHmac("sha256", appSecret).update(rawBody).digest("hex")}`;
-
-	// Prevent timing attacks
-	if (signature.length !== expectedSignature.length) return false;
-	return crypto.timingSafeEqual(
-		Buffer.from(signature),
-		Buffer.from(expectedSignature),
-	);
-}
-
-// Extract the first phone_number_id from a parsed webhook payload
-function extractPhoneNumberId(payload: WebhookPayload): string | null {
-	for (const entry of payload.entry) {
-		for (const change of entry.changes) {
-			if (change.field === "messages") {
-				return change.value.metadata.phone_number_id;
-			}
-		}
-	}
-	return null;
 }
 
 // Webhook notifications (POST request from Meta)
@@ -182,6 +164,14 @@ export async function POST(request: NextRequest) {
 		url: request.nextUrl.pathname,
 		hasSignature: !!signature,
 	});
+
+	// Require signature header — reject if missing
+	if (!signature) {
+		console.error(
+			"[webhook:POST] ✗ Missing x-hub-signature-256 header — rejecting",
+		);
+		return new NextResponse("Missing signature", { status: 401 });
+	}
 
 	const body = await request.text();
 
@@ -211,54 +201,28 @@ export async function POST(request: NextRequest) {
 		return new NextResponse("OK", { status: 200 });
 	}
 
-	// Verify signature per-account
-	const phoneNumberId = extractPhoneNumberId(payload);
-	if (phoneNumberId && signature) {
-		const account = await convex.query(api.accounts.getByPhoneNumberId, {
-			phoneNumberId,
-		});
-
-		if (account?.appSecret) {
-			const isValid = verifySignature(body, signature, account.appSecret);
-			if (!isValid) {
-				console.error("[webhook:POST] ✗ Signature verification failed", {
-					phoneNumberId,
-				});
-				return new NextResponse("Invalid signature", { status: 401 });
-			}
-			console.log("[webhook:POST] ✓ Signature verified", { phoneNumberId });
-		} else if (!account) {
-			console.warn("[webhook:POST] ⚠ No account found for phoneNumberId", {
-				phoneNumberId,
-			});
-		}
-	} else if (!signature) {
-		console.warn(
-			"[webhook:POST] ⚠ No signature header — skipping verification",
-		);
-	}
-
-	// Process each change
+	// Process each change — signature verification happens inside the gateway
 	for (const entry of payload.entry) {
 		for (const change of entry.changes) {
 			if (change.field !== "messages") continue;
 
 			const value = change.value;
-			const changePhoneNumberId = value.metadata.phone_number_id;
+			const phoneNumberId = value.metadata.phone_number_id;
 
 			console.log("[webhook:POST] Processing", {
-				phoneNumberId: changePhoneNumberId,
+				phoneNumberId,
 				messages: value.messages?.length ?? 0,
 				statuses: value.statuses?.length ?? 0,
 			});
 
-			// Ingest messages
+			// Ingest messages via gateway (verifies signature inside Convex)
 			if (value.messages && value.messages.length > 0) {
 				try {
-					await convex.mutation(api.webhook.ingestWebhook, {
-						phoneNumberId: changePhoneNumberId,
+					await convex.action(api.gateway.webhookIngest, {
+						phoneNumberId,
+						rawBody: body,
+						signature,
 						payload: value,
-						signature: signature ?? undefined,
 					});
 					console.log("[webhook:POST] ✓ Messages ingested", {
 						count: value.messages.length,
@@ -270,11 +234,14 @@ export async function POST(request: NextRequest) {
 				}
 			}
 
-			// Ingest status updates
+			// Ingest status updates via gateway (verifies signature inside Convex)
 			if (value.statuses) {
 				for (const status of value.statuses) {
 					try {
-						await convex.mutation(api.webhook.ingestStatusUpdate, {
+						await convex.action(api.gateway.webhookStatusUpdate, {
+							phoneNumberId,
+							rawBody: body,
+							signature,
 							waMessageId: status.id,
 							status: status.status,
 							timestamp: parseInt(status.timestamp, 10) * 1000,

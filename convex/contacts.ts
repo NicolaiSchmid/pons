@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { auth } from "./auth";
 import { checkAccountAccess } from "./helpers";
 
@@ -99,8 +99,8 @@ export const updateName = mutation({
 	},
 });
 
-// Internal mutation for webhook processing (no auth check)
-export const getOrCreateInternal = mutation({
+// Get or create contact (internal only — called from webhook processing)
+export const getOrCreateInternal = internalMutation({
 	args: {
 		accountId: v.id("accounts"),
 		waId: v.string(),

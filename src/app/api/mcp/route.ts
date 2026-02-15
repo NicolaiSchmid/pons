@@ -1,15 +1,6 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { ConvexHttpClient } from "convex/browser";
 import { type NextRequest, NextResponse } from "next/server";
-import { api } from "../../../../convex/_generated/api";
 import { createMcpServer } from "../../../lib/mcp-server";
-
-const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
-if (!convexUrl) {
-	throw new Error("NEXT_PUBLIC_CONVEX_URL is not set");
-}
-
-const convex = new ConvexHttpClient(convexUrl);
 
 // Extract API key from Authorization header
 function extractApiKey(request: NextRequest): string | null {
@@ -23,39 +14,21 @@ function extractApiKey(request: NextRequest): string | null {
 	return authHeader;
 }
 
-// Authenticate request using API key
-async function authenticateRequest(request: NextRequest) {
-	const apiKey = extractApiKey(request);
-	if (!apiKey) {
-		return {
-			error:
-				"Missing API key. Set Authorization header to 'Bearer <your-api-key>'",
-		};
-	}
-
-	const result = await convex.action(api.mcp.validateApiKey, { apiKey });
-	if (!result) {
-		return { error: "Invalid or expired API key" };
-	}
-
-	// Update last used timestamp (fire and forget)
-	convex
-		.mutation(api.mcp.updateApiKeyLastUsed, { keyId: result.keyId })
-		.catch(() => {});
-
-	return { accountId: result.accountId, scopes: result.scopes };
-}
-
 // MCP endpoint - handles both GET (SSE) and POST (messages)
 export async function POST(request: NextRequest) {
-	// Authenticate
-	const auth = await authenticateRequest(request);
-	if ("error" in auth) {
-		return NextResponse.json({ error: auth.error }, { status: 401 });
+	const apiKey = extractApiKey(request);
+	if (!apiKey) {
+		return NextResponse.json(
+			{
+				error:
+					"Missing API key. Set Authorization header to 'Bearer <your-api-key>'",
+			},
+			{ status: 401 },
+		);
 	}
 
-	// Create MCP server for this account
-	const mcpServer = createMcpServer(auth.accountId);
+	// Create MCP server — all auth/scope validation happens inside the gateway
+	const mcpServer = createMcpServer(apiKey);
 
 	// Create transport for this request (stateless mode)
 	const transport = new WebStandardStreamableHTTPServerTransport({
@@ -76,14 +49,19 @@ export async function POST(request: NextRequest) {
 
 // Handle GET for SSE connections
 export async function GET(request: NextRequest) {
-	// Authenticate
-	const auth = await authenticateRequest(request);
-	if ("error" in auth) {
-		return NextResponse.json({ error: auth.error }, { status: 401 });
+	const apiKey = extractApiKey(request);
+	if (!apiKey) {
+		return NextResponse.json(
+			{
+				error:
+					"Missing API key. Set Authorization header to 'Bearer <your-api-key>'",
+			},
+			{ status: 401 },
+		);
 	}
 
-	// Create MCP server for this account
-	const mcpServer = createMcpServer(auth.accountId);
+	// Create MCP server — all auth/scope validation happens inside the gateway
+	const mcpServer = createMcpServer(apiKey);
 
 	// Create transport for this request
 	const transport = new WebStandardStreamableHTTPServerTransport({

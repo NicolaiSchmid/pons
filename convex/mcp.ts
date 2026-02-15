@@ -159,20 +159,6 @@ type ApiKeyValidationResult = {
 	};
 } | null;
 
-// Validate API key and return account info (action because it needs to hash)
-export const validateApiKey = action({
-	args: { apiKey: v.string() },
-	handler: async (ctx, args): Promise<ApiKeyValidationResult> => {
-		// Hash the key using Node action
-		const keyHash = await ctx.runAction(internal.mcpNode.hashApiKeyAction, {
-			apiKey: args.apiKey,
-		});
-
-		// Look up the key using internal query
-		return ctx.runQuery(internal.mcp.validateApiKeyInternal, { keyHash });
-	},
-});
-
 // Internal query to validate by hash
 export const validateApiKeyInternal = internalQuery({
 	args: { keyHash: v.string() },
@@ -205,8 +191,8 @@ export const validateApiKeyInternal = internalQuery({
 	},
 });
 
-// Update last used timestamp for API key
-export const updateApiKeyLastUsed = mutation({
+// Update last used timestamp for API key (internal only)
+export const updateApiKeyLastUsed = internalMutation({
 	args: { keyId: v.id("apiKeys") },
 	handler: async (ctx, args) => {
 		await ctx.db.patch(args.keyId, { lastUsedAt: Date.now() });
@@ -214,11 +200,11 @@ export const updateApiKeyLastUsed = mutation({
 });
 
 // ============================================
-// MCP Tool Queries (public, auth via API key at route level)
+// MCP Tool Queries (internal only — called via gateway actions)
 // ============================================
 
 // List conversations for an account
-export const listConversationsInternal = query({
+export const listConversationsInternal = internalQuery({
 	args: {
 		accountId: v.id("accounts"),
 		limit: v.optional(v.number()),
@@ -255,7 +241,7 @@ export const listConversationsInternal = query({
 });
 
 // Get conversation with messages
-export const getConversationInternal = query({
+export const getConversationInternal = internalQuery({
 	args: {
 		accountId: v.id("accounts"),
 		conversationId: v.id("conversations"),
@@ -302,7 +288,7 @@ export const getConversationInternal = query({
 });
 
 // Search messages across conversations
-export const searchMessagesInternal = query({
+export const searchMessagesInternal = internalQuery({
 	args: {
 		accountId: v.id("accounts"),
 		query: v.string(),
@@ -351,7 +337,7 @@ export const searchMessagesInternal = query({
 });
 
 // List unanswered conversations (last message is inbound)
-export const listUnansweredInternal = query({
+export const listUnansweredInternal = internalQuery({
 	args: {
 		accountId: v.id("accounts"),
 		limit: v.optional(v.number()),
@@ -408,7 +394,7 @@ export const listUnansweredInternal = query({
 });
 
 // Get contact by phone (for sending messages)
-export const getContactByPhone = query({
+export const getContactByPhone = internalQuery({
 	args: {
 		accountId: v.id("accounts"),
 		phone: v.string(),
@@ -441,7 +427,7 @@ export const getContactByPhone = query({
 });
 
 // List templates for an account
-export const listTemplatesInternal = query({
+export const listTemplatesInternal = internalQuery({
 	args: { accountId: v.id("accounts") },
 	handler: async (ctx, args) => {
 		const templates = await ctx.db
@@ -459,8 +445,8 @@ export const listTemplatesInternal = query({
 	},
 });
 
-// Get account details (for MCP)
-export const getAccountInternal = query({
+// Get account details (internal only)
+export const getAccountInternal = internalQuery({
 	args: { accountId: v.id("accounts") },
 	handler: async (ctx, args) => {
 		const account = await ctx.db.get(args.accountId);
@@ -474,7 +460,7 @@ export const getAccountInternal = query({
 });
 
 // Create or get contact (for sending to new numbers)
-export const getOrCreateContact = mutation({
+export const getOrCreateContact = internalMutation({
 	args: {
 		accountId: v.id("accounts"),
 		phone: v.string(),

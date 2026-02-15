@@ -12,6 +12,7 @@ import type * as accounts from "../accounts.js";
 import type * as auth from "../auth.js";
 import type * as contacts from "../contacts.js";
 import type * as conversations from "../conversations.js";
+import type * as gateway from "../gateway.js";
 import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
 import type * as mcp from "../mcp.js";
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   contacts: typeof contacts;
   conversations: typeof conversations;
+  gateway: typeof gateway;
   helpers: typeof helpers;
   http: typeof http;
   mcp: typeof mcp;

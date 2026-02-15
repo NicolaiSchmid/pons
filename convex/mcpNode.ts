@@ -33,3 +33,21 @@ export const hashApiKeyAction = internalAction({
 		return hashApiKey(args.apiKey);
 	},
 });
+
+// Verify webhook HMAC-SHA256 signature
+export const verifyWebhookSignature = internalAction({
+	args: {
+		rawBody: v.string(),
+		signature: v.string(),
+		appSecret: v.string(),
+	},
+	handler: async (_ctx, args): Promise<boolean> => {
+		const expectedSignature = `sha256=${crypto.createHmac("sha256", args.appSecret).update(args.rawBody).digest("hex")}`;
+
+		if (args.signature.length !== expectedSignature.length) return false;
+		return crypto.timingSafeEqual(
+			Buffer.from(args.signature),
+			Buffer.from(expectedSignature),
+		);
+	},
+});

@@ -39,6 +39,7 @@ interface AccountSettingsProps {
 
 export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 	const account = useQuery(api.accounts.get, { accountId });
+	const secrets = useQuery(api.accounts.getSecrets, { accountId });
 	const members = useQuery(api.accounts.listMembers, { accountId });
 	const updateAccount = useMutation(api.accounts.update);
 	const addMemberByEmail = useMutation(api.accounts.addMemberByEmail);
@@ -66,18 +67,18 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 		appSecret: "",
 	});
 
-	// Populate form when account loads
+	// Populate form when account and secrets load
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Only populate when account data arrives
 	useEffect(() => {
-		if (account) {
+		if (account && secrets) {
 			setFormData({
 				name: account.name,
-				accessToken: account.accessToken,
-				webhookVerifyToken: account.webhookVerifyToken,
-				appSecret: account.appSecret,
+				accessToken: secrets.accessToken,
+				webhookVerifyToken: secrets.webhookVerifyToken,
+				appSecret: secrets.appSecret,
 			});
 		}
-	}, [account?._id]);
+	}, [account?._id, secrets]);
 
 	const webhookUrl =
 		typeof window !== "undefined"

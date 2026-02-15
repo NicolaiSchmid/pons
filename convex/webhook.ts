@@ -1,11 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import {
-	internalAction,
-	internalMutation,
-	mutation,
-} from "./_generated/server";
+import { internalAction, internalMutation } from "./_generated/server";
 
 const META_API_VERSION = "v22.0";
 const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`;
@@ -33,10 +29,10 @@ type MessageType =
 
 /**
  * Store raw webhook payload and schedule processing.
- * This is the entry point from Next.js - it's durable and retried.
+ * Internal only — called from the webhook gateway action.
  * Returns immediately so webhook can respond 200 to Meta.
  */
-export const ingestWebhook = mutation({
+export const ingestWebhook = internalMutation({
 	args: {
 		phoneNumberId: v.string(),
 		payload: v.any(),
@@ -72,10 +68,10 @@ export const ingestWebhook = mutation({
 });
 
 /**
- * Store a status update from webhook.
+ * Store a status update from webhook (internal only).
  * Durable mutation - retried automatically.
  */
-export const ingestStatusUpdate = mutation({
+export const ingestStatusUpdate = internalMutation({
 	args: {
 		waMessageId: v.string(),
 		status: v.string(),

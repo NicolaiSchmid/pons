@@ -1,13 +1,14 @@
 import { v } from "convex/values";
-import { api } from "./_generated/api";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalAction } from "./_generated/server";
+import { auth } from "./auth";
 
 const META_API_VERSION = "v22.0";
 const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`;
 
-// Send a text message
-export const sendTextMessage = action({
+// Send a text message (internal — called from MCP gateway or UI actions)
+export const sendTextMessage = internalAction({
 	args: {
 		accountId: v.id("accounts"),
 		conversationId: v.id("conversations"),
@@ -19,15 +20,15 @@ export const sendTextMessage = action({
 		ctx,
 		args,
 	): Promise<{ messageId: Id<"messages">; waMessageId: string }> => {
-		// Get account for API credentials (no user auth — MCP authenticates via API key)
-		const account = await ctx.runQuery(api.accounts.getInternal, {
+		// Get account for API credentials
+		const account = await ctx.runQuery(internal.accounts.getInternal, {
 			accountId: args.accountId,
 		});
 		if (!account) throw new Error("Account not found");
 
-		// Create message record (no user auth — MCP authenticates via API key)
+		// Create message record
 		const messageId = await ctx.runMutation(
-			api.messages.createOutboundInternal,
+			internal.messages.createOutboundInternal,
 			{
 				accountId: args.accountId,
 				conversationId: args.conversationId,
@@ -69,7 +70,7 @@ export const sendTextMessage = action({
 			};
 
 			if (!response.ok) {
-				await ctx.runMutation(api.messages.updateAfterSend, {
+				await ctx.runMutation(internal.messages.updateAfterSend, {
 					messageId,
 					waMessageId: `failed_${Date.now()}`,
 					status: "failed",
@@ -80,14 +81,14 @@ export const sendTextMessage = action({
 			}
 
 			const waMessageId = data.messages?.[0]?.id ?? `unknown_${Date.now()}`;
-			await ctx.runMutation(api.messages.updateAfterSend, {
+			await ctx.runMutation(internal.messages.updateAfterSend, {
 				messageId,
 				waMessageId,
 				status: "sent",
 			});
 
 			// Update conversation
-			await ctx.runMutation(api.conversations.updateLastMessage, {
+			await ctx.runMutation(internal.conversations.updateLastMessage, {
 				conversationId: args.conversationId,
 				preview: args.text,
 				timestamp: Date.now(),
@@ -98,7 +99,7 @@ export const sendTextMessage = action({
 		} catch (error) {
 			const errorMessage =
 				error instanceof Error ? error.message : "Unknown error";
-			await ctx.runMutation(api.messages.updateAfterSend, {
+			await ctx.runMutation(internal.messages.updateAfterSend, {
 				messageId,
 				waMessageId: `failed_${Date.now()}`,
 				status: "failed",
@@ -109,8 +110,8 @@ export const sendTextMessage = action({
 	},
 });
 
-// Send a template message
-export const sendTemplateMessage = action({
+// Send a template message (internal — called from MCP gateway or UI actions)
+export const sendTemplateMessage = internalAction({
 	args: {
 		accountId: v.id("accounts"),
 		conversationId: v.id("conversations"),
@@ -123,13 +124,13 @@ export const sendTemplateMessage = action({
 		ctx,
 		args,
 	): Promise<{ messageId: Id<"messages">; waMessageId: string }> => {
-		const account = await ctx.runQuery(api.accounts.getInternal, {
+		const account = await ctx.runQuery(internal.accounts.getInternal, {
 			accountId: args.accountId,
 		});
 		if (!account) throw new Error("Account not found");
 
 		const messageId = await ctx.runMutation(
-			api.messages.createOutboundInternal,
+			internal.messages.createOutboundInternal,
 			{
 				accountId: args.accountId,
 				conversationId: args.conversationId,
@@ -173,7 +174,7 @@ export const sendTemplateMessage = action({
 			};
 
 			if (!response.ok) {
-				await ctx.runMutation(api.messages.updateAfterSend, {
+				await ctx.runMutation(internal.messages.updateAfterSend, {
 					messageId,
 					waMessageId: `failed_${Date.now()}`,
 					status: "failed",
@@ -184,13 +185,13 @@ export const sendTemplateMessage = action({
 			}
 
 			const waMessageId = data.messages?.[0]?.id ?? `unknown_${Date.now()}`;
-			await ctx.runMutation(api.messages.updateAfterSend, {
+			await ctx.runMutation(internal.messages.updateAfterSend, {
 				messageId,
 				waMessageId,
 				status: "sent",
 			});
 
-			await ctx.runMutation(api.conversations.updateLastMessage, {
+			await ctx.runMutation(internal.conversations.updateLastMessage, {
 				conversationId: args.conversationId,
 				preview: `[Template: ${args.templateName}]`,
 				timestamp: Date.now(),
@@ -201,7 +202,7 @@ export const sendTemplateMessage = action({
 		} catch (error) {
 			const errorMessage =
 				error instanceof Error ? error.message : "Unknown error";
-			await ctx.runMutation(api.messages.updateAfterSend, {
+			await ctx.runMutation(internal.messages.updateAfterSend, {
 				messageId,
 				waMessageId: `failed_${Date.now()}`,
 				status: "failed",
@@ -282,14 +283,14 @@ export const getMediaInfo = internalAction({
 	},
 });
 
-// Mark a message as read
-export const markAsRead = action({
+// Mark a message as read (internal — called from MCP gateway or UI actions)
+export const markAsRead = internalAction({
 	args: {
 		accountId: v.id("accounts"),
 		waMessageId: v.string(),
 	},
 	handler: async (ctx, args): Promise<{ success: boolean }> => {
-		const account = await ctx.runQuery(api.accounts.get, {
+		const account = await ctx.runQuery(internal.accounts.getInternal, {
 			accountId: args.accountId,
 		});
 		if (!account) throw new Error("Account not found");
@@ -321,8 +322,8 @@ export const markAsRead = action({
 	},
 });
 
-// Send a reaction
-export const sendReaction = action({
+// Send a reaction (internal — called from MCP gateway or UI actions)
+export const sendReaction = internalAction({
 	args: {
 		accountId: v.id("accounts"),
 		conversationId: v.id("conversations"),
@@ -331,7 +332,7 @@ export const sendReaction = action({
 		emoji: v.string(),
 	},
 	handler: async (ctx, args): Promise<{ waMessageId: string | undefined }> => {
-		const account = await ctx.runQuery(api.accounts.get, {
+		const account = await ctx.runQuery(internal.accounts.getInternal, {
 			accountId: args.accountId,
 		});
 		if (!account) throw new Error("Account not found");
@@ -367,5 +368,61 @@ export const sendReaction = action({
 		}
 
 		return { waMessageId: data.messages?.[0]?.id };
+	},
+});
+
+// ============================================
+// Public UI wrappers — validate user auth, then delegate to internal actions
+// ============================================
+
+export const sendTextMessageUI = action({
+	args: {
+		accountId: v.id("accounts"),
+		conversationId: v.id("conversations"),
+		to: v.string(),
+		text: v.string(),
+		replyToMessageId: v.optional(v.string()),
+	},
+	handler: async (
+		ctx,
+		args,
+	): Promise<{ messageId: Id<"messages">; waMessageId: string }> => {
+		// Verify user is authenticated and has access to the account
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Unauthorized");
+
+		const membership = await ctx.runQuery(
+			internal.accounts.checkMembership,
+			{ accountId: args.accountId, userId },
+		);
+		if (!membership) throw new Error("Access denied");
+
+		return ctx.runAction(internal.whatsapp.sendTextMessage, args);
+	},
+});
+
+export const sendTemplateMessageUI = action({
+	args: {
+		accountId: v.id("accounts"),
+		conversationId: v.id("conversations"),
+		to: v.string(),
+		templateName: v.string(),
+		templateLanguage: v.string(),
+		components: v.optional(v.any()),
+	},
+	handler: async (
+		ctx,
+		args,
+	): Promise<{ messageId: Id<"messages">; waMessageId: string }> => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Unauthorized");
+
+		const membership = await ctx.runQuery(
+			internal.accounts.checkMembership,
+			{ accountId: args.accountId, userId },
+		);
+		if (!membership) throw new Error("Access denied");
+
+		return ctx.runAction(internal.whatsapp.sendTemplateMessage, args);
 	},
 });

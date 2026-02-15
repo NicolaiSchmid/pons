@@ -11,9 +11,9 @@ export default defineSchema({
 		wabaId: v.string(), // WhatsApp Business Account ID
 		phoneNumberId: v.string(), // Meta's phone number ID
 		phoneNumber: v.string(), // Display number: +1 555 123 4567
-		accessToken: v.string(), // Encrypted
+		accessToken: v.string(),
 		webhookVerifyToken: v.string(), // For webhook verification
-		appSecret: v.string(), // Encrypted, for signature verification
+		appSecret: v.string(), // For webhook signature verification
 		ownerId: v.id("users"),
 	})
 		.index("by_phone_number_id", ["phoneNumberId"])
