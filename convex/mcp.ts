@@ -350,6 +350,63 @@ export const searchMessagesInternal = query({
 	},
 });
 
+// List unanswered conversations (last message is inbound)
+export const listUnansweredInternal = query({
+	args: {
+		accountId: v.id("accounts"),
+		limit: v.optional(v.number()),
+	},
+	handler: async (ctx, args) => {
+		const limit = args.limit ?? 50;
+
+		const conversations = await ctx.db
+			.query("conversations")
+			.withIndex("by_account_last_message", (q) =>
+				q.eq("accountId", args.accountId),
+			)
+			.order("desc")
+			.take(200); // Scan more to filter
+
+		// For each conversation, check if the most recent message is inbound
+		const unanswered = [];
+		for (const conv of conversations) {
+			if (unanswered.length >= limit) break;
+
+			const lastMessage = await ctx.db
+				.query("messages")
+				.withIndex("by_conversation_timestamp", (q) =>
+					q.eq("conversationId", conv._id),
+				)
+				.order("desc")
+				.first();
+
+			if (lastMessage && lastMessage.direction === "inbound") {
+				const contact = await ctx.db.get(conv.contactId);
+				unanswered.push({
+					id: conv._id,
+					contactName: contact?.name ?? "Unknown",
+					contactPhone: contact?.phone ?? "",
+					lastMessageAt: conv.lastMessageAt,
+					lastMessagePreview: conv.lastMessagePreview,
+					unreadCount: conv.unreadCount,
+					windowOpen: conv.windowExpiresAt
+						? conv.windowExpiresAt > Date.now()
+						: false,
+					lastInboundMessage: {
+						id: lastMessage._id,
+						waMessageId: lastMessage.waMessageId,
+						text: lastMessage.text ?? lastMessage.caption,
+						type: lastMessage.type,
+						timestamp: lastMessage.timestamp,
+					},
+				});
+			}
+		}
+
+		return unanswered;
+	},
+});
+
 // Get contact by phone (for sending messages)
 export const getContactByPhone = query({
 	args: {

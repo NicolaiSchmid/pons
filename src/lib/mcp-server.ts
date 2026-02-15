@@ -4,6 +4,17 @@ import { z } from "zod";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
+function formatTimeAgo(timestamp: number): string {
+	const seconds = Math.floor((Date.now() - timestamp) / 1000);
+	if (seconds < 60) return "just now";
+	const minutes = Math.floor(seconds / 60);
+	if (minutes < 60) return `${minutes}m ago`;
+	const hours = Math.floor(minutes / 60);
+	if (hours < 24) return `${hours}h ago`;
+	const days = Math.floor(hours / 24);
+	return `${days}d ago`;
+}
+
 function getConvexUrl(): string {
 	const url = process.env.NEXT_PUBLIC_CONVEX_URL;
 	if (!url) {
@@ -58,6 +69,60 @@ export function createMcpServer(accountId: Id<"accounts">) {
 					{
 						type: "text",
 						text: text || "No conversations found.",
+					},
+				],
+			};
+		},
+	);
+
+	// ============================================
+	// Tool: list_unanswered
+	// ============================================
+	server.tool(
+		"list_unanswered",
+		"List conversations waiting for a reply — where the last message is from the customer. Use this to quickly see what needs attention.",
+		{
+			limit: z
+				.number()
+				.optional()
+				.describe("Max conversations to return (default 20)"),
+		},
+		async ({ limit }) => {
+			const conversations = await convex.query(api.mcp.listUnansweredInternal, {
+				accountId,
+				limit: limit ?? 20,
+			});
+
+			if (conversations.length === 0) {
+				return {
+					content: [
+						{
+							type: "text",
+							text: "All caught up — no unanswered conversations.",
+						},
+					],
+				};
+			}
+
+			const text = conversations
+				.map((c) => {
+					const ago = c.lastMessageAt ? formatTimeAgo(c.lastMessageAt) : "";
+					const window = c.windowOpen
+						? " [window open]"
+						: " [window closed — template required]";
+					const unread = c.unreadCount > 0 ? ` (${c.unreadCount} unread)` : "";
+					return `- **${c.contactName}** (${c.contactPhone})${unread}${window}
+  Last message (${ago}): "${c.lastInboundMessage.text ?? `[${c.lastInboundMessage.type}]`}"
+  Conversation ID: ${c.id}
+  Message ID: ${c.lastInboundMessage.waMessageId}`;
+				})
+				.join("\n\n");
+
+			return {
+				content: [
+					{
+						type: "text",
+						text: `${conversations.length} conversation(s) waiting for reply:\n\n${text}`,
 					},
 				],
 			};
