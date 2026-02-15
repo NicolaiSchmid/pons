@@ -145,26 +145,45 @@ export async function GET(request: NextRequest) {
 	return new NextResponse("Forbidden", { status: 403 });
 }
 
+// Verify webhook signature using HMAC-SHA256
+function verifySignature(
+	rawBody: string,
+	signature: string,
+	appSecret: string,
+): boolean {
+	const expectedSignature = `sha256=${crypto.createHmac("sha256", appSecret).update(rawBody).digest("hex")}`;
+
+	// Prevent timing attacks
+	if (signature.length !== expectedSignature.length) return false;
+	return crypto.timingSafeEqual(
+		Buffer.from(signature),
+		Buffer.from(expectedSignature),
+	);
+}
+
+// Extract the first phone_number_id from a parsed webhook payload
+function extractPhoneNumberId(payload: WebhookPayload): string | null {
+	for (const entry of payload.entry) {
+		for (const change of entry.changes) {
+			if (change.field === "messages") {
+				return change.value.metadata.phone_number_id;
+			}
+		}
+	}
+	return null;
+}
+
 // Webhook notifications (POST request from Meta)
 export async function POST(request: NextRequest) {
 	const startTime = Date.now();
-	const headers = Object.fromEntries(request.headers.entries());
 	const signature = request.headers.get("x-hub-signature-256");
 
 	console.log("[webhook:POST] Incoming webhook", {
 		url: request.nextUrl.pathname,
-		method: request.method,
 		hasSignature: !!signature,
-		signaturePreview: signature ? `${signature.slice(0, 20)}...` : null,
-		contentType: headers["content-type"],
-		userAgent: headers["user-agent"],
 	});
 
 	const body = await request.text();
-	console.log("[webhook:POST] Body received", {
-		length: body.length,
-		preview: body.slice(0, 200),
-	});
 
 	// Parse and validate the payload
 	let payload: WebhookPayload;
@@ -174,90 +193,79 @@ export async function POST(request: NextRequest) {
 		console.log("[webhook:POST] ✓ Payload parsed", {
 			object: payload.object,
 			entryCount: payload.entry.length,
-			entries: payload.entry.map((e) => ({
-				id: e.id,
-				changeCount: e.changes.length,
-				fields: e.changes.map((c) => c.field),
-			})),
 		});
 	} catch (error) {
 		if (error instanceof z.ZodError) {
 			console.error("[webhook:POST] ✗ Zod validation error", {
 				errors: error.errors,
-				bodyPreview: body.slice(0, 500),
 			});
 			return new NextResponse("Invalid payload", { status: 400 });
 		}
 		console.error("[webhook:POST] ✗ JSON parse error", {
 			error: String(error),
-			bodyPreview: body.slice(0, 200),
 		});
 		return new NextResponse("Invalid JSON", { status: 400 });
 	}
 
 	if (payload.object !== "whatsapp_business_account") {
-		console.log("[webhook:POST] Skipping non-whatsapp payload", {
-			object: payload.object,
-		});
 		return new NextResponse("OK", { status: 200 });
+	}
+
+	// Verify signature per-account
+	const phoneNumberId = extractPhoneNumberId(payload);
+	if (phoneNumberId && signature) {
+		const account = await convex.query(api.accounts.getByPhoneNumberId, {
+			phoneNumberId,
+		});
+
+		if (account?.appSecret) {
+			const isValid = verifySignature(body, signature, account.appSecret);
+			if (!isValid) {
+				console.error("[webhook:POST] ✗ Signature verification failed", {
+					phoneNumberId,
+				});
+				return new NextResponse("Invalid signature", { status: 401 });
+			}
+			console.log("[webhook:POST] ✓ Signature verified", { phoneNumberId });
+		} else if (!account) {
+			console.warn("[webhook:POST] ⚠ No account found for phoneNumberId", {
+				phoneNumberId,
+			});
+		}
+	} else if (!signature) {
+		console.warn(
+			"[webhook:POST] ⚠ No signature header — skipping verification",
+		);
 	}
 
 	// Process each change
 	for (const entry of payload.entry) {
 		for (const change of entry.changes) {
-			if (change.field !== "messages") {
-				console.log("[webhook:POST] Skipping non-messages field", {
-					field: change.field,
-					entryId: entry.id,
-				});
-				continue;
-			}
+			if (change.field !== "messages") continue;
 
 			const value = change.value;
-			const phoneNumberId = value.metadata.phone_number_id;
+			const changePhoneNumberId = value.metadata.phone_number_id;
 
-			console.log("[webhook:POST] Processing change", {
-				entryId: entry.id,
-				phoneNumberId,
-				displayPhone: value.metadata.display_phone_number,
-				messageCount: value.messages?.length ?? 0,
-				statusCount: value.statuses?.length ?? 0,
-				contacts: value.contacts?.map((c) => ({
-					name: c.profile.name,
-					waId: c.wa_id,
-				})),
-				errorCount: value.errors?.length ?? 0,
+			console.log("[webhook:POST] Processing", {
+				phoneNumberId: changePhoneNumberId,
+				messages: value.messages?.length ?? 0,
+				statuses: value.statuses?.length ?? 0,
 			});
 
 			// Ingest messages
 			if (value.messages && value.messages.length > 0) {
-				for (const msg of value.messages) {
-					console.log("[webhook:POST] Message", {
-						id: msg.id,
-						from: msg.from,
-						type: msg.type,
-						timestamp: msg.timestamp,
-						hasText: !!msg.text,
-						textPreview: msg.text?.body?.slice(0, 80),
-					});
-				}
-
 				try {
 					await convex.mutation(api.webhook.ingestWebhook, {
-						phoneNumberId,
+						phoneNumberId: changePhoneNumberId,
 						payload: value,
 						signature: signature ?? undefined,
 					});
 					console.log("[webhook:POST] ✓ Messages ingested", {
-						phoneNumberId,
 						count: value.messages.length,
 					});
 				} catch (error) {
 					console.error("[webhook:POST] ✗ Failed to ingest messages", {
-						phoneNumberId,
 						error: String(error),
-						stack:
-							error instanceof Error ? error.stack?.slice(0, 300) : undefined,
 					});
 				}
 			}
@@ -265,13 +273,6 @@ export async function POST(request: NextRequest) {
 			// Ingest status updates
 			if (value.statuses) {
 				for (const status of value.statuses) {
-					console.log("[webhook:POST] Status update", {
-						waMessageId: status.id,
-						status: status.status,
-						recipientId: status.recipient_id,
-						hasErrors: !!status.errors?.length,
-					});
-
 					try {
 						await convex.mutation(api.webhook.ingestStatusUpdate, {
 							waMessageId: status.id,
@@ -279,10 +280,6 @@ export async function POST(request: NextRequest) {
 							timestamp: parseInt(status.timestamp, 10) * 1000,
 							errorCode: status.errors?.[0]?.code?.toString(),
 							errorMessage: status.errors?.[0]?.title,
-						});
-						console.log("[webhook:POST] ✓ Status ingested", {
-							waMessageId: status.id,
-							status: status.status,
 						});
 					} catch (error) {
 						console.error("[webhook:POST] ✗ Failed to ingest status", {
@@ -299,20 +296,4 @@ export async function POST(request: NextRequest) {
 	console.log("[webhook:POST] ✓ Done", { elapsed: `${elapsed}ms` });
 
 	return new NextResponse("OK", { status: 200 });
-}
-
-// Verify webhook signature - for future use with per-account verification
-function _verifySignature(
-	rawBody: string,
-	signature: string,
-	appSecret: string,
-): boolean {
-	const expectedSignature =
-		"sha256=" +
-		crypto.createHmac("sha256", appSecret).update(rawBody).digest("hex");
-
-	return crypto.timingSafeEqual(
-		Buffer.from(signature),
-		Buffer.from(expectedSignature),
-	);
 }

@@ -393,15 +393,28 @@ export const updateMemberRole = mutation({
 });
 
 // Get account by phone number ID (for webhook processing)
+// NOTE: This is a public query because the webhook route uses ConvexHttpClient.
+// Only returns fields needed for webhook processing — no access token.
 export const getByPhoneNumberId = query({
 	args: { phoneNumberId: v.string() },
 	handler: async (ctx, args) => {
-		return ctx.db
+		const account = await ctx.db
 			.query("accounts")
 			.withIndex("by_phone_number_id", (q) =>
 				q.eq("phoneNumberId", args.phoneNumberId),
 			)
 			.first();
+
+		if (!account) return null;
+
+		return {
+			_id: account._id,
+			name: account.name,
+			phoneNumberId: account.phoneNumberId,
+			phoneNumber: account.phoneNumber,
+			appSecret: account.appSecret,
+			webhookVerifyToken: account.webhookVerifyToken,
+		};
 	},
 });
 

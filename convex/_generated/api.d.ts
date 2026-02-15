@@ -17,6 +17,7 @@ import type * as http from "../http.js";
 import type * as mcp from "../mcp.js";
 import type * as mcpNode from "../mcpNode.js";
 import type * as messages from "../messages.js";
+import type * as templates from "../templates.js";
 import type * as webhook from "../webhook.js";
 import type * as whatsapp from "../whatsapp.js";
 
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   mcp: typeof mcp;
   mcpNode: typeof mcpNode;
   messages: typeof messages;
+  templates: typeof templates;
   webhook: typeof webhook;
   whatsapp: typeof whatsapp;
 }>;
