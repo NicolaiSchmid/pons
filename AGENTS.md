@@ -95,12 +95,15 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 
 | Component | Technology |
 |-----------|------------|
-| Framework | Next.js 15 (App Router) |
+| Framework | Next.js 16 (App Router, Turbopack) |
 | Language | TypeScript |
-| Backend | Convex (database, auth, file storage, actions) |
-| Auth | Convex Auth (email/password) |
-| MCP | `@modelcontextprotocol/sdk` |
-| Hosting | Vercel (Next.js) + Convex Cloud |
+| Backend | Convex (database, auth, file storage, scheduled actions) |
+| Auth | Convex Auth (Google OAuth) |
+| MCP | `@modelcontextprotocol/sdk` — Streamable HTTP transport |
+| UI | shadcn/ui + Tailwind CSS v4 |
+| Linting | Biome (lint + format) |
+| Hosting | Vercel (FRA1) + Convex Cloud (eu-west-1) |
+| Domain | [pons.chat](https://pons.chat) |
 
 ### Why Convex?
 
@@ -382,10 +385,41 @@ ngrok http 3000
 1. **Convex**: Automatically deployed when you push (via `convex dev` or CI)
 2. **Next.js**: Push to GitHub, Vercel auto-deploys
 3. **Environment**: Add `CONVEX_DEPLOYMENT` and `NEXT_PUBLIC_CONVEX_URL` to Vercel
+4. **Vercel Deployment Protection** is disabled for production (webhook needs unauthenticated access)
 
 ```bash
 # Deploy Convex to production
 npx convex deploy
 
 # Vercel will pick up the Next.js app automatically
+```
+
+---
+
+## UI & Frontend Design
+
+When doing any frontend/UI work, **always read and follow** the design skill at:
+
+```
+.agent/skills/frontend-design/SKILL.md
+```
+
+Key principles:
+- **No generic AI aesthetics** — avoid Inter, Roboto, purple gradients, cookie-cutter layouts
+- **Existing design system:** dark theme, Sora (display) + Geist Sans (body), oklch color tokens, pons-green accent
+- **CSS variables** defined in `src/styles/globals.css`
+- **shadcn/ui** components in `src/components/ui/`
+- Run `pnpm run check:write` before every commit (Biome lint + format)
+- Run `pnpm run typecheck` to verify TypeScript
+
+---
+
+## Commands
+
+```bash
+pnpm dev              # Convex + Next.js in parallel
+pnpm run dev:next     # Just Next.js
+pnpm run check:write  # Biome lint + format (auto-fix)
+pnpm run typecheck    # TypeScript check
+pnpm run build        # Production build
 ```
