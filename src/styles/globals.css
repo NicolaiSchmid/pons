@@ -137,6 +137,104 @@
 	}
 }
 
+/*
+ * Fumadocs theme overrides
+ * Map fd-* variables to Pons design tokens for visual consistency
+ */
+:root,
+.dark {
+	--color-fd-background: oklch(0.1 0.005 260);
+	--color-fd-foreground: oklch(0.95 0 0);
+	--color-fd-muted: oklch(0.18 0.005 260);
+	--color-fd-muted-foreground: oklch(0.55 0 0);
+	--color-fd-popover: oklch(0.13 0.005 260);
+	--color-fd-popover-foreground: oklch(0.95 0 0);
+	--color-fd-card: oklch(0.13 0.005 260);
+	--color-fd-card-foreground: oklch(0.95 0 0);
+	--color-fd-border: oklch(0.22 0.005 260);
+	--color-fd-primary: oklch(0.72 0.17 160);
+	--color-fd-primary-foreground: oklch(0.12 0.02 160);
+	--color-fd-secondary: oklch(0.18 0.005 260);
+	--color-fd-secondary-foreground: oklch(0.85 0 0);
+	--color-fd-accent: oklch(0.2 0.01 260);
+	--color-fd-accent-foreground: oklch(0.9 0 0);
+	--color-fd-ring: oklch(0.72 0.17 160);
+	--color-fd-overlay: oklch(0 0 0 / 0.5);
+}
+
+.dark #nd-sidebar {
+	--color-fd-muted: oklch(0.15 0.005 260);
+	--color-fd-secondary: oklch(0.15 0.005 260);
+	--color-fd-muted-foreground: oklch(0.55 0 0);
+}
+
+/* Fumadocs component refinements */
+
+/* Docs nav bar — match the Pons feel */
+#nd-subnav {
+	background: oklch(0.1 0.005 260 / 0.8);
+	backdrop-filter: blur(12px);
+	border-bottom-color: oklch(0.22 0.005 260);
+}
+
+/* Sidebar — darker, matching dashboard sidebar */
+#nd-sidebar {
+	background: oklch(0.08 0.005 260);
+	border-right-color: oklch(0.18 0.005 260);
+}
+
+/* Active sidebar item — pons-green accent */
+#nd-sidebar [data-active="true"] {
+	color: oklch(0.72 0.17 160);
+}
+
+/* Docs prose — use display font for headings */
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+	font-family: var(--font-display);
+	letter-spacing: -0.025em;
+}
+
+/* Docs links — pons-green */
+.prose a:not([data-card]) {
+	color: oklch(0.72 0.17 160);
+	text-decoration-color: oklch(0.72 0.17 160 / 0.3);
+}
+.prose a:not([data-card]):hover {
+	text-decoration-color: oklch(0.72 0.17 160 / 0.6);
+}
+
+/* Code blocks — darker background matching landing page */
+.dark .prose pre,
+.prose pre {
+	background: oklch(0.08 0.005 260);
+	border: 1px solid oklch(0.22 0.005 260);
+}
+
+/* Inline code */
+.prose :not(pre) > code {
+	background: oklch(0.15 0.005 260);
+	border: 1px solid oklch(0.22 0.005 260);
+	color: oklch(0.85 0 0);
+	border-radius: 4px;
+	padding: 0.15em 0.35em;
+	font-size: 0.875em;
+}
+
+/* Search dialog — match Pons card styling */
+[data-search-dialog] {
+	background: oklch(0.13 0.005 260);
+	border-color: oklch(0.22 0.005 260);
+}
+
+/* TOC — active item uses pons-green */
+[data-toc] a[data-active="true"] {
+	color: oklch(0.72 0.17 160);
+	border-left-color: oklch(0.72 0.17 160);
+}
+
 /* Noise texture overlay for depth */
 @layer utilities {
 	.bg-noise {
