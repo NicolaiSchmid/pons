@@ -414,6 +414,24 @@ Key principles:
 
 ---
 
+## Documentation
+
+Docs live at `content/docs/` (MDX files rendered by fumadocs at `/docs`).
+
+**Rule: For every feature change, check if docs need updating.**
+
+After adding or modifying any feature, search the docs for related content:
+1. Check `content/docs/` for any page that references the changed feature
+2. Update descriptions, parameters, or examples as needed
+3. If adding a new MCP tool, add it to `content/docs/mcp-tools.mdx`
+4. If changing auth/setup flow, update `whatsapp-setup.mdx` or `mcp-setup.mdx`
+
+Docs structure:
+- **Using Pons** — user-facing guides (setup, tools, API keys)
+- **Open Source** — developer docs (self-hosting, architecture)
+
+---
+
 ## Commands
 
 ```bash
