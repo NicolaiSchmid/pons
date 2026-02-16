@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { Check, ChevronDown, Phone } from "lucide-react";
+import { AlertCircle, Check, ChevronDown, Clock, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -15,6 +15,22 @@ import type { Id } from "../../convex/_generated/dataModel";
 interface AccountSelectorProps {
 	selectedAccountId?: Id<"accounts">;
 	onSelectAccount: (accountId: Id<"accounts">) => void;
+}
+
+function StatusDot({ status }: { status: string }) {
+	if (status === "active") {
+		return <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />;
+	}
+	if (status === "pending_name_review") {
+		return <Clock className="h-3 w-3 text-yellow-400" />;
+	}
+	if (status === "failed" || status === "name_declined") {
+		return <AlertCircle className="h-3 w-3 text-red-400" />;
+	}
+	// In-progress states
+	return (
+		<span className="h-1.5 w-1.5 animate-pulse rounded-full bg-yellow-400" />
+	);
 }
 
 export function AccountSelector({
@@ -40,7 +56,7 @@ export function AccountSelector({
 		}
 		return (
 			<div className="flex items-center gap-1.5 text-muted-foreground text-xs">
-				<Phone className="h-3 w-3" />
+				<StatusDot status={accounts[0]?.status ?? "active"} />
 				<span>{accounts[0]?.name ?? "Account"}</span>
 				{accounts[0]?.phoneNumber && (
 					<>
@@ -61,6 +77,7 @@ export function AccountSelector({
 					size="sm"
 					variant="ghost"
 				>
+					{selected && <StatusDot status={selected.status} />}
 					<Phone className="h-3 w-3" />
 					{selected?.name ?? "Select account"}
 					<ChevronDown className="h-3 w-3 opacity-50" />
@@ -74,10 +91,11 @@ export function AccountSelector({
 							key={account._id}
 							onClick={() => onSelectAccount(account._id)}
 						>
-							<div>
+							<div className="flex items-center gap-2">
+								<StatusDot status={account.status} />
 								<span className="font-medium">{account.name}</span>
 								{account.phoneNumber && (
-									<span className="ml-2 font-mono text-muted-foreground text-xs">
+									<span className="font-mono text-muted-foreground text-xs">
 										{account.phoneNumber}
 									</span>
 								)}

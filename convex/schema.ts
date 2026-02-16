@@ -2,6 +2,32 @@ import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+// ── Shared validators (reused across schema + mutations) ──
+
+export const accountStatus = v.union(
+	v.literal("adding_number"), // POST /{waba}/phone_numbers in flight
+	v.literal("code_requested"), // OTP sent via SMS, waiting for code
+	v.literal("verifying_code"), // Submitting OTP to Meta
+	v.literal("registering"), // POST /register in flight
+	v.literal("pending_name_review"), // Registered, display name under Meta review
+	v.literal("active"), // Fully operational
+	v.literal("name_declined"), // Meta rejected display name
+	v.literal("failed"), // Something broke (see failedAtStep)
+);
+
+export const numberProvider = v.union(
+	v.literal("existing"), // Already on WABA (picked during discovery)
+	v.literal("byon"), // Bring Your Own Number
+	v.literal("twilio"), // Purchased via Twilio Connect
+);
+
+export const registrationStep = v.union(
+	v.literal("adding_number"),
+	v.literal("code_requested"),
+	v.literal("verifying_code"),
+	v.literal("registering"),
+);
+
 export default defineSchema({
 	...authTables,
 
@@ -12,17 +38,82 @@ export default defineSchema({
 		expiresAt: v.optional(v.number()), // Token expiry timestamp (ms)
 	}).index("by_user", ["userId"]),
 
-	// WhatsApp Business Accounts
+	// ── WhatsApp Business Accounts (single state machine) ──
+	//
+	// Every account tracks the full lifecycle from phone number provisioning
+	// through Meta's display name review to fully active.
+	//
+	// State transitions:
+	//   existing path:  → active (skip everything)
+	//   byon/twilio:    adding_number → code_requested → verifying_code
+	//                     → registering → pending_name_review → active
+	//   any step can  → failed (retryable from failedAtStep)
+	//   name review   → name_declined (terminal unless user re-submits)
+	//
+	// Field availability by state:
+	// ┌─────────────────────┬──────────────┬──────────┬────────────┬─────────────┐
+	// │ Status              │ phoneNumberId│ verifCode│ twoStepPin │ failedAtStep│
+	// ├─────────────────────┼──────────────┼──────────┼────────────┼─────────────┤
+	// │ adding_number       │ —            │ —        │ —          │ —           │
+	// │ code_requested      │ set          │ —        │ —          │ —           │
+	// │ verifying_code      │ set          │ set      │ —          │ —           │
+	// │ registering         │ set          │ cleared  │ set        │ —           │
+	// │ pending_name_review │ set          │ cleared  │ set        │ —           │
+	// │ active              │ set          │ cleared  │ set        │ —           │
+	// │ name_declined       │ set          │ cleared  │ set        │ —           │
+	// │ failed              │ maybe        │ maybe    │ maybe      │ set         │
+	// └─────────────────────┴──────────────┴──────────┴────────────┴─────────────┘
 	accounts: defineTable({
-		name: v.string(),
-		wabaId: v.string(), // WhatsApp Business Account ID
-		phoneNumberId: v.string(), // Meta's phone number ID
-		phoneNumber: v.string(), // Display number: +1 555 123 4567
-		accessToken: v.string(),
+		// ── Identity (always set at creation) ──
 		ownerId: v.id("users"),
+		name: v.string(), // Account display name
+		wabaId: v.string(), // WhatsApp Business Account ID
+		phoneNumber: v.string(), // E.164: "+4917612345678"
+		displayName: v.string(), // WhatsApp display name (shown to recipients)
+
+		// ── Lifecycle ──
+		status: accountStatus,
+		numberProvider: numberProvider,
+
+		// ── Number details (set progressively) ──
+		phoneNumberId: v.optional(v.string()), // Meta's ID — set after adding_number
+		accessToken: v.string(), // System User token (or "" to use FB token)
+		countryCode: v.optional(v.string()), // "49", "1" — for request_code API
+
+		// ── Twilio-specific (only when numberProvider = "twilio") ──
+		twilioConnectionId: v.optional(v.id("twilioConnections")),
+		twilioPhoneNumberSid: v.optional(v.string()), // PN... from Twilio
+
+		// ── Verification (ephemeral, cleared after registration) ──
+		verificationCode: v.optional(v.string()), // 6-digit OTP
+		twoStepPin: v.optional(v.string()), // 6-digit 2FA pin for WhatsApp
+
+		// ── Failure tracking ──
+		failedAtStep: v.optional(registrationStep),
+		failedError: v.optional(v.string()),
+		failedAt: v.optional(v.number()),
+
+		// ── Name review polling (inline, no separate table) ──
+		nameReviewLastCheckedAt: v.optional(v.number()),
+		nameReviewCheckCount: v.optional(v.number()),
+		nameReviewMaxChecks: v.optional(v.number()), // e.g. 72 (3 days hourly)
+		nameReviewScheduledJobId: v.optional(v.string()), // Convex scheduler ID
+		nameReviewNotifiedAt: v.optional(v.number()), // When we emailed the user
 	})
 		.index("by_phone_number_id", ["phoneNumberId"])
-		.index("by_owner", ["ownerId"]),
+		.index("by_owner", ["ownerId"])
+		.index("by_status", ["status"]),
+
+	// ── Twilio Connect (user-level, not number-level) ──
+	twilioConnections: defineTable({
+		userId: v.id("users"),
+		subaccountSid: v.string(), // AC... from Twilio Connect redirect
+		status: v.union(v.literal("active"), v.literal("deauthorized")),
+		connectedAt: v.number(),
+		deauthorizedAt: v.optional(v.number()),
+	})
+		.index("by_user", ["userId"])
+		.index("by_subaccount_sid", ["subaccountSid"]),
 
 	// Account members (multi-user support)
 	accountMembers: defineTable({

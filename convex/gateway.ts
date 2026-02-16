@@ -187,6 +187,15 @@ export const webhookIngest = action({
 			throw new Error("Webhook verification failed");
 		}
 
+		// Only process webhooks for active/pending_name_review accounts
+		if (
+			account.status !== "active" &&
+			account.status !== "pending_name_review"
+		) {
+			// Silently drop — the number might still be registering
+			return;
+		}
+
 		// Verify HMAC-SHA256 signature (runs in Node runtime inside Convex)
 		const isValid = await ctx.runAction(
 			internal.mcpNode.verifyWebhookSignature,
@@ -234,6 +243,14 @@ export const webhookStatusUpdate = action({
 
 		if (!account) {
 			throw new Error("Webhook verification failed");
+		}
+
+		// Only process for active accounts
+		if (
+			account.status !== "active" &&
+			account.status !== "pending_name_review"
+		) {
+			return;
 		}
 
 		// Verify signature

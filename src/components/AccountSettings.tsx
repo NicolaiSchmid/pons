@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "convex/react";
 import {
 	Check,
 	ChevronDown,
+	Clock,
 	Crown,
 	ExternalLink,
 	Loader2,
@@ -12,6 +13,7 @@ import {
 	Trash2,
 	User,
 	UserPlus,
+	XCircle,
 } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
@@ -35,6 +37,20 @@ interface AccountSettingsProps {
 	onClose: () => void;
 }
 
+const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+	adding_number: { label: "Adding number", color: "text-yellow-400" },
+	code_requested: { label: "Awaiting code", color: "text-yellow-400" },
+	verifying_code: { label: "Verifying", color: "text-yellow-400" },
+	registering: { label: "Registering", color: "text-yellow-400" },
+	pending_name_review: {
+		label: "Name under review",
+		color: "text-yellow-400",
+	},
+	active: { label: "Active", color: "text-emerald-400" },
+	name_declined: { label: "Name declined", color: "text-red-400" },
+	failed: { label: "Failed", color: "text-red-400" },
+};
+
 export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 	const account = useQuery(api.accounts.get, { accountId });
 	const secrets = useQuery(api.accounts.getSecrets, { accountId });
@@ -47,13 +63,10 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [saved, setSaved] = useState(false);
-	// Invite state
 	const [inviteEmail, setInviteEmail] = useState("");
 	const [inviteRole, setInviteRole] = useState<"admin" | "member">("member");
 	const [inviting, setInviting] = useState(false);
 	const [inviteError, setInviteError] = useState<string | null>(null);
-
-	// Role dropdown
 	const [roleDropdownOpen, setRoleDropdownOpen] = useState<string | null>(null);
 
 	const [formData, setFormData] = useState({
@@ -61,7 +74,6 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 		accessToken: "",
 	});
 
-	// Populate form when account and secrets load
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Only populate when account data arrives
 	useEffect(() => {
 		if (account && secrets) {
@@ -152,6 +164,11 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 		);
 	}
 
+	const statusInfo = STATUS_LABELS[account.status] ?? {
+		label: account.status,
+		color: "text-muted-foreground",
+	};
+
 	return (
 		<Dialog onOpenChange={(open) => !open && onClose()} open>
 			<DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
@@ -165,15 +182,54 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 					</DialogDescription>
 				</DialogHeader>
 
+				{/* Status badge */}
+				<div className="flex items-center gap-2 rounded-lg border bg-card p-3">
+					<span className="text-muted-foreground text-xs">Status</span>
+					<span className={cn("ml-auto font-medium text-xs", statusInfo.color)}>
+						{statusInfo.label}
+					</span>
+				</div>
+
+				{/* Failure info */}
+				{account.status === "failed" && account.failedError && (
+					<div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm">
+						<XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+						<div>
+							<p className="font-medium">
+								Failed at: {account.failedAtStep?.replace(/_/g, " ")}
+							</p>
+							<p className="mt-0.5 text-xs opacity-80">{account.failedError}</p>
+						</div>
+					</div>
+				)}
+
+				{/* Name review progress */}
+				{account.status === "pending_name_review" && (
+					<div className="flex items-start gap-2 rounded-md bg-yellow-500/10 px-3 py-2 text-sm text-yellow-400">
+						<Clock className="mt-0.5 h-4 w-4 shrink-0" />
+						<div>
+							<p className="font-medium">Display name under review</p>
+							<p className="mt-0.5 text-xs opacity-80">
+								Meta typically takes 1-3 days to review. Check{" "}
+								{account.nameReviewCheckCount ?? 0} of 72 completed.
+							</p>
+						</div>
+					</div>
+				)}
+
 				{/* Read-only identifiers */}
 				<div className="grid gap-3 rounded-lg border bg-card p-4">
 					<ReadOnlyField label="WABA ID" mono value={account.wabaId} />
-					<ReadOnlyField
-						label="Phone Number ID"
-						mono
-						value={account.phoneNumberId}
-					/>
+					{account.phoneNumberId && (
+						<ReadOnlyField
+							label="Phone Number ID"
+							mono
+							value={account.phoneNumberId}
+						/>
+					)}
 					<ReadOnlyField label="Phone Number" value={account.phoneNumber} />
+					<ReadOnlyField label="Display Name" value={account.displayName} />
+					<ReadOnlyField label="Provider" value={account.numberProvider} />
 				</div>
 
 				<Separator />
@@ -245,7 +301,6 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 				<div className="space-y-4">
 					<Label className="text-sm">Members</Label>
 
-					{/* Member list */}
 					<div className="space-y-2">
 						{members?.map((member) => (
 							<div
@@ -351,7 +406,6 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 						))}
 					</div>
 
-					{/* Invite form */}
 					<form
 						className="flex items-start gap-2"
 						onSubmit={handleInviteByEmail}

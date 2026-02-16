@@ -1,18 +1,41 @@
 import { v } from "convex/values";
-import { internalQuery, mutation, query } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import {
+	internalMutation,
+	internalQuery,
+	mutation,
+	query,
+} from "./_generated/server";
 import { auth } from "./auth";
+import { registrationStep } from "./schema";
 
-// Safe account fields returned to the browser (no secrets)
-function stripSecrets(account: {
-	_id: import("./_generated/dataModel").Id<"accounts">;
+// ── Types ──
+
+type Account = Doc<"accounts">;
+
+type StrippedAccount = {
+	_id: Id<"accounts">;
 	_creationTime: number;
 	name: string;
 	wabaId: string;
-	phoneNumberId: string;
+	phoneNumberId?: string;
 	phoneNumber: string;
-	accessToken: string;
-	ownerId: import("./_generated/dataModel").Id<"users">;
-}) {
+	displayName: string;
+	status: Account["status"];
+	numberProvider: Account["numberProvider"];
+	ownerId: Id<"users">;
+	// Failure info (only when status = "failed")
+	failedAtStep?: Account["failedAtStep"];
+	failedError?: string;
+	failedAt?: number;
+	// Name review (only when status = "pending_name_review")
+	nameReviewCheckCount?: number;
+};
+
+// ── Helpers ──
+
+/** Safe account fields returned to the browser (no secrets, no ephemeral verification data) */
+function stripSecrets(account: Account): StrippedAccount {
 	return {
 		_id: account._id,
 		_creationTime: account._creationTime,
@@ -20,18 +43,67 @@ function stripSecrets(account: {
 		wabaId: account.wabaId,
 		phoneNumberId: account.phoneNumberId,
 		phoneNumber: account.phoneNumber,
+		displayName: account.displayName,
+		status: account.status,
+		numberProvider: account.numberProvider,
 		ownerId: account.ownerId,
+		// Include failure info so UI can show error + retry
+		failedAtStep: account.failedAtStep,
+		failedError: account.failedError,
+		failedAt: account.failedAt,
+		// Include name review progress
+		nameReviewCheckCount: account.nameReviewCheckCount,
 	};
 }
 
-// Get all accounts the current user has access to
+/**
+ * Valid state transitions. Key = current status, value = allowed next statuses.
+ * "failed" can be reached from any non-terminal state (handled separately).
+ */
+const VALID_TRANSITIONS: Record<string, string[]> = {
+	adding_number: ["code_requested"],
+	code_requested: ["verifying_code"],
+	verifying_code: ["registering"],
+	registering: ["pending_name_review"],
+	pending_name_review: ["active", "name_declined"],
+	// Terminal states — no transitions out (except retry from failed)
+	active: [],
+	name_declined: [],
+	failed: ["adding_number", "code_requested", "verifying_code", "registering"],
+};
+
+function assertTransition(
+	current: string,
+	next: string,
+	accountId: Id<"accounts">,
+) {
+	// Any non-terminal state can transition to "failed"
+	if (
+		next === "failed" &&
+		current !== "active" &&
+		current !== "name_declined"
+	) {
+		return;
+	}
+	const allowed = VALID_TRANSITIONS[current];
+	if (!allowed || !allowed.includes(next)) {
+		throw new Error(
+			`Invalid state transition: ${current} → ${next} (account ${accountId})`,
+		);
+	}
+}
+
+// ============================================================================
+// QUERIES
+// ============================================================================
+
+/** Get all accounts the current user has access to */
 export const list = query({
 	args: {},
 	handler: async (ctx) => {
 		const userId = await auth.getUserId(ctx);
 		if (!userId) return [];
 
-		// Get accounts where user is a member
 		const memberships = await ctx.db
 			.query("accountMembers")
 			.withIndex("by_user", (q) => q.eq("userId", userId))
@@ -47,14 +119,13 @@ export const list = query({
 	},
 });
 
-// Get a single account by ID (with access check, no secrets)
+/** Get a single account by ID (with access check, no secrets) */
 export const get = query({
 	args: { accountId: v.id("accounts") },
 	handler: async (ctx, args) => {
 		const userId = await auth.getUserId(ctx);
 		if (!userId) return null;
 
-		// Check membership
 		const membership = await ctx.db
 			.query("accountMembers")
 			.withIndex("by_account_user", (q) =>
@@ -71,14 +142,13 @@ export const get = query({
 	},
 });
 
-// Get account secrets for admin settings page (admin/owner only)
+/** Get account secrets for admin settings page (admin/owner only) */
 export const getSecrets = query({
 	args: { accountId: v.id("accounts") },
 	handler: async (ctx, args) => {
 		const userId = await auth.getUserId(ctx);
 		if (!userId) return null;
 
-		// Check admin/owner role
 		const membership = await ctx.db
 			.query("accountMembers")
 			.withIndex("by_account_user", (q) =>
@@ -97,7 +167,7 @@ export const getSecrets = query({
 	},
 });
 
-// Get full account by ID (internal only — includes secrets for server-side use)
+/** Get full account by ID (internal only — includes secrets for server-side use) */
 export const getInternal = internalQuery({
 	args: { accountId: v.id("accounts") },
 	handler: async (ctx, args) => {
@@ -105,7 +175,7 @@ export const getInternal = internalQuery({
 	},
 });
 
-// Get account by phone number ID (internal only)
+/** Get account by phone number ID (internal only — for webhook routing) */
 export const getByPhoneNumberIdInternal = internalQuery({
 	args: { phoneNumberId: v.string() },
 	handler: async (ctx, args) => {
@@ -118,7 +188,7 @@ export const getByPhoneNumberIdInternal = internalQuery({
 	},
 });
 
-// Check if a user is a member of an account (internal — used by UI action wrappers)
+/** Check if a user is a member of an account (internal) */
 export const checkMembership = internalQuery({
 	args: {
 		accountId: v.id("accounts"),
@@ -135,26 +205,40 @@ export const checkMembership = internalQuery({
 	},
 });
 
-// Create a new WhatsApp Business Account
-export const create = mutation({
+// ============================================================================
+// ACCOUNT CREATION
+// ============================================================================
+
+/**
+ * Create an account for an existing (pre-registered) phone number.
+ * The number is already on the WABA, so we skip straight to "active"
+ * (or "pending_name_review" if we want to track that).
+ */
+export const createExisting = mutation({
 	args: {
 		name: v.string(),
 		wabaId: v.string(),
 		phoneNumberId: v.string(),
 		phoneNumber: v.string(),
+		displayName: v.string(),
 		accessToken: v.string(),
 	},
 	handler: async (ctx, args) => {
 		const userId = await auth.getUserId(ctx);
 		if (!userId) throw new Error("Unauthorized");
 
-		// Create the account
 		const accountId = await ctx.db.insert("accounts", {
-			...args,
 			ownerId: userId,
+			name: args.name,
+			wabaId: args.wabaId,
+			phoneNumberId: args.phoneNumberId,
+			phoneNumber: args.phoneNumber,
+			displayName: args.displayName,
+			accessToken: args.accessToken,
+			status: "active",
+			numberProvider: "existing",
 		});
 
-		// Add owner as a member
 		await ctx.db.insert("accountMembers", {
 			accountId,
 			userId,
@@ -165,7 +249,309 @@ export const create = mutation({
 	},
 });
 
-// Update account settings
+/**
+ * Create an account for a BYON (Bring Your Own Number) phone.
+ * Starts at "adding_number" — the number hasn't been added to the WABA yet.
+ */
+export const createByon = mutation({
+	args: {
+		name: v.string(),
+		wabaId: v.string(),
+		phoneNumber: v.string(), // E.164: "+4917612345678"
+		displayName: v.string(),
+		countryCode: v.string(), // "49", "1", etc.
+		accessToken: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Unauthorized");
+
+		const accountId = await ctx.db.insert("accounts", {
+			ownerId: userId,
+			name: args.name,
+			wabaId: args.wabaId,
+			phoneNumber: args.phoneNumber,
+			displayName: args.displayName,
+			countryCode: args.countryCode,
+			accessToken: args.accessToken,
+			status: "adding_number",
+			numberProvider: "byon",
+		});
+
+		await ctx.db.insert("accountMembers", {
+			accountId,
+			userId,
+			role: "owner",
+		});
+
+		return accountId;
+	},
+});
+
+/**
+ * Create an account for a Twilio Connect number.
+ * Starts at "adding_number" — we have the Twilio number but it's not on the WABA yet.
+ */
+export const createTwilio = mutation({
+	args: {
+		name: v.string(),
+		wabaId: v.string(),
+		phoneNumber: v.string(),
+		displayName: v.string(),
+		countryCode: v.string(),
+		accessToken: v.string(),
+		twilioConnectionId: v.id("twilioConnections"),
+		twilioPhoneNumberSid: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Unauthorized");
+
+		const accountId = await ctx.db.insert("accounts", {
+			ownerId: userId,
+			name: args.name,
+			wabaId: args.wabaId,
+			phoneNumber: args.phoneNumber,
+			displayName: args.displayName,
+			countryCode: args.countryCode,
+			accessToken: args.accessToken,
+			status: "adding_number",
+			numberProvider: "twilio",
+			twilioConnectionId: args.twilioConnectionId,
+			twilioPhoneNumberSid: args.twilioPhoneNumberSid,
+		});
+
+		await ctx.db.insert("accountMembers", {
+			accountId,
+			userId,
+			role: "owner",
+		});
+
+		return accountId;
+	},
+});
+
+// ============================================================================
+// STATE TRANSITIONS (internal — called from phoneRegistration actions)
+// ============================================================================
+
+/** Transition to code_requested after phone number was added to WABA */
+export const transitionToCodeRequested = internalMutation({
+	args: {
+		accountId: v.id("accounts"),
+		phoneNumberId: v.string(), // Meta returns this after adding
+	},
+	handler: async (ctx, args) => {
+		const account = await ctx.db.get(args.accountId);
+		if (!account) throw new Error("Account not found");
+		assertTransition(account.status, "code_requested", args.accountId);
+
+		await ctx.db.patch(args.accountId, {
+			status: "code_requested",
+			phoneNumberId: args.phoneNumberId,
+		});
+	},
+});
+
+/** Transition to verifying_code after user submits OTP */
+export const transitionToVerifyingCode = internalMutation({
+	args: {
+		accountId: v.id("accounts"),
+		verificationCode: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const account = await ctx.db.get(args.accountId);
+		if (!account) throw new Error("Account not found");
+		assertTransition(account.status, "verifying_code", args.accountId);
+
+		await ctx.db.patch(args.accountId, {
+			status: "verifying_code",
+			verificationCode: args.verificationCode,
+		});
+	},
+});
+
+/** Transition to registering after code verification succeeds */
+export const transitionToRegistering = internalMutation({
+	args: {
+		accountId: v.id("accounts"),
+		twoStepPin: v.string(), // 6-digit 2FA pin
+	},
+	handler: async (ctx, args) => {
+		const account = await ctx.db.get(args.accountId);
+		if (!account) throw new Error("Account not found");
+		assertTransition(account.status, "registering", args.accountId);
+
+		await ctx.db.patch(args.accountId, {
+			status: "registering",
+			twoStepPin: args.twoStepPin,
+			verificationCode: undefined, // Clear ephemeral OTP
+		});
+	},
+});
+
+/** Transition to pending_name_review after registration succeeds */
+export const transitionToPendingNameReview = internalMutation({
+	args: {
+		accountId: v.id("accounts"),
+	},
+	handler: async (ctx, args) => {
+		const account = await ctx.db.get(args.accountId);
+		if (!account) throw new Error("Account not found");
+		assertTransition(account.status, "pending_name_review", args.accountId);
+
+		await ctx.db.patch(args.accountId, {
+			status: "pending_name_review",
+			nameReviewCheckCount: 0,
+			nameReviewMaxChecks: 72, // 3 days at 1 check/hour
+		});
+	},
+});
+
+/** Transition to active (name approved or existing number) */
+export const transitionToActive = internalMutation({
+	args: {
+		accountId: v.id("accounts"),
+	},
+	handler: async (ctx, args) => {
+		const account = await ctx.db.get(args.accountId);
+		if (!account) throw new Error("Account not found");
+		assertTransition(account.status, "active", args.accountId);
+
+		await ctx.db.patch(args.accountId, {
+			status: "active",
+			nameReviewNotifiedAt: Date.now(),
+		});
+	},
+});
+
+/** Transition to name_declined */
+export const transitionToNameDeclined = internalMutation({
+	args: {
+		accountId: v.id("accounts"),
+	},
+	handler: async (ctx, args) => {
+		const account = await ctx.db.get(args.accountId);
+		if (!account) throw new Error("Account not found");
+		assertTransition(account.status, "name_declined", args.accountId);
+
+		await ctx.db.patch(args.accountId, {
+			status: "name_declined",
+			nameReviewNotifiedAt: Date.now(),
+		});
+	},
+});
+
+/** Transition to failed from any non-terminal state */
+export const transitionToFailed = internalMutation({
+	args: {
+		accountId: v.id("accounts"),
+		failedAtStep: registrationStep,
+		failedError: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const account = await ctx.db.get(args.accountId);
+		if (!account) throw new Error("Account not found");
+		assertTransition(account.status, "failed", args.accountId);
+
+		await ctx.db.patch(args.accountId, {
+			status: "failed",
+			failedAtStep: args.failedAtStep,
+			failedError: args.failedError,
+			failedAt: Date.now(),
+		});
+	},
+});
+
+/**
+ * Retry from failed state — resets to the step that failed.
+ * Clears failure fields so the step can be re-attempted.
+ */
+export const retryFromFailed = mutation({
+	args: {
+		accountId: v.id("accounts"),
+	},
+	handler: async (ctx, args) => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Unauthorized");
+
+		const membership = await ctx.db
+			.query("accountMembers")
+			.withIndex("by_account_user", (q) =>
+				q.eq("accountId", args.accountId).eq("userId", userId),
+			)
+			.first();
+
+		if (!membership) throw new Error("Unauthorized");
+
+		const account = await ctx.db.get(args.accountId);
+		if (!account) throw new Error("Account not found");
+		if (account.status !== "failed") {
+			throw new Error("Can only retry from failed state");
+		}
+		if (!account.failedAtStep) {
+			throw new Error("No failed step recorded — cannot retry");
+		}
+
+		await ctx.db.patch(args.accountId, {
+			status: account.failedAtStep,
+			failedAtStep: undefined,
+			failedError: undefined,
+			failedAt: undefined,
+		});
+
+		return account.failedAtStep;
+	},
+});
+
+/**
+ * Store the auto-captured verification code from Twilio SMS webhook.
+ * Does NOT transition state — the phoneRegistration action will do that.
+ */
+export const storeVerificationCode = internalMutation({
+	args: {
+		accountId: v.id("accounts"),
+		verificationCode: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const account = await ctx.db.get(args.accountId);
+		if (!account) throw new Error("Account not found");
+		if (account.status !== "code_requested") {
+			throw new Error(
+				`Cannot store verification code in status: ${account.status}`,
+			);
+		}
+
+		await ctx.db.patch(args.accountId, {
+			verificationCode: args.verificationCode,
+		});
+	},
+});
+
+/**
+ * Update name review polling fields (internal — called by nameReview polling workflow)
+ */
+export const updateNameReviewProgress = internalMutation({
+	args: {
+		accountId: v.id("accounts"),
+		lastCheckedAt: v.number(),
+		checkCount: v.number(),
+		scheduledJobId: v.optional(v.string()),
+	},
+	handler: async (ctx, args) => {
+		await ctx.db.patch(args.accountId, {
+			nameReviewLastCheckedAt: args.lastCheckedAt,
+			nameReviewCheckCount: args.checkCount,
+			nameReviewScheduledJobId: args.scheduledJobId,
+		});
+	},
+});
+
+// ============================================================================
+// ACCOUNT UPDATES
+// ============================================================================
+
+/** Update account settings */
 export const update = mutation({
 	args: {
 		accountId: v.id("accounts"),
@@ -176,7 +562,6 @@ export const update = mutation({
 		const userId = await auth.getUserId(ctx);
 		if (!userId) throw new Error("Unauthorized");
 
-		// Check admin/owner role
 		const membership = await ctx.db
 			.query("accountMembers")
 			.withIndex("by_account_user", (q) =>
@@ -198,14 +583,13 @@ export const update = mutation({
 	},
 });
 
-// Delete an account
+/** Delete an account (cascade deletes all related data) */
 export const remove = mutation({
 	args: { accountId: v.id("accounts") },
 	handler: async (ctx, args) => {
 		const userId = await auth.getUserId(ctx);
 		if (!userId) throw new Error("Unauthorized");
 
-		// Check owner role
 		const membership = await ctx.db
 			.query("accountMembers")
 			.withIndex("by_account_user", (q) =>
@@ -218,75 +602,34 @@ export const remove = mutation({
 		}
 
 		// Delete all related data
-		// 1. Delete messages
-		const messages = await ctx.db
-			.query("messages")
-			.withIndex("by_account", (q) => q.eq("accountId", args.accountId))
-			.collect();
-		for (const msg of messages) {
-			await ctx.db.delete(msg._id);
+		const tables = [
+			"messages",
+			"conversations",
+			"contacts",
+			"templates",
+			"accountMembers",
+			"webhookLogs",
+			"apiKeys",
+		] as const;
+
+		for (const table of tables) {
+			const rows = await ctx.db
+				.query(table)
+				.withIndex("by_account", (q) => q.eq("accountId", args.accountId))
+				.collect();
+			for (const row of rows) {
+				await ctx.db.delete(row._id);
+			}
 		}
 
-		// 2. Delete conversations
-		const conversations = await ctx.db
-			.query("conversations")
-			.withIndex("by_account", (q) => q.eq("accountId", args.accountId))
-			.collect();
-		for (const conv of conversations) {
-			await ctx.db.delete(conv._id);
-		}
-
-		// 3. Delete contacts
-		const contacts = await ctx.db
-			.query("contacts")
-			.withIndex("by_account", (q) => q.eq("accountId", args.accountId))
-			.collect();
-		for (const contact of contacts) {
-			await ctx.db.delete(contact._id);
-		}
-
-		// 4. Delete templates
-		const templates = await ctx.db
-			.query("templates")
-			.withIndex("by_account", (q) => q.eq("accountId", args.accountId))
-			.collect();
-		for (const template of templates) {
-			await ctx.db.delete(template._id);
-		}
-
-		// 5. Delete members
-		const members = await ctx.db
-			.query("accountMembers")
-			.withIndex("by_account", (q) => q.eq("accountId", args.accountId))
-			.collect();
-		for (const member of members) {
-			await ctx.db.delete(member._id);
-		}
-
-		// 6. Delete webhook logs
-		const logs = await ctx.db
-			.query("webhookLogs")
-			.withIndex("by_account", (q) => q.eq("accountId", args.accountId))
-			.collect();
-		for (const log of logs) {
-			await ctx.db.delete(log._id);
-		}
-
-		// 7. Delete API keys
-		const apiKeys = await ctx.db
-			.query("apiKeys")
-			.withIndex("by_account", (q) => q.eq("accountId", args.accountId))
-			.collect();
-		for (const key of apiKeys) {
-			await ctx.db.delete(key._id);
-		}
-
-		// Finally delete the account
 		await ctx.db.delete(args.accountId);
 	},
 });
 
-// Add a member to an account
+// ============================================================================
+// MEMBER MANAGEMENT
+// ============================================================================
+
 export const addMember = mutation({
 	args: {
 		accountId: v.id("accounts"),
@@ -297,7 +640,6 @@ export const addMember = mutation({
 		const currentUserId = await auth.getUserId(ctx);
 		if (!currentUserId) throw new Error("Unauthorized");
 
-		// Check admin/owner role
 		const membership = await ctx.db
 			.query("accountMembers")
 			.withIndex("by_account_user", (q) =>
@@ -309,7 +651,6 @@ export const addMember = mutation({
 			throw new Error("Only admins and owners can add members");
 		}
 
-		// Check if already a member
 		const existing = await ctx.db
 			.query("accountMembers")
 			.withIndex("by_account_user", (q) =>
@@ -317,9 +658,7 @@ export const addMember = mutation({
 			)
 			.first();
 
-		if (existing) {
-			throw new Error("User is already a member");
-		}
+		if (existing) throw new Error("User is already a member");
 
 		return ctx.db.insert("accountMembers", {
 			accountId: args.accountId,
@@ -329,7 +668,6 @@ export const addMember = mutation({
 	},
 });
 
-// Add a member by email address (looks up the user first)
 export const addMemberByEmail = mutation({
 	args: {
 		accountId: v.id("accounts"),
@@ -340,7 +678,6 @@ export const addMemberByEmail = mutation({
 		const currentUserId = await auth.getUserId(ctx);
 		if (!currentUserId) throw new Error("Unauthorized");
 
-		// Check admin/owner role
 		const membership = await ctx.db
 			.query("accountMembers")
 			.withIndex("by_account_user", (q) =>
@@ -352,7 +689,6 @@ export const addMemberByEmail = mutation({
 			throw new Error("Only admins and owners can add members");
 		}
 
-		// Look up user by email
 		const user = await ctx.db
 			.query("users")
 			.withIndex("email", (q) => q.eq("email", args.email))
@@ -364,7 +700,6 @@ export const addMemberByEmail = mutation({
 			);
 		}
 
-		// Check if already a member
 		const existing = await ctx.db
 			.query("accountMembers")
 			.withIndex("by_account_user", (q) =>
@@ -372,9 +707,7 @@ export const addMemberByEmail = mutation({
 			)
 			.first();
 
-		if (existing) {
-			throw new Error("User is already a member");
-		}
+		if (existing) throw new Error("User is already a member");
 
 		return ctx.db.insert("accountMembers", {
 			accountId: args.accountId,
@@ -384,14 +717,12 @@ export const addMemberByEmail = mutation({
 	},
 });
 
-// List members for an account (with user details)
 export const listMembers = query({
 	args: { accountId: v.id("accounts") },
 	handler: async (ctx, args) => {
 		const userId = await auth.getUserId(ctx);
 		if (!userId) return [];
 
-		// Check the caller has access
 		const callerMembership = await ctx.db
 			.query("accountMembers")
 			.withIndex("by_account_user", (q) =>
@@ -419,14 +750,11 @@ export const listMembers = query({
 			}),
 		);
 
-		// Sort: owner first, then admin, then member
 		const roleOrder = { owner: 0, admin: 1, member: 2 };
 		return members.sort((a, b) => roleOrder[a.role] - roleOrder[b.role]);
 	},
 });
 
-// Find a user by email (for inviting). Requires admin/owner of the account
-// to prevent unauthenticated user enumeration.
 export const findUserByEmail = query({
 	args: {
 		accountId: v.id("accounts"),
@@ -436,7 +764,6 @@ export const findUserByEmail = query({
 		const userId = await auth.getUserId(ctx);
 		if (!userId) return null;
 
-		// Verify caller is admin/owner of the account
 		const membership = await ctx.db
 			.query("accountMembers")
 			.withIndex("by_account_user", (q) =>
@@ -462,11 +789,6 @@ export const findUserByEmail = query({
 	},
 });
 
-// Update a member's role.
-// Role hierarchy: owner > admin > member.
-// - Owners can change anyone's role (except their own).
-// - Admins can only promote/demote members, NOT other admins.
-// - Members cannot change roles.
 export const updateMemberRole = mutation({
 	args: {
 		accountId: v.id("accounts"),
@@ -499,8 +821,6 @@ export const updateMemberRole = mutation({
 		if (targetMembership.role === "owner") {
 			throw new Error("Cannot change the owner's role");
 		}
-
-		// Admins can only modify members, not other admins
 		if (
 			callerMembership.role === "admin" &&
 			targetMembership.role === "admin"
@@ -512,11 +832,6 @@ export const updateMemberRole = mutation({
 	},
 });
 
-// Remove a member from an account.
-// Role hierarchy: owner > admin > member.
-// - Owners can remove anyone (except themselves).
-// - Admins can only remove members, NOT other admins.
-// - Members cannot remove anyone.
 export const removeMember = mutation({
 	args: {
 		accountId: v.id("accounts"),
@@ -544,15 +859,10 @@ export const removeMember = mutation({
 			)
 			.first();
 
-		if (!targetMembership) {
-			throw new Error("User is not a member");
-		}
-
+		if (!targetMembership) throw new Error("User is not a member");
 		if (targetMembership.role === "owner") {
 			throw new Error("Cannot remove the owner");
 		}
-
-		// Admins can only remove members, not other admins
 		if (
 			callerMembership.role === "admin" &&
 			targetMembership.role === "admin"

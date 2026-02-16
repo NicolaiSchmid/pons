@@ -438,8 +438,9 @@ export const getAccountInternal = internalQuery({
 		if (!account) return null;
 
 		return {
-			phoneNumberId: account.phoneNumberId,
+			phoneNumberId: account.phoneNumberId ?? null,
 			accessToken: account.accessToken,
+			status: account.status,
 		};
 	},
 });

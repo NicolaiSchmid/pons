@@ -25,6 +25,17 @@ export const sendTextMessage = internalAction({
 			accountId: args.accountId,
 		});
 		if (!account) throw new Error("Account not found");
+		if (!account.phoneNumberId) {
+			throw new Error(
+				"Account has no phone number ID — registration may be incomplete",
+			);
+		}
+		if (
+			account.status !== "active" &&
+			account.status !== "pending_name_review"
+		) {
+			throw new Error(`Account is not active (status: ${account.status})`);
+		}
 
 		// Create message record
 		const messageId = await ctx.runMutation(
@@ -128,6 +139,17 @@ export const sendTemplateMessage = internalAction({
 			accountId: args.accountId,
 		});
 		if (!account) throw new Error("Account not found");
+		if (!account.phoneNumberId) {
+			throw new Error(
+				"Account has no phone number ID — registration may be incomplete",
+			);
+		}
+		if (
+			account.status !== "active" &&
+			account.status !== "pending_name_review"
+		) {
+			throw new Error(`Account is not active (status: ${account.status})`);
+		}
 
 		const messageId = await ctx.runMutation(
 			internal.messages.createOutboundInternal,
@@ -294,6 +316,9 @@ export const markAsRead = internalAction({
 			accountId: args.accountId,
 		});
 		if (!account) throw new Error("Account not found");
+		if (!account.phoneNumberId) {
+			throw new Error("Account has no phone number ID");
+		}
 
 		const response = await fetch(
 			`${META_API_BASE}/${account.phoneNumberId}/messages`,
@@ -336,6 +361,9 @@ export const sendReaction = internalAction({
 			accountId: args.accountId,
 		});
 		if (!account) throw new Error("Account not found");
+		if (!account.phoneNumberId) {
+			throw new Error("Account has no phone number ID");
+		}
 
 		const response = await fetch(
 			`${META_API_BASE}/${account.phoneNumberId}/messages`,

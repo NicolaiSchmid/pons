@@ -1,14 +1,18 @@
 "use client";
 
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
+	AlertCircle,
 	ChevronDown,
+	Clock,
 	KeyRound,
 	LogOut,
 	MessageSquare,
 	Plus,
+	RefreshCw,
 	Settings,
+	XCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { Navbar } from "@/components/Navbar";
@@ -29,9 +33,13 @@ import { ConversationList } from "./ConversationList";
 import { MessageThread } from "./MessageThread";
 import { SetupAccount } from "./SetupAccount";
 
+/** Statuses that allow normal messaging */
+const USABLE_STATUSES = new Set(["active", "pending_name_review"]);
+
 export function Dashboard() {
 	const { signOut } = useAuthActions();
 	const accounts = useQuery(api.accounts.list);
+	const retryFromFailed = useMutation(api.accounts.retryFromFailed);
 
 	const [selectedAccountId, setSelectedAccountId] = useState<
 		Id<"accounts"> | undefined
@@ -42,6 +50,7 @@ export function Dashboard() {
 	const [showSetup, setShowSetup] = useState(false);
 	const [showApiKeys, setShowApiKeys] = useState(false);
 	const [showSettings, setShowSettings] = useState(false);
+	const [retrying, setRetrying] = useState(false);
 
 	// Loading state
 	if (accounts === undefined) {
@@ -55,9 +64,13 @@ export function Dashboard() {
 		);
 	}
 
-	// Auto-select first account if only one exists
-	if (accounts.length === 1 && !selectedAccountId && accounts[0]) {
-		setSelectedAccountId(accounts[0]._id);
+	// Auto-select: prefer active accounts, fall back to first
+	if (accounts.length >= 1 && !selectedAccountId) {
+		const active = accounts.find((a) => a && USABLE_STATUSES.has(a.status));
+		const first = active ?? accounts[0];
+		if (first) {
+			setSelectedAccountId(first._id);
+		}
 	}
 
 	// No accounts - show setup
@@ -73,6 +86,23 @@ export function Dashboard() {
 			</div>
 		);
 	}
+
+	const selectedAccount = accounts.find((a) => a?._id === selectedAccountId);
+	const isUsable = selectedAccount
+		? USABLE_STATUSES.has(selectedAccount.status)
+		: false;
+
+	const handleRetry = async () => {
+		if (!selectedAccountId) return;
+		setRetrying(true);
+		try {
+			await retryFromFailed({ accountId: selectedAccountId });
+		} catch {
+			// Error will surface via reactive query
+		} finally {
+			setRetrying(false);
+		}
+	};
 
 	return (
 		<TooltipProvider delayDuration={300}>
@@ -149,7 +179,7 @@ export function Dashboard() {
 				<div className="flex flex-1 overflow-hidden">
 					{/* Conversation list sidebar */}
 					<div className="w-80 shrink-0 overflow-y-auto border-r">
-						{selectedAccountId ? (
+						{selectedAccountId && isUsable ? (
 							<ConversationList
 								accountId={selectedAccountId}
 								onSelectConversation={setSelectedConversationId}
@@ -157,16 +187,29 @@ export function Dashboard() {
 							/>
 						) : (
 							<EmptyState
-								description="Choose an account above to view conversations"
-								icon={ChevronDown}
-								title="Select an account"
+								description={
+									selectedAccountId
+										? "This account isn't ready for messaging yet"
+										: "Choose an account above to view conversations"
+								}
+								icon={selectedAccountId ? AlertCircle : ChevronDown}
+								title={
+									selectedAccountId ? "Account not ready" : "Select an account"
+								}
 							/>
 						)}
 					</div>
 
-					{/* Message thread */}
+					{/* Message thread / status banner */}
 					<div className="flex-1 overflow-hidden">
-						{selectedAccountId && selectedConversationId ? (
+						{selectedAccount && !isUsable ? (
+							<AccountStatusBanner
+								account={selectedAccount}
+								onOpenSettings={() => setShowSettings(true)}
+								onRetry={handleRetry}
+								retrying={retrying}
+							/>
+						) : selectedAccountId && selectedConversationId ? (
 							<MessageThread
 								accountId={selectedAccountId}
 								conversationId={selectedConversationId}
@@ -204,6 +247,169 @@ export function Dashboard() {
 		</TooltipProvider>
 	);
 }
+
+// ── Status banner for non-usable accounts ──
+
+type StrippedAccount = {
+	_id: Id<"accounts">;
+	_creationTime: number;
+	name: string;
+	wabaId: string;
+	phoneNumberId?: string;
+	phoneNumber: string;
+	displayName: string;
+	status: string;
+	numberProvider: string;
+	ownerId: Id<"users">;
+	failedAtStep?: string;
+	failedError?: string;
+	failedAt?: number;
+	nameReviewCheckCount?: number;
+};
+
+function AccountStatusBanner({
+	account,
+	onRetry,
+	onOpenSettings,
+	retrying,
+}: {
+	account: StrippedAccount;
+	onRetry: () => void;
+	onOpenSettings: () => void;
+	retrying: boolean;
+}) {
+	const { status } = account;
+
+	// Failed state — show error + retry
+	if (status === "failed") {
+		return (
+			<div className="flex h-full flex-col items-center justify-center gap-4 p-8">
+				<div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+					<XCircle className="h-6 w-6 text-destructive" />
+				</div>
+				<div className="text-center">
+					<p className="font-display font-semibold text-foreground">
+						Setup Failed
+					</p>
+					<p className="mt-1 max-w-sm text-muted-foreground text-sm">
+						{account.failedError ?? "An error occurred during setup."}
+					</p>
+					{account.failedAtStep && (
+						<p className="mt-1 text-muted-foreground text-xs">
+							Failed at:{" "}
+							<span className="font-mono">
+								{account.failedAtStep.replace(/_/g, " ")}
+							</span>
+						</p>
+					)}
+				</div>
+				<div className="flex items-center gap-2">
+					<Button
+						className="gap-1.5 bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
+						disabled={retrying}
+						onClick={onRetry}
+						size="sm"
+					>
+						{retrying ? (
+							<RefreshCw className="h-3.5 w-3.5 animate-spin" />
+						) : (
+							<RefreshCw className="h-3.5 w-3.5" />
+						)}
+						Retry
+					</Button>
+					<Button
+						className="gap-1.5"
+						onClick={onOpenSettings}
+						size="sm"
+						variant="outline"
+					>
+						<Settings className="h-3.5 w-3.5" />
+						Details
+					</Button>
+				</div>
+			</div>
+		);
+	}
+
+	// Name declined
+	if (status === "name_declined") {
+		return (
+			<div className="flex h-full flex-col items-center justify-center gap-4 p-8">
+				<div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+					<XCircle className="h-6 w-6 text-destructive" />
+				</div>
+				<div className="text-center">
+					<p className="font-display font-semibold text-foreground">
+						Display Name Declined
+					</p>
+					<p className="mt-1 max-w-sm text-muted-foreground text-sm">
+						Meta rejected the display name{" "}
+						<span className="font-medium text-foreground">
+							"{account.displayName}"
+						</span>
+						. You'll need to submit a new name via{" "}
+						<a
+							className="text-pons-green underline underline-offset-2 hover:text-pons-green-bright"
+							href="https://business.facebook.com/settings/whatsapp-business-accounts"
+							rel="noopener noreferrer"
+							target="_blank"
+						>
+							Meta Business Suite
+						</a>
+						.
+					</p>
+				</div>
+				<Button
+					className="gap-1.5"
+					onClick={onOpenSettings}
+					size="sm"
+					variant="outline"
+				>
+					<Settings className="h-3.5 w-3.5" />
+					View Details
+				</Button>
+			</div>
+		);
+	}
+
+	// In-progress states (adding_number, code_requested, verifying_code, registering)
+	const IN_PROGRESS_LABELS: Record<string, string> = {
+		adding_number: "Adding phone number to your WABA...",
+		code_requested: "Verification code sent — waiting for entry",
+		verifying_code: "Verifying your code...",
+		registering: "Registering with WhatsApp...",
+	};
+
+	const progressLabel =
+		IN_PROGRESS_LABELS[status] ?? "Setting up your account...";
+
+	return (
+		<div className="flex h-full flex-col items-center justify-center gap-4 p-8">
+			<div className="flex h-12 w-12 items-center justify-center rounded-full bg-yellow-500/10">
+				<Clock className="h-6 w-6 animate-pulse text-yellow-400" />
+			</div>
+			<div className="text-center">
+				<p className="font-display font-semibold text-foreground">
+					Setup in Progress
+				</p>
+				<p className="mt-1 max-w-sm text-muted-foreground text-sm">
+					{progressLabel}
+				</p>
+			</div>
+			<Button
+				className="gap-1.5"
+				onClick={onOpenSettings}
+				size="sm"
+				variant="outline"
+			>
+				<Settings className="h-3.5 w-3.5" />
+				View Details
+			</Button>
+		</div>
+	);
+}
+
+// ── Shared layout components ──
 
 function Header({ onSignOut }: { onSignOut: () => void }) {
 	return (
