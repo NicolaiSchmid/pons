@@ -536,6 +536,9 @@ export default function Home() {
 						<a className="transition hover:text-foreground" href="/docs">
 							Docs
 						</a>
+						<a className="transition hover:text-foreground" href="/blog">
+							Blog
+						</a>
 						<a
 							className="transition hover:text-foreground"
 							href="https://github.com/NicolaiSchmid/pons"
