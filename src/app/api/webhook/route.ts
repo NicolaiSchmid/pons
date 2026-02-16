@@ -133,12 +133,14 @@ export async function GET(request: NextRequest) {
 	});
 
 	if (mode === "subscribe" && token && challenge) {
-		// Validate token against accounts in DB via gateway
-		const isValid = await convex.action(api.gateway.webhookVerify, {
-			verifyToken: token,
-		});
+		// Validate against the app-level verify token (set via env var)
+		const expectedToken = process.env.WEBHOOK_VERIFY_TOKEN;
+		if (!expectedToken) {
+			console.error("[webhook:GET] ✗ WEBHOOK_VERIFY_TOKEN env var not set");
+			return new NextResponse("Server misconfigured", { status: 500 });
+		}
 
-		if (isValid) {
+		if (token === expectedToken) {
 			console.log(
 				"[webhook:GET] ✓ Verification successful, returning challenge",
 			);

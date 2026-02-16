@@ -19,7 +19,6 @@ export default defineSchema({
 		phoneNumberId: v.string(), // Meta's phone number ID
 		phoneNumber: v.string(), // Display number: +1 555 123 4567
 		accessToken: v.string(),
-		webhookVerifyToken: v.string(), // For webhook verification
 		ownerId: v.id("users"),
 	})
 		.index("by_phone_number_id", ["phoneNumberId"])

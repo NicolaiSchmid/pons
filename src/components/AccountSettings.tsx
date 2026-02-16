@@ -4,9 +4,7 @@ import { useMutation, useQuery } from "convex/react";
 import {
 	Check,
 	ChevronDown,
-	Copy,
 	Crown,
-	Dices,
 	ExternalLink,
 	Loader2,
 	Settings,
@@ -49,8 +47,6 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [saved, setSaved] = useState(false);
-	const [copiedWebhook, setCopiedWebhook] = useState(false);
-
 	// Invite state
 	const [inviteEmail, setInviteEmail] = useState("");
 	const [inviteRole, setInviteRole] = useState<"admin" | "member">("member");
@@ -63,7 +59,6 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 	const [formData, setFormData] = useState({
 		name: "",
 		accessToken: "",
-		webhookVerifyToken: "",
 	});
 
 	// Populate form when account and secrets load
@@ -73,15 +68,9 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 			setFormData({
 				name: account.name,
 				accessToken: secrets.accessToken,
-				webhookVerifyToken: secrets.webhookVerifyToken,
 			});
 		}
 	}, [account?._id, secrets]);
-
-	const webhookUrl =
-		typeof window !== "undefined"
-			? `${window.location.origin}/api/webhook`
-			: "";
 
 	const handleSave = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -94,7 +83,6 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 				accountId,
 				name: formData.name,
 				accessToken: formData.accessToken,
-				webhookVerifyToken: formData.webhookVerifyToken,
 			});
 			setSaved(true);
 			setTimeout(() => setSaved(false), 2000);
@@ -146,21 +134,6 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to update role");
 		}
-	};
-
-	const generateToken = () => {
-		const array = new Uint8Array(24);
-		crypto.getRandomValues(array);
-		const token = Array.from(array, (b) => b.toString(36).padStart(2, "0"))
-			.join("")
-			.slice(0, 32);
-		setFormData((prev) => ({ ...prev, webhookVerifyToken: token }));
-	};
-
-	const copyWebhookUrl = () => {
-		navigator.clipboard.writeText(webhookUrl);
-		setCopiedWebhook(true);
-		setTimeout(() => setCopiedWebhook(false), 2000);
 	};
 
 	const updateField = (field: string, value: string) => {
@@ -236,55 +209,6 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 								<ExternalLink className="h-3 w-3" />
 							</a>
 						</p>
-					</div>
-
-					<div className="space-y-2">
-						<Label className="text-muted-foreground text-xs">
-							Callback URL
-						</Label>
-						<div className="flex items-center gap-2">
-							<code className="flex-1 truncate rounded-md bg-muted px-3 py-2 font-mono text-foreground text-xs">
-								{webhookUrl}
-							</code>
-							<Button
-								className="shrink-0"
-								onClick={copyWebhookUrl}
-								size="icon"
-								type="button"
-								variant="ghost"
-							>
-								{copiedWebhook ? (
-									<Check className="h-3.5 w-3.5 text-pons-green" />
-								) : (
-									<Copy className="h-3.5 w-3.5" />
-								)}
-							</Button>
-						</div>
-					</div>
-
-					<div className="space-y-2">
-						<Label htmlFor="settings-webhookVerifyToken">
-							Webhook Verify Token
-						</Label>
-						<div className="flex gap-2">
-							<Input
-								id="settings-webhookVerifyToken"
-								onChange={(e) =>
-									updateField("webhookVerifyToken", e.target.value)
-								}
-								value={formData.webhookVerifyToken}
-							/>
-							<Button
-								className="shrink-0 gap-1.5"
-								onClick={generateToken}
-								size="default"
-								type="button"
-								variant="secondary"
-							>
-								<Dices className="h-3.5 w-3.5" />
-								Generate
-							</Button>
-						</div>
 					</div>
 
 					{error && (

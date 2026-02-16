@@ -5,7 +5,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { action, internalQuery } from "./_generated/server";
+import { action } from "./_generated/server";
 
 // ============================================
 // MCP Gateway — validates API key, then runs tool
@@ -256,30 +256,5 @@ export const webhookStatusUpdate = action({
 			errorCode: args.errorCode,
 			errorMessage: args.errorMessage,
 		});
-	},
-});
-
-/**
- * Validate a webhook verify token against all configured accounts.
- * Used by the GET handler to respond to Meta's verification challenge.
- */
-export const webhookVerify = action({
-	args: {
-		verifyToken: v.string(),
-	},
-	handler: async (ctx, args): Promise<boolean> => {
-		return ctx.runQuery(internal.gateway.matchesVerifyToken, {
-			verifyToken: args.verifyToken,
-		});
-	},
-});
-
-// Internal query: check if any account has this verify token
-export const matchesVerifyToken = internalQuery({
-	args: { verifyToken: v.string() },
-	handler: async (ctx, args): Promise<boolean> => {
-		// Scan all accounts — there are typically very few
-		const accounts = await ctx.db.query("accounts").collect();
-		return accounts.some((a) => a.webhookVerifyToken === args.verifyToken);
 	},
 });

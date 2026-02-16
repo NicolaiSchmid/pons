@@ -143,9 +143,9 @@ export const discoverPhoneNumbers = action({
 
 /**
  * Subscribe a WABA to webhooks for receiving messages.
- * This registers pons.chat/api/webhook as the webhook endpoint for the WABA.
+ * This registers the WABA to receive webhooks via the app's webhook endpoint.
  */
-export const subscribeWebhook = action({
+export const subscribeWaba = action({
 	args: { wabaId: v.string() },
 	handler: async (ctx, { wabaId }): Promise<{ success: boolean }> => {
 		const userId = await auth.getUserId(ctx);
@@ -170,7 +170,57 @@ export const subscribeWebhook = action({
 		if (!res.ok) {
 			const error = await res.json();
 			throw new Error(
-				`Failed to subscribe webhook: ${error.error?.message ?? res.statusText}`,
+				`Failed to subscribe WABA: ${error.error?.message ?? res.statusText}`,
+			);
+		}
+
+		const data = await res.json();
+		return { success: data.success === true };
+	},
+});
+
+/**
+ * Register the app-level webhook endpoint with Meta.
+ * Uses an App Access Token (app_id|app_secret) to call POST /{app-id}/subscriptions.
+ * This sets the callback URL and verify token for whatsapp_business_account webhooks.
+ * Only needs to be called once (or when URL/token changes), but is idempotent.
+ */
+export const registerAppWebhook = action({
+	args: {},
+	handler: async (ctx): Promise<{ success: boolean }> => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Not authenticated");
+
+		const appId = process.env.FACEBOOK_APP_ID;
+		const appSecret = process.env.FACEBOOK_APP_SECRET;
+		const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN;
+		const callbackUrl = process.env.WEBHOOK_CALLBACK_URL;
+
+		if (!appId || !appSecret || !verifyToken || !callbackUrl) {
+			throw new Error(
+				"Missing env vars: FACEBOOK_APP_ID, FACEBOOK_APP_SECRET, WEBHOOK_VERIFY_TOKEN, or WEBHOOK_CALLBACK_URL",
+			);
+		}
+
+		// App Access Token = "app_id|app_secret"
+		const appAccessToken = `${appId}|${appSecret}`;
+
+		const res = await fetch(`${META_API_BASE}/${appId}/subscriptions`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				object: "whatsapp_business_account",
+				callback_url: callbackUrl,
+				verify_token: verifyToken,
+				fields: "messages",
+				access_token: appAccessToken,
+			}),
+		});
+
+		if (!res.ok) {
+			const error = await res.json();
+			throw new Error(
+				`Failed to register app webhook: ${error.error?.message ?? res.statusText}`,
 			);
 		}
 

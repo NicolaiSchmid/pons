@@ -6,8 +6,6 @@ import {
 	ArrowLeft,
 	Building2,
 	Check,
-	Copy,
-	Dices,
 	ExternalLink,
 	Loader2,
 	MessageSquare,
@@ -132,7 +130,10 @@ function AutoSetup({
 	const discoverPhoneNumbers = useAction(
 		api.whatsappDiscovery.discoverPhoneNumbers,
 	);
-	const subscribeWebhook = useAction(api.whatsappDiscovery.subscribeWebhook);
+	const registerAppWebhook = useAction(
+		api.whatsappDiscovery.registerAppWebhook,
+	);
+	const subscribeWaba = useAction(api.whatsappDiscovery.subscribeWaba);
 
 	const [step, setStep] = useState<WizardStep>(
 		businesses.length === 1 ? "pick-waba" : "pick-business",
@@ -146,15 +147,6 @@ function AutoSetup({
 	const [selectedPhone, setSelectedPhone] = useState<PhoneNumber | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [copiedWebhook, setCopiedWebhook] = useState(false);
-
-	// Configuration fields
-	const [webhookVerifyToken, setWebhookVerifyToken] = useState("");
-
-	const webhookUrl =
-		typeof window !== "undefined"
-			? `${window.location.origin}/api/webhook`
-			: "";
 
 	// Auto-load WABAs when business is selected
 	useEffect(() => {
@@ -214,38 +206,25 @@ function AutoSetup({
 		};
 	}, [selectedWaba, step, discoverPhoneNumbers]);
 
-	const generateToken = () => {
-		const array = new Uint8Array(24);
-		crypto.getRandomValues(array);
-		const token = Array.from(array, (b) => b.toString(36).padStart(2, "0"))
-			.join("")
-			.slice(0, 32);
-		setWebhookVerifyToken(token);
-	};
-
-	const copyWebhookUrl = () => {
-		navigator.clipboard.writeText(webhookUrl);
-		setCopiedWebhook(true);
-		setTimeout(() => setCopiedWebhook(false), 2000);
-	};
-
 	const handleConnect = async () => {
 		if (!selectedWaba || !selectedPhone) return;
 		setLoading(true);
 		setError(null);
 
 		try {
-			// Auto-subscribe the WABA to webhooks
-			await subscribeWebhook({ wabaId: selectedWaba.id });
+			// 1. Ensure app-level webhook is registered (idempotent)
+			await registerAppWebhook();
 
-			// Create the account in Convex
+			// 2. Subscribe this WABA to the app's webhook
+			await subscribeWaba({ wabaId: selectedWaba.id });
+
+			// 3. Create the account in Convex
 			await createAccount({
 				name: selectedPhone.verified_name || selectedWaba.name,
 				wabaId: selectedWaba.id,
 				phoneNumberId: selectedPhone.id,
 				phoneNumber: selectedPhone.display_phone_number,
 				accessToken: "", // Will use Facebook token; user can add System User token later
-				webhookVerifyToken: webhookVerifyToken || "auto-registered",
 			});
 
 			onComplete();
@@ -485,55 +464,10 @@ function AutoSetup({
 						</div>
 					</div>
 
-					{/* Webhook Verify Token */}
-					<div className="space-y-2">
-						<Label htmlFor="webhookVerifyToken">Webhook Verify Token</Label>
-						<div className="flex gap-2">
-							<Input
-								id="webhookVerifyToken"
-								onChange={(e) => setWebhookVerifyToken(e.target.value)}
-								placeholder="random-string-here"
-								value={webhookVerifyToken}
-							/>
-							<Button
-								className="shrink-0 gap-1.5"
-								onClick={generateToken}
-								size="default"
-								type="button"
-								variant="secondary"
-							>
-								<Dices className="h-3.5 w-3.5" />
-								Generate
-							</Button>
-						</div>
-					</div>
-
-					{/* Webhook Callback URL */}
-					<div className="space-y-2">
-						<Label className="text-muted-foreground text-xs">
-							Callback URL
-						</Label>
-						<div className="flex items-center gap-2">
-							<code className="flex-1 truncate rounded-md bg-muted px-3 py-2 font-mono text-foreground text-xs">
-								{webhookUrl}
-							</code>
-							<Button
-								className="shrink-0"
-								onClick={copyWebhookUrl}
-								size="icon"
-								type="button"
-								variant="ghost"
-							>
-								{copiedWebhook ? (
-									<Check className="h-3.5 w-3.5 text-pons-green" />
-								) : (
-									<Copy className="h-3.5 w-3.5" />
-								)}
-							</Button>
-						</div>
-						<p className="text-muted-foreground text-xs">
-							Pons will auto-subscribe to webhooks. Configure this URL in Meta
-							if not already set.
+					{/* Webhooks are auto-configured — nothing to fill in */}
+					<div className="rounded-lg border border-pons-green/20 bg-pons-green/5 px-4 py-3">
+						<p className="text-pons-green text-sm">
+							Webhooks will be configured automatically. No manual setup needed.
 						</p>
 					</div>
 
@@ -587,7 +521,6 @@ function ManualSetup({
 	const createAccount = useMutation(api.accounts.create);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [copiedWebhook, setCopiedWebhook] = useState(false);
 
 	const [formData, setFormData] = useState({
 		name: "",
@@ -595,13 +528,7 @@ function ManualSetup({
 		phoneNumberId: "",
 		phoneNumber: "",
 		accessToken: "",
-		webhookVerifyToken: "",
 	});
-
-	const webhookUrl =
-		typeof window !== "undefined"
-			? `${window.location.origin}/api/webhook`
-			: "";
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -616,21 +543,6 @@ function ManualSetup({
 		} finally {
 			setLoading(false);
 		}
-	};
-
-	const generateToken = () => {
-		const array = new Uint8Array(24);
-		crypto.getRandomValues(array);
-		const token = Array.from(array, (b) => b.toString(36).padStart(2, "0"))
-			.join("")
-			.slice(0, 32);
-		setFormData((prev) => ({ ...prev, webhookVerifyToken: token }));
-	};
-
-	const copyWebhookUrl = () => {
-		navigator.clipboard.writeText(webhookUrl);
-		setCopiedWebhook(true);
-		setTimeout(() => setCopiedWebhook(false), 2000);
 	};
 
 	const updateField = (field: string, value: string) => {
@@ -711,53 +623,10 @@ function ManualSetup({
 					value={formData.accessToken}
 				/>
 
-				<div className="space-y-2">
-					<Label className="text-muted-foreground text-xs">Callback URL</Label>
-					<div className="flex items-center gap-2">
-						<code className="flex-1 truncate rounded-md bg-muted px-3 py-2 font-mono text-foreground text-xs">
-							{webhookUrl}
-						</code>
-						<Button
-							className="shrink-0"
-							onClick={copyWebhookUrl}
-							size="icon"
-							type="button"
-							variant="ghost"
-						>
-							{copiedWebhook ? (
-								<Check className="h-3.5 w-3.5 text-pons-green" />
-							) : (
-								<Copy className="h-3.5 w-3.5" />
-							)}
-						</Button>
-					</div>
-				</div>
-
-				<div className="space-y-2">
-					<Label htmlFor="webhookVerifyToken">Webhook Verify Token</Label>
-					<div className="flex gap-2">
-						<Input
-							id="webhookVerifyToken"
-							onChange={(e) =>
-								updateField("webhookVerifyToken", e.target.value)
-							}
-							placeholder="random-string-here"
-							required
-							value={formData.webhookVerifyToken}
-						/>
-						<Button
-							className="shrink-0 gap-1.5"
-							onClick={generateToken}
-							size="default"
-							type="button"
-							variant="secondary"
-						>
-							<Dices className="h-3.5 w-3.5" />
-							Generate
-						</Button>
-					</div>
-					<p className="text-muted-foreground text-xs">
-						Use both values above when configuring the webhook in Meta
+				{/* Webhooks are auto-configured at the app level */}
+				<div className="rounded-lg border border-pons-green/20 bg-pons-green/5 px-4 py-3">
+					<p className="text-pons-green text-sm">
+						Webhooks are configured automatically by Pons.
 					</p>
 				</div>
 

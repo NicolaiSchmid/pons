@@ -11,7 +11,6 @@ function stripSecrets(account: {
 	phoneNumberId: string;
 	phoneNumber: string;
 	accessToken: string;
-	webhookVerifyToken: string;
 	ownerId: import("./_generated/dataModel").Id<"users">;
 }) {
 	return {
@@ -94,7 +93,6 @@ export const getSecrets = query({
 
 		return {
 			accessToken: account.accessToken,
-			webhookVerifyToken: account.webhookVerifyToken,
 		};
 	},
 });
@@ -145,7 +143,6 @@ export const create = mutation({
 		phoneNumberId: v.string(),
 		phoneNumber: v.string(),
 		accessToken: v.string(),
-		webhookVerifyToken: v.string(),
 	},
 	handler: async (ctx, args) => {
 		const userId = await auth.getUserId(ctx);
@@ -174,7 +171,6 @@ export const update = mutation({
 		accountId: v.id("accounts"),
 		name: v.optional(v.string()),
 		accessToken: v.optional(v.string()),
-		webhookVerifyToken: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
 		const userId = await auth.getUserId(ctx);
