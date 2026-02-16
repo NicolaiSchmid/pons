@@ -13,6 +13,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
 						"whatsapp_business_management",
 						"whatsapp_business_messaging",
 					].join(","),
+					config_id: "1198829922325154",
 				},
 			},
 		}),
