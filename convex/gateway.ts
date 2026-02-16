@@ -53,6 +53,13 @@ export const mcpTool = action({
 			"send_reaction",
 		];
 
+		// Reject unknown tools before checking scopes — prevents future tools
+		// from bypassing scope enforcement if they're added to the switch but
+		// not to the scope arrays.
+		if (!readTools.includes(args.tool) && !sendTools.includes(args.tool)) {
+			throw new Error(`Unknown tool: ${args.tool}`);
+		}
+
 		if (readTools.includes(args.tool) && !scopes.includes("read")) {
 			throw new Error(
 				`API key does not have "read" scope for tool: ${args.tool}`,
