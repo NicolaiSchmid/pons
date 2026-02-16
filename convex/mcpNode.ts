@@ -34,15 +34,19 @@ export const hashApiKeyAction = internalAction({
 	},
 });
 
-// Verify webhook HMAC-SHA256 signature
+// Verify webhook HMAC-SHA256 signature using FACEBOOK_APP_SECRET env var
 export const verifyWebhookSignature = internalAction({
 	args: {
 		rawBody: v.string(),
 		signature: v.string(),
-		appSecret: v.string(),
 	},
 	handler: async (_ctx, args): Promise<boolean> => {
-		const expectedSignature = `sha256=${crypto.createHmac("sha256", args.appSecret).update(args.rawBody).digest("hex")}`;
+		const appSecret = process.env.FACEBOOK_APP_SECRET;
+		if (!appSecret) {
+			throw new Error("FACEBOOK_APP_SECRET environment variable is not set");
+		}
+
+		const expectedSignature = `sha256=${crypto.createHmac("sha256", appSecret).update(args.rawBody).digest("hex")}`;
 
 		if (args.signature.length !== expectedSignature.length) return false;
 		return crypto.timingSafeEqual(

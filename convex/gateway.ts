@@ -166,7 +166,7 @@ export const mcpTool = action({
 
 /**
  * Verify webhook signature and ingest messages.
- * The signature is verified inside Convex using the Node runtime — the appSecret never leaves the server.
+ * The signature is verified inside Convex using the Node runtime and the FACEBOOK_APP_SECRET env var.
  */
 export const webhookIngest = action({
 	args: {
@@ -193,7 +193,6 @@ export const webhookIngest = action({
 			{
 				rawBody: args.rawBody,
 				signature: args.signature,
-				appSecret: account.appSecret,
 			},
 		);
 
@@ -243,7 +242,6 @@ export const webhookStatusUpdate = action({
 			{
 				rawBody: args.rawBody,
 				signature: args.signature,
-				appSecret: account.appSecret,
 			},
 		);
 

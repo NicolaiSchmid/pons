@@ -12,7 +12,6 @@ function stripSecrets(account: {
 	phoneNumber: string;
 	accessToken: string;
 	webhookVerifyToken: string;
-	appSecret: string;
 	ownerId: import("./_generated/dataModel").Id<"users">;
 }) {
 	return {
@@ -96,7 +95,6 @@ export const getSecrets = query({
 		return {
 			accessToken: account.accessToken,
 			webhookVerifyToken: account.webhookVerifyToken,
-			appSecret: account.appSecret,
 		};
 	},
 });
@@ -109,7 +107,7 @@ export const getInternal = internalQuery({
 	},
 });
 
-// Get account by phone number ID (internal only — includes appSecret for webhook verification)
+// Get account by phone number ID (internal only)
 export const getByPhoneNumberIdInternal = internalQuery({
 	args: { phoneNumberId: v.string() },
 	handler: async (ctx, args) => {
@@ -148,7 +146,6 @@ export const create = mutation({
 		phoneNumber: v.string(),
 		accessToken: v.string(),
 		webhookVerifyToken: v.string(),
-		appSecret: v.string(),
 	},
 	handler: async (ctx, args) => {
 		const userId = await auth.getUserId(ctx);
@@ -178,7 +175,6 @@ export const update = mutation({
 		name: v.optional(v.string()),
 		accessToken: v.optional(v.string()),
 		webhookVerifyToken: v.optional(v.string()),
-		appSecret: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
 		const userId = await auth.getUserId(ctx);

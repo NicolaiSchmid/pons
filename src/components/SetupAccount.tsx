@@ -148,8 +148,7 @@ function AutoSetup({
 	const [error, setError] = useState<string | null>(null);
 	const [copiedWebhook, setCopiedWebhook] = useState(false);
 
-	// Configuration fields (still needed: appSecret, webhookVerifyToken)
-	const [appSecret, setAppSecret] = useState("");
+	// Configuration fields
 	const [webhookVerifyToken, setWebhookVerifyToken] = useState("");
 
 	const webhookUrl =
@@ -247,7 +246,6 @@ function AutoSetup({
 				phoneNumber: selectedPhone.display_phone_number,
 				accessToken: "", // Will use Facebook token; user can add System User token later
 				webhookVerifyToken: webhookVerifyToken || "auto-registered",
-				appSecret: appSecret,
 			});
 
 			onComplete();
@@ -487,32 +485,6 @@ function AutoSetup({
 						</div>
 					</div>
 
-					{/* App Secret */}
-					<div className="space-y-2">
-						<Label htmlFor="appSecret">App Secret</Label>
-						<Input
-							id="appSecret"
-							onChange={(e) => setAppSecret(e.target.value)}
-							placeholder="abc123..."
-							required
-							type="password"
-							value={appSecret}
-						/>
-						<p className="text-muted-foreground text-xs">
-							Find this in{" "}
-							<a
-								className="inline-flex items-center gap-1 text-pons-green underline underline-offset-2 hover:text-pons-green-bright"
-								href="https://developers.facebook.com/apps"
-								rel="noopener noreferrer"
-								target="_blank"
-							>
-								Meta App Settings → Basic
-								<ExternalLink className="h-3 w-3" />
-							</a>
-							. Required for webhook signature verification.
-						</p>
-					</div>
-
 					{/* Webhook Verify Token */}
 					<div className="space-y-2">
 						<Label htmlFor="webhookVerifyToken">Webhook Verify Token</Label>
@@ -567,7 +539,7 @@ function AutoSetup({
 
 					<Button
 						className="w-full bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
-						disabled={loading || !appSecret}
+						disabled={loading}
 						onClick={handleConnect}
 						size="lg"
 					>
@@ -624,7 +596,6 @@ function ManualSetup({
 		phoneNumber: "",
 		accessToken: "",
 		webhookVerifyToken: "",
-		appSecret: "",
 	});
 
 	const webhookUrl =
@@ -789,16 +760,6 @@ function ManualSetup({
 						Use both values above when configuring the webhook in Meta
 					</p>
 				</div>
-
-				<FormField
-					hint="Find this in your Meta App Settings → Basic"
-					id="appSecret"
-					label="App Secret"
-					onChange={(v) => updateField("appSecret", v)}
-					placeholder="abc123..."
-					type="password"
-					value={formData.appSecret}
-				/>
 
 				{error && (
 					<div className="rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm">

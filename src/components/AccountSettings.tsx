@@ -64,7 +64,6 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 		name: "",
 		accessToken: "",
 		webhookVerifyToken: "",
-		appSecret: "",
 	});
 
 	// Populate form when account and secrets load
@@ -75,7 +74,6 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 				name: account.name,
 				accessToken: secrets.accessToken,
 				webhookVerifyToken: secrets.webhookVerifyToken,
-				appSecret: secrets.appSecret,
 			});
 		}
 	}, [account?._id, secrets]);
@@ -97,7 +95,6 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 				name: formData.name,
 				accessToken: formData.accessToken,
 				webhookVerifyToken: formData.webhookVerifyToken,
-				appSecret: formData.appSecret,
 			});
 			setSaved(true);
 			setTimeout(() => setSaved(false), 2000);
@@ -288,19 +285,6 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 								Generate
 							</Button>
 						</div>
-					</div>
-
-					<div className="space-y-2">
-						<Label htmlFor="settings-appSecret">App Secret</Label>
-						<Input
-							id="settings-appSecret"
-							onChange={(e) => updateField("appSecret", e.target.value)}
-							type="password"
-							value={formData.appSecret}
-						/>
-						<p className="text-muted-foreground text-xs">
-							Meta App Settings → Basic
-						</p>
 					</div>
 
 					{error && (

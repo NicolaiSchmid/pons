@@ -20,7 +20,6 @@ export default defineSchema({
 		phoneNumber: v.string(), // Display number: +1 555 123 4567
 		accessToken: v.string(),
 		webhookVerifyToken: v.string(), // For webhook verification
-		appSecret: v.string(), // For webhook signature verification
 		ownerId: v.id("users"),
 	})
 		.index("by_phone_number_id", ["phoneNumberId"])
