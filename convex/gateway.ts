@@ -201,11 +201,12 @@ export const webhookIngest = action({
 			throw new Error("Webhook verification failed");
 		}
 
-		// Ingest the webhook payload
+		// Ingest the webhook payload (signature is not stored — it's
+		// already been verified and storing it would increase data surface
+		// area in case of a database breach)
 		await ctx.runMutation(internal.webhook.ingestWebhook, {
 			phoneNumberId: args.phoneNumberId,
 			payload: args.payload,
-			signature: args.signature,
 		});
 	},
 });

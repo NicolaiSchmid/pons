@@ -36,7 +36,6 @@ export const ingestWebhook = internalMutation({
 	args: {
 		phoneNumberId: v.string(),
 		payload: v.any(),
-		signature: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
 		// Find account to link the log
@@ -48,10 +47,12 @@ export const ingestWebhook = internalMutation({
 			.first();
 
 		// Store raw webhook for debugging and replay
+		// Note: signature is intentionally NOT stored — it's already been
+		// verified by the gateway and keeping it would widen the data
+		// surface area in case of a database breach.
 		const logId = await ctx.db.insert("webhookLogs", {
 			accountId: account?._id,
 			payload: args.payload,
-			signature: args.signature,
 			processed: false,
 		});
 
