@@ -4,7 +4,9 @@
 
 export { OG_COLORS, OG_CONTENT_TYPE, OG_IMAGE_SIZE } from "./constants";
 export {
+	type BlogOGImageProps,
 	contentType,
+	generateBlogOGImage,
 	generateOGImage,
 	type OGImageProps,
 	size,

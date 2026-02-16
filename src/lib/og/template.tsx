@@ -214,6 +214,235 @@ export async function generateOGImage({
 	);
 }
 
+/**
+ * Generates an Open Graph image for blog posts.
+ *
+ * Design: Uses the pre-rendered cover image as a full-bleed background,
+ * overlays a dark gradient for text readability, renders the post title
+ * in Sora display font with Pons branding.
+ */
+export type BlogOGImageProps = {
+	/** Blog post title */
+	title: string;
+	/** Optional subtitle / description */
+	subtitle?: string;
+	/** Path to the cover image in public/ (e.g. "/blog/my-post.png") */
+	coverPath: string;
+};
+
+export async function generateBlogOGImage({
+	title,
+	subtitle,
+	coverPath,
+}: BlogOGImageProps): Promise<ImageResponse> {
+	const [displayFont, bodyFont, coverImage] = await Promise.all([
+		readFile(join(projectRoot, "public/og-font-sora-semibold.ttf")),
+		readFile(join(projectRoot, "public/og-font-geist-regular.ttf")),
+		readFile(join(projectRoot, `public${coverPath}`)),
+	]);
+
+	// Convert cover image to base64 data URL
+	const coverBase64 = `data:image/png;base64,${coverImage.toString("base64")}`;
+
+	// Truncate title if too long
+	const maxLen = 90;
+	const displayTitle =
+		title.length > maxLen ? `${title.slice(0, maxLen - 3)}...` : title;
+
+	return new ImageResponse(
+		<div
+			style={{
+				height: "100%",
+				width: "100%",
+				display: "flex",
+				flexDirection: "column",
+				position: "relative",
+			}}
+		>
+			{/* Cover image background — full bleed */}
+			{/* biome-ignore lint/a11y/useAltText: OG image, not user-facing */}
+			<img
+				src={coverBase64}
+				style={{
+					position: "absolute",
+					top: 0,
+					left: 0,
+					width: "100%",
+					height: "100%",
+					objectFit: "cover",
+				}}
+			/>
+
+			{/* Dark gradient overlay for text readability */}
+			<div
+				style={{
+					position: "absolute",
+					top: 0,
+					left: 0,
+					width: "100%",
+					height: "100%",
+					display: "flex",
+					backgroundImage:
+						"linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.55) 40%, rgba(0, 0, 0, 0.25) 70%, rgba(0, 0, 0, 0.15) 100%)",
+				}}
+			/>
+
+			{/* Content layer */}
+			<div
+				style={{
+					position: "relative",
+					display: "flex",
+					flexDirection: "column",
+					justifyContent: "space-between",
+					height: "100%",
+					width: "100%",
+					padding: "48px 64px",
+				}}
+			>
+				{/* Header: Pons branding + domain pill */}
+				<div
+					style={{
+						display: "flex",
+						justifyContent: "space-between",
+						alignItems: "center",
+						width: "100%",
+					}}
+				>
+					{/* Pons icon + name */}
+					<div
+						style={{
+							display: "flex",
+							alignItems: "center",
+							gap: "14px",
+						}}
+					>
+						<div
+							style={{
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "center",
+								width: "48px",
+								height: "48px",
+								borderRadius: "12px",
+								backgroundColor: "rgba(37, 211, 102, 0.15)",
+								border: "1px solid rgba(37, 211, 102, 0.25)",
+							}}
+						>
+							<svg
+								fill="none"
+								height="24"
+								stroke={OG_COLORS.green}
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth="2"
+								viewBox="0 0 24 24"
+								width="24"
+							>
+								<title>Pons</title>
+								<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+							</svg>
+						</div>
+						<span
+							style={{
+								fontSize: "24px",
+								fontWeight: 600,
+								fontFamily: "Sora",
+								color: "#ffffff",
+								letterSpacing: "-0.02em",
+							}}
+						>
+							Pons
+						</span>
+					</div>
+
+					{/* Blog pill */}
+					<div
+						style={{
+							display: "flex",
+							alignItems: "center",
+							gap: "10px",
+						}}
+					>
+						<div
+							style={{
+								display: "flex",
+								alignItems: "center",
+								padding: "8px 18px",
+								borderRadius: "9999px",
+								backgroundColor: "rgba(255, 255, 255, 0.1)",
+								border: "1px solid rgba(255, 255, 255, 0.15)",
+								fontSize: "17px",
+								fontFamily: "Geist",
+								color: "rgba(255, 255, 255, 0.8)",
+							}}
+						>
+							pons.chat/blog
+						</div>
+					</div>
+				</div>
+
+				{/* Bottom: Title + subtitle */}
+				<div
+					style={{
+						display: "flex",
+						flexDirection: "column",
+						gap: "14px",
+					}}
+				>
+					{/* Title */}
+					<div
+						style={{
+							fontSize: "52px",
+							fontWeight: 600,
+							fontFamily: "Sora",
+							color: "#ffffff",
+							lineHeight: 1.15,
+							letterSpacing: "-0.03em",
+							maxWidth: "1000px",
+							textShadow: "0 2px 20px rgba(0, 0, 0, 0.5)",
+						}}
+					>
+						{displayTitle}
+					</div>
+
+					{/* Subtitle */}
+					{subtitle && (
+						<div
+							style={{
+								fontSize: "22px",
+								fontFamily: "Geist",
+								color: "rgba(255, 255, 255, 0.7)",
+								lineHeight: 1.4,
+								maxWidth: "800px",
+								textShadow: "0 1px 10px rgba(0, 0, 0, 0.4)",
+							}}
+						>
+							{subtitle}
+						</div>
+					)}
+				</div>
+			</div>
+		</div>,
+		{
+			...OG_IMAGE_SIZE,
+			fonts: [
+				{
+					name: "Sora",
+					data: displayFont,
+					style: "normal",
+					weight: 600,
+				},
+				{
+					name: "Geist",
+					data: bodyFont,
+					style: "normal",
+					weight: 400,
+				},
+			],
+		},
+	);
+}
+
 /** Re-export size and content type for opengraph-image.tsx files */
 export const size = OG_IMAGE_SIZE;
 export const contentType = OG_CONTENT_TYPE;

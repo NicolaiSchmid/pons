@@ -78,9 +78,9 @@ export async function generateMetadata(props: {
 	const post = getPostBySlug(slug);
 	if (!post) notFound();
 
-	const ogImageUrl =
-		post.cover ??
-		`/api/og?title=${encodeURIComponent(post.title)}&subtitle=${encodeURIComponent(post.description)}`;
+	const ogImageUrl = post.cover
+		? `/api/og?cover=${encodeURIComponent(post.cover)}&title=${encodeURIComponent(post.title)}&subtitle=${encodeURIComponent(post.description)}`
+		: `/api/og?title=${encodeURIComponent(post.title)}&subtitle=${encodeURIComponent(post.description)}`;
 
 	return {
 		title: `${post.title} — Pons Blog`,
