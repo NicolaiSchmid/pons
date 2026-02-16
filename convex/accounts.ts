@@ -470,7 +470,11 @@ export const findUserByEmail = query({
 	},
 });
 
-// Update a member's role
+// Update a member's role.
+// Role hierarchy: owner > admin > member.
+// - Owners can change anyone's role (except their own).
+// - Admins can only promote/demote members, NOT other admins.
+// - Members cannot change roles.
 export const updateMemberRole = mutation({
 	args: {
 		accountId: v.id("accounts"),
@@ -481,7 +485,6 @@ export const updateMemberRole = mutation({
 		const currentUserId = await auth.getUserId(ctx);
 		if (!currentUserId) throw new Error("Unauthorized");
 
-		// Check caller is owner or admin
 		const callerMembership = await ctx.db
 			.query("accountMembers")
 			.withIndex("by_account_user", (q) =>
@@ -493,7 +496,6 @@ export const updateMemberRole = mutation({
 			throw new Error("Only owners and admins can change roles");
 		}
 
-		// Can't change the owner's role
 		const targetMembership = await ctx.db
 			.query("accountMembers")
 			.withIndex("by_account_user", (q) =>
@@ -506,11 +508,23 @@ export const updateMemberRole = mutation({
 			throw new Error("Cannot change the owner's role");
 		}
 
+		// Admins can only modify members, not other admins
+		if (
+			callerMembership.role === "admin" &&
+			targetMembership.role === "admin"
+		) {
+			throw new Error("Only the owner can change an admin's role");
+		}
+
 		await ctx.db.patch(targetMembership._id, { role: args.role });
 	},
 });
 
-// Remove a member from an account
+// Remove a member from an account.
+// Role hierarchy: owner > admin > member.
+// - Owners can remove anyone (except themselves).
+// - Admins can only remove members, NOT other admins.
+// - Members cannot remove anyone.
 export const removeMember = mutation({
 	args: {
 		accountId: v.id("accounts"),
@@ -520,19 +534,17 @@ export const removeMember = mutation({
 		const currentUserId = await auth.getUserId(ctx);
 		if (!currentUserId) throw new Error("Unauthorized");
 
-		// Check admin/owner role
-		const membership = await ctx.db
+		const callerMembership = await ctx.db
 			.query("accountMembers")
 			.withIndex("by_account_user", (q) =>
 				q.eq("accountId", args.accountId).eq("userId", currentUserId),
 			)
 			.first();
 
-		if (!membership || membership.role === "member") {
+		if (!callerMembership || callerMembership.role === "member") {
 			throw new Error("Only admins and owners can remove members");
 		}
 
-		// Can't remove the owner
 		const targetMembership = await ctx.db
 			.query("accountMembers")
 			.withIndex("by_account_user", (q) =>
@@ -546,6 +558,14 @@ export const removeMember = mutation({
 
 		if (targetMembership.role === "owner") {
 			throw new Error("Cannot remove the owner");
+		}
+
+		// Admins can only remove members, not other admins
+		if (
+			callerMembership.role === "admin" &&
+			targetMembership.role === "admin"
+		) {
+			throw new Error("Only the owner can remove an admin");
 		}
 
 		await ctx.db.delete(targetMembership._id);
