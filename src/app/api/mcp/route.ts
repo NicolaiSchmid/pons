@@ -84,11 +84,20 @@ export async function DELETE(_request: NextRequest) {
 }
 
 // Handle OPTIONS for CORS preflight
-export async function OPTIONS() {
+// MCP clients (Claude Desktop, Cursor, etc.) are not browsers and don't
+// need CORS. Restrict the origin to the app's own domain to prevent
+// browser-based credential theft attacks.
+export async function OPTIONS(request: NextRequest) {
+	const origin = request.headers.get("origin");
+	const allowedOrigin =
+		origin === process.env.NEXT_PUBLIC_APP_URL ? origin : null;
+
 	return new NextResponse(null, {
 		status: 204,
 		headers: {
-			"Access-Control-Allow-Origin": "*",
+			...(allowedOrigin
+				? { "Access-Control-Allow-Origin": allowedOrigin }
+				: {}),
 			"Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
 			"Access-Control-Allow-Headers":
 				"Content-Type, Authorization, Mcp-Session-Id",
