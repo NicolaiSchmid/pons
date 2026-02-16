@@ -21,6 +21,7 @@ import type * as messages from "../messages.js";
 import type * as templates from "../templates.js";
 import type * as webhook from "../webhook.js";
 import type * as whatsapp from "../whatsapp.js";
+import type * as whatsappDiscovery from "../whatsappDiscovery.js";
 
 import type {
   ApiFromModules,
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   templates: typeof templates;
   webhook: typeof webhook;
   whatsapp: typeof whatsapp;
+  whatsappDiscovery: typeof whatsappDiscovery;
 }>;
 
 /**

@@ -5,6 +5,13 @@ import { v } from "convex/values";
 export default defineSchema({
 	...authTables,
 
+	// Facebook OAuth tokens (for Graph API calls like WABA discovery)
+	facebookTokens: defineTable({
+		userId: v.id("users"),
+		accessToken: v.string(), // Facebook user access token
+		expiresAt: v.optional(v.number()), // Token expiry timestamp (ms)
+	}).index("by_user", ["userId"]),
+
 	// WhatsApp Business Accounts
 	accounts: defineTable({
 		name: v.string(),
