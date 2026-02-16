@@ -127,7 +127,11 @@ export default defineSchema({
 		.index("by_conversation", ["conversationId"])
 		.index("by_conversation_timestamp", ["conversationId", "timestamp"])
 		.index("by_wa_message_id", ["waMessageId"])
-		.index("by_account", ["accountId"]),
+		.index("by_account", ["accountId"])
+		.searchIndex("search_text", {
+			searchField: "text",
+			filterFields: ["accountId"],
+		}),
 
 	// Message templates
 	templates: defineTable({

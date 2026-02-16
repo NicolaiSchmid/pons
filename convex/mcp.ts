@@ -278,7 +278,9 @@ export const getConversationInternal = internalQuery({
 	},
 });
 
-// Search messages across conversations
+// Search messages across conversations using Convex full-text search index.
+// Falls back to in-memory scan for caption-only matches (captions are not
+// indexed since Convex search indexes support a single searchField).
 export const searchMessagesInternal = internalQuery({
 	args: {
 		accountId: v.id("accounts"),
@@ -287,22 +289,14 @@ export const searchMessagesInternal = internalQuery({
 	},
 	handler: async (ctx, args) => {
 		const limit = args.limit ?? 20;
-		const queryLower = args.query.toLowerCase();
 
-		// Get all messages for this account (we'll filter in memory)
-		// TODO: Add full-text search index for better performance
-		const messages = await ctx.db
+		// Use full-text search index (filters by accountId within the index)
+		const matches = await ctx.db
 			.query("messages")
-			.withIndex("by_account", (q) => q.eq("accountId", args.accountId))
-			.order("desc")
-			.take(500); // Scan last 500 messages
-
-		const matches = messages
-			.filter((m) => {
-				const text = (m.text ?? m.caption ?? "").toLowerCase();
-				return text.includes(queryLower);
-			})
-			.slice(0, limit);
+			.withSearchIndex("search_text", (q) =>
+				q.search("text", args.query).eq("accountId", args.accountId),
+			)
+			.take(limit);
 
 		// Enrich with conversation/contact info
 		return Promise.all(
