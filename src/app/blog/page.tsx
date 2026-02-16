@@ -29,16 +29,20 @@ export default function BlogIndex() {
 						href={`/blog/${post.slug}`}
 						key={post.slug}
 					>
-						{/* Cover image — generated OG image */}
-						<div className="relative aspect-[1200/630] overflow-hidden bg-background">
-							<Image
-								alt={post.title}
-								className="object-cover transition group-hover:scale-[1.02]"
-								fill
-								sizes="(max-width: 640px) 100vw, 50vw"
-								src={`/api/og?title=${encodeURIComponent(post.title)}&subtitle=${encodeURIComponent(post.description)}`}
-							/>
-						</div>
+						{/* Cover image */}
+						{post.cover ? (
+							<div className="relative aspect-[1200/630] overflow-hidden bg-background">
+								<Image
+									alt={post.title}
+									className="object-cover transition group-hover:scale-[1.02]"
+									fill
+									sizes="(max-width: 640px) 100vw, 50vw"
+									src={post.cover}
+								/>
+							</div>
+						) : (
+							<div className="aspect-[1200/630] bg-gradient-to-br from-pons-green/10 to-accent/10" />
+						)}
 
 						{/* Content */}
 						<div className="p-4">

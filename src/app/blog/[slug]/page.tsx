@@ -23,16 +23,18 @@ export default async function BlogPost(props: {
 
 			<article className="mt-8">
 				{/* Cover image */}
-				<div className="relative aspect-[1200/630] overflow-hidden rounded-xl border border-border/60">
-					<Image
-						alt={post.title}
-						className="object-cover"
-						fill
-						priority
-						sizes="(max-width: 768px) 100vw, 768px"
-						src={`/api/og?title=${encodeURIComponent(post.title)}&subtitle=${encodeURIComponent(post.description)}`}
-					/>
-				</div>
+				{post.cover && (
+					<div className="relative aspect-[1200/630] overflow-hidden rounded-xl border border-border/60">
+						<Image
+							alt={post.title}
+							className="object-cover"
+							fill
+							priority
+							sizes="(max-width: 768px) 100vw, 768px"
+							src={post.cover}
+						/>
+					</div>
+				)}
 
 				<div className="mt-8">
 					<time
@@ -76,7 +78,9 @@ export async function generateMetadata(props: {
 	const post = getPostBySlug(slug);
 	if (!post) notFound();
 
-	const ogImageUrl = `/api/og?title=${encodeURIComponent(post.title)}&subtitle=${encodeURIComponent(post.description)}`;
+	const ogImageUrl =
+		post.cover ??
+		`/api/og?title=${encodeURIComponent(post.title)}&subtitle=${encodeURIComponent(post.description)}`;
 
 	return {
 		title: `${post.title} — Pons Blog`,
