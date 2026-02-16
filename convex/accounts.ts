@@ -280,6 +280,15 @@ export const remove = mutation({
 			await ctx.db.delete(log._id);
 		}
 
+		// 7. Delete API keys
+		const apiKeys = await ctx.db
+			.query("apiKeys")
+			.withIndex("by_account", (q) => q.eq("accountId", args.accountId))
+			.collect();
+		for (const key of apiKeys) {
+			await ctx.db.delete(key._id);
+		}
+
 		// Finally delete the account
 		await ctx.db.delete(args.accountId);
 	},
