@@ -1,0 +1,119 @@
+---
+title: "WhatsApp MCP Server: Cloud API vs Personal Bridges"
+description: "Comparing WhatsApp MCP integrations — why using the official Cloud API matters and how Pons differs from personal WhatsApp bridges."
+date: "2026-02-16"
+author: "Nicolai Schmid"
+---
+
+MCP (Model Context Protocol) is making it easy to connect AI assistants to external services. For WhatsApp, several MCP servers have appeared — but they take fundamentally different approaches. Understanding the difference matters because one approach can get your WhatsApp account banned.
+
+## Two approaches to WhatsApp + MCP
+
+### Personal WhatsApp bridges
+
+Projects like [lharries/whatsapp-mcp](https://github.com/lharries/whatsapp-mcp) and similar tools connect to **personal WhatsApp** by reverse-engineering the WhatsApp Web protocol (usually via libraries like Baileys or whatsmeow). They scan a QR code to link your personal account, then expose your messages as MCP tools.
+
+**How it works:** The bridge acts as a WhatsApp Web client. It connects to WhatsApp's servers using an unofficial protocol, receives your personal messages, and lets the AI read and send through your personal number.
+
+**Pros:**
+- Works with your personal WhatsApp number
+- No Meta developer account needed
+- No webhook setup
+- Access to personal chats and groups
+
+**Cons:**
+- **Violates WhatsApp's Terms of Service** — your account can be permanently banned
+- Fragile — breaks when WhatsApp updates their protocol
+- No business features (templates, delivery receipts, read receipts in API)
+- Single account only
+- No official support or stability guarantees
+
+### Cloud API approach (Pons)
+
+Pons connects to **WhatsApp Business** through Meta's official Cloud API. Messages flow through Meta's servers via webhooks, and everything is done through documented, supported endpoints.
+
+**How it works:** You create a WhatsApp Business Account, register a webhook URL, and Meta sends you events (messages, status updates). You send messages through Meta's Graph API. Pons wraps all of this in a web UI and MCP server.
+
+**Pros:**
+- **Official API** — no Terms of Service violations, no ban risk
+- Business features: templates, delivery receipts, read receipts, media
+- Multi-number support (multiple WhatsApp Business numbers)
+- Team management (multiple users per account)
+- Stable — API changes are versioned and documented
+- Full MCP server with scoped API keys
+
+**Cons:**
+- Requires a Meta Business Account and developer setup
+- Only works with WhatsApp Business numbers, not personal
+- Meta's per-conversation pricing (fractions of a cent in most markets)
+- Initial setup is more involved (webhook, app secret, phone number ID)
+
+## The ban risk is real
+
+WhatsApp actively detects and bans accounts using unofficial protocols. This isn't theoretical — there are forums full of people who lost their WhatsApp accounts (and all their message history) because they used an unofficial integration.
+
+For personal use, the risk might be acceptable to some. For business use, it's not. If your WhatsApp Business number gets banned, your customers can't reach you.
+
+## Feature comparison
+
+| Feature | Personal Bridges | Pons (Cloud API) |
+|:--------|:----------------|:-----------------|
+| Ban risk | High | None |
+| Personal chats | Yes | No |
+| Business number | No | Yes |
+| Multiple numbers | No | Yes |
+| Team access | No | Yes |
+| Message templates | No | Yes |
+| Delivery receipts | No | Yes |
+| Read receipts | Limited | Yes |
+| Media handling | Basic | Auto-download + storage |
+| MCP tools | Varies (2-5) | 9 tools with scoped access |
+| API key scopes | No | Yes (read/write/send) |
+| Web inbox UI | No | Yes |
+| Self-hostable | Yes | Yes |
+
+## When to use what
+
+**Use a personal bridge if:**
+- You only need read access to personal messages for local experimentation
+- You accept the ban risk
+- You don't need business features
+
+**Use Pons if:**
+- You're using WhatsApp for business communication
+- You need team access or multiple numbers
+- You want a web inbox alongside MCP
+- You need reliable, long-term operation
+- You want scoped API keys and access control
+
+## MCP tools comparison
+
+Most personal bridges expose 2-3 tools:
+
+```
+- search_contacts
+- get_messages
+- send_message
+```
+
+Pons exposes 9 tools across three permission scopes:
+
+**Read:** `list_conversations`, `list_unanswered`, `get_conversation`, `search_messages`, `list_templates`
+
+**Write:** `mark_as_read`, `send_reaction`
+
+**Send:** `send_text`, `send_template`
+
+The scope system means you can create a read-only API key for an AI that should only browse conversations, and a separate key with send access for an agent that replies to customers.
+
+## Getting started with Pons
+
+If you're currently using a personal bridge and want to switch to the official Cloud API:
+
+1. **Create a Meta Business Account** at [business.facebook.com](https://business.facebook.com)
+2. **Create a Meta App** at [developers.facebook.com](https://developers.facebook.com) and add WhatsApp
+3. **Sign up at [pons.chat](https://pons.chat)** and add your WhatsApp Business credentials
+4. **Configure your webhook** to point to Pons
+5. **Create an API key** and connect your MCP client
+
+The [WhatsApp setup guide](/docs/whatsapp-setup) walks through each step. The whole process takes about 15 minutes.

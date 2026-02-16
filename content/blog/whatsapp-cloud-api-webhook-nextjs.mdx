@@ -1,0 +1,194 @@
+---
+title: "WhatsApp Cloud API Webhook Setup with Next.js"
+description: "How to set up WhatsApp Cloud API webhooks in Next.js — verification, message handling, and HMAC signature validation with working code."
+date: "2026-02-16"
+author: "Nicolai Schmid"
+---
+
+Setting up WhatsApp Cloud API webhooks is one of those things that sounds simple but has enough edge cases to eat an afternoon. The Meta docs are thorough but spread across multiple pages, and most tutorials show pseudocode instead of production code.
+
+This guide walks through the complete webhook setup in Next.js with App Router, including the verification handshake, message handling, and HMAC signature validation. All examples are from a production codebase.
+
+## How WhatsApp webhooks work
+
+Meta sends two types of requests to your webhook URL:
+
+1. **GET** — Verification. When you register a webhook URL in the Meta developer console, Meta sends a GET request with a challenge token. You verify it and echo the challenge back.
+
+2. **POST** — Notifications. When a WhatsApp event happens (message received, message delivered, message read), Meta sends a POST request with the event payload. You validate the HMAC signature and process the event.
+
+## Step 1: Create the webhook route
+
+In Next.js App Router, create `src/app/api/webhook/route.ts`:
+
+```typescript
+import { type NextRequest, NextResponse } from "next/server";
+
+// GET — Webhook verification
+export async function GET(req: NextRequest) {
+  const searchParams = req.nextUrl.searchParams;
+  const mode = searchParams.get("hub.mode");
+  const token = searchParams.get("hub.verify_token");
+  const challenge = searchParams.get("hub.challenge");
+
+  // Your verify token — set this in Meta's developer console
+  const verifyToken = process.env.WHATSAPP_VERIFY_TOKEN;
+
+  if (mode === "subscribe" && token === verifyToken) {
+    // Return the challenge as plain text
+    return new NextResponse(challenge, { status: 200 });
+  }
+
+  return NextResponse.json(
+    { error: "Verification failed" },
+    { status: 403 }
+  );
+}
+```
+
+The verify token is a string you choose. You set the same string in the Meta developer console when registering the webhook URL. This proves you own the endpoint.
+
+## Step 2: Handle incoming messages
+
+The POST handler receives all WhatsApp events. The payload structure is nested:
+
+```typescript
+// POST — Receive webhook events
+export async function POST(req: NextRequest) {
+  const body = await req.json();
+
+  // Every webhook has this structure:
+  // body.entry[].changes[].value
+  for (const entry of body.entry ?? []) {
+    for (const change of entry.changes ?? []) {
+      const value = change.value;
+
+      // New messages
+      if (value.messages) {
+        for (const message of value.messages) {
+          console.log("New message:", {
+            from: message.from, // phone number
+            type: message.type, // text, image, video, etc.
+            text: message.text?.body,
+            timestamp: message.timestamp,
+          });
+        }
+      }
+
+      // Status updates (sent, delivered, read)
+      if (value.statuses) {
+        for (const status of value.statuses) {
+          console.log("Status update:", {
+            messageId: status.id,
+            status: status.status, // sent, delivered, read
+            recipientId: status.recipient_id,
+          });
+        }
+      }
+    }
+  }
+
+  // Always return 200 quickly — Meta retries on failure
+  return NextResponse.json({ status: "ok" });
+}
+```
+
+**Important:** Return 200 as fast as possible. Meta expects a response within a few seconds and will retry failed deliveries. Do any heavy processing asynchronously.
+
+## Step 3: HMAC signature validation
+
+This is the part most tutorials skip or get wrong. Meta signs every POST request with HMAC-SHA256 using your app secret. You **must** validate this signature to ensure the request actually came from Meta.
+
+```typescript
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+async function verifySignature(
+  req: NextRequest,
+  body: string
+): Promise<boolean> {
+  const signature = req.headers.get("x-hub-signature-256");
+  if (!signature) return false;
+
+  const appSecret = process.env.WHATSAPP_APP_SECRET;
+  if (!appSecret) return false;
+
+  const expectedSignature =
+    "sha256=" +
+    createHmac("sha256", appSecret).update(body).digest("hex");
+
+  // Use timing-safe comparison to prevent timing attacks
+  try {
+    return timingSafeEqual(
+      Buffer.from(signature),
+      Buffer.from(expectedSignature)
+    );
+  } catch {
+    return false;
+  }
+}
+```
+
+Then use it in your POST handler:
+
+```typescript
+export async function POST(req: NextRequest) {
+  const rawBody = await req.text();
+
+  if (!(await verifySignature(req, rawBody))) {
+    return NextResponse.json(
+      { error: "Invalid signature" },
+      { status: 401 }
+    );
+  }
+
+  const body = JSON.parse(rawBody);
+  // ... process the webhook
+}
+```
+
+Notice we read the body as text first (not JSON) because HMAC needs the exact bytes Meta sent. Parsing as JSON and re-stringifying could change the output.
+
+## Step 4: Register the webhook
+
+1. Go to [developers.facebook.com](https://developers.facebook.com)
+2. Open your app → WhatsApp → Configuration
+3. Set the **Callback URL** to `https://your-domain.com/api/webhook`
+4. Set the **Verify token** to the same value as your `WHATSAPP_VERIFY_TOKEN` env var
+5. Subscribe to the events you need (at minimum: `messages`)
+
+## Common pitfalls
+
+**The raw body problem.** Next.js App Router gives you the body as a `Request` object. You can only read it once — if you call `req.json()` you can't also call `req.text()`. Read it as text first, validate the signature, then parse.
+
+**Meta retries.** If your webhook returns anything other than 2xx, Meta will retry up to several times with increasing delays. Make sure your handler is idempotent — processing the same message twice shouldn't cause problems. Use the message ID (`message.id`) for deduplication.
+
+**Media URLs expire.** When you receive an image, video, or document, the payload includes a media ID, not a URL. You need to make a separate API call to get the download URL, and that URL expires after 5 minutes. Download immediately.
+
+```typescript
+// Get media URL from Meta
+const mediaResponse = await fetch(
+  `https://graph.facebook.com/v21.0/${mediaId}`,
+  { headers: { Authorization: `Bearer ${accessToken}` } }
+);
+const { url } = await mediaResponse.json();
+
+// Download immediately — URL expires in 5 minutes
+const media = await fetch(url, {
+  headers: { Authorization: `Bearer ${accessToken}` },
+});
+```
+
+**The phone number format.** Incoming `message.from` uses E.164 without the `+` prefix (e.g., `491234567890`). Outgoing messages need the same format. Store numbers consistently.
+
+## Security best practices
+
+- **Always validate HMAC signatures.** Never skip this in production.
+- **Use `timingSafeEqual`** for signature comparison to prevent timing attacks.
+- **Return generic errors.** Don't reveal whether the issue was a missing signature, wrong token, or invalid payload.
+- **Don't log signatures.** Log the message content if needed, but keep HMAC values out of your logs.
+
+## How Pons does it
+
+Pons handles all of this for you — webhook verification, HMAC validation, message processing, media downloading, and real-time UI updates. If you don't want to build your own webhook handler, [sign up at pons.chat](https://pons.chat) or [self-host the repo](https://github.com/NicolaiSchmid/pons).
+
+If you want to see the production implementation, the webhook handler is at [`src/app/api/webhook/route.ts`](https://github.com/NicolaiSchmid/pons/blob/main/src/app/api/webhook/route.ts) and the gateway logic is in [`convex/gateway.ts`](https://github.com/NicolaiSchmid/pons/blob/main/convex/gateway.ts).

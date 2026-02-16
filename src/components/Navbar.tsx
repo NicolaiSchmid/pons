@@ -7,7 +7,7 @@ interface NavbarProps {
 	/** Left-side content after nav links (search toggle, sidebar trigger, etc.) */
 	leftChildren?: React.ReactNode;
 	/** Current active path for highlighting nav links */
-	active?: "docs" | "github";
+	active?: "docs" | "blog" | "github";
 }
 
 export function Navbar({ children, leftChildren, active }: NavbarProps) {
@@ -35,6 +35,16 @@ export function Navbar({ children, leftChildren, active }: NavbarProps) {
 						href="/docs"
 					>
 						Docs
+					</Link>
+					<Link
+						className={`rounded-md px-2.5 py-1.5 text-xs transition ${
+							active === "blog"
+								? "text-foreground"
+								: "text-muted-foreground hover:text-foreground"
+						}`}
+						href="/blog"
+					>
+						Blog
 					</Link>
 					<a
 						className={`rounded-md px-2.5 py-1.5 text-xs transition ${

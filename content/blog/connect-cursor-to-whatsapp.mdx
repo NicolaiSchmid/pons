@@ -1,0 +1,81 @@
+---
+title: "Connect Cursor to WhatsApp via MCP"
+description: "Access WhatsApp Business messages from Cursor using Pons and the Model Context Protocol."
+date: "2026-02-16"
+author: "Nicolai Schmid"
+---
+
+[Cursor](https://cursor.sh) is an AI-powered code editor that supports MCP servers. With Pons, you can check WhatsApp Business messages, search conversations, and send quick replies — all from within your editor.
+
+## Prerequisites
+
+- [Cursor](https://cursor.sh) installed
+- A Pons account at [pons.chat](https://pons.chat) with a WhatsApp Business number connected ([setup guide](/docs/whatsapp-setup))
+
+## Step 1: Create an API key
+
+1. Sign in to [pons.chat](https://pons.chat)
+2. Click the **key icon** to open the API Key Manager
+3. Click **Create Key** with the scopes you need
+4. Copy the key
+
+## Step 2: Configure Cursor
+
+You have two options:
+
+### Option A: Cursor Settings UI
+
+1. Open **Cursor Settings** → **MCP Servers**
+2. Click **Add Server**
+3. Fill in:
+   - **Type:** HTTP
+   - **URL:** `https://pons.chat/api/mcp`
+   - **Headers:** `Authorization: Bearer pons_your_api_key_here`
+
+### Option B: Project config file
+
+Create `.cursor/mcp.json` in your project root:
+
+```json
+{
+  "mcpServers": {
+    "pons": {
+      "url": "https://pons.chat/api/mcp",
+      "headers": {
+        "Authorization": "Bearer pons_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+The project config approach is useful if you want Pons available only in specific projects. Use the Settings UI for global access.
+
+## Step 3: Use it
+
+In Cursor's AI chat, ask:
+
+> "Check my WhatsApp messages"
+
+Cursor will call the Pons tools and show your recent conversations.
+
+More examples:
+
+- "Any unanswered WhatsApp messages?"
+- "Search WhatsApp for 'bug report'"
+- "Reply to that conversation with 'Fix is deployed, can you test?'"
+- "Send the status update template to +49123456789"
+
+## Why WhatsApp in your editor?
+
+If you're building a product and your customers or team communicate via WhatsApp, having access inside your editor means fewer context switches. Get a bug report on WhatsApp, find the relevant code, fix it, and reply "deployed" — all without leaving Cursor.
+
+## Scopes
+
+Create a minimal key for your use case:
+
+- **Just reading:** `read` scope only — browse conversations, search messages
+- **Reading + reacting:** `read` + `write` scopes — also mark as read and react with emoji
+- **Full access:** all three scopes — includes sending messages
+
+See the [API Keys guide](/docs/api-keys) for details on scopes and key management.

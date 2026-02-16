@@ -1,0 +1,75 @@
+---
+title: "Free Open-Source WhatsApp Business Inbox"
+description: "A real WhatsApp Business inbox you can self-host for free. No per-message fees, no seat limits, no vendor lock-in."
+date: "2026-02-16"
+author: "Nicolai Schmid"
+---
+
+Every WhatsApp Business platform charges you. Per message, per seat, per month. Some start free and quietly introduce pricing once you depend on them. Others are upfront about it: $49/month for three agents, $0.05 per conversation, enterprise pricing on request.
+
+Pons is different. It's a full WhatsApp Business inbox — conversations, media, delivery receipts, multi-user — that's completely free and open source. You pay Meta's own Cloud API fees (which are fractions of a cent per conversation in most markets) and nothing else.
+
+## What you actually get
+
+Pons isn't a toy or a weekend project with a README full of "coming soon" badges. It's a working product:
+
+- **Real-time inbox** with conversations, contacts, message status (sent, delivered, read)
+- **Media handling** — images, videos, and documents are automatically downloaded to your storage because Meta's media URLs expire after 5 minutes
+- **Multi-tenant** — manage multiple WhatsApp Business numbers from one dashboard
+- **Team access** — invite members with owner, admin, or member roles
+- **24-hour window tracking** — see at a glance which conversations are open for free-form messaging and which need templates
+- **MCP server** — let AI assistants read and send WhatsApp messages through the [Model Context Protocol](https://modelcontextprotocol.io/)
+
+That last point is what makes Pons unique. No other WhatsApp inbox — paid or free — has native MCP support.
+
+## How it compares
+
+There are other open-source WhatsApp projects out there. Here's how they stack up:
+
+| | Pons | Receevi | Whatomate | Evolution API |
+|:--|:-----|:--------|:----------|:--------------|
+| Real inbox UI | Yes | Basic | Yes | No (API only) |
+| Official Cloud API | Yes | Yes | Yes | No (Baileys) |
+| MCP server | Yes | No | No | No |
+| Multi-tenant | Yes | No | Limited | Yes |
+| Team roles | Yes | No | No | No |
+| Media auto-download | Yes | No | Partial | N/A |
+| Self-hostable | Yes | Yes | Yes | Yes |
+| License | MIT | MIT | AGPL | Apache 2.0 |
+
+**Receevi** is a clean, minimal webhook receiver. It stores messages and shows them in a UI, but there's no team management, no MCP, and no multi-account support.
+
+**Whatomate** has a richer UI with templates and contact management, but it's AGPL-licensed (which matters for commercial use) and doesn't support MCP.
+
+**Evolution API** is powerful but uses Baileys — a reverse-engineered WhatsApp Web protocol. This means your account can get banned. It's also API-only with no built-in inbox UI.
+
+Pons uses the **official WhatsApp Cloud API** exclusively. No ban risk, no Terms of Service violations, and you get all the business features Meta provides: templates, read receipts, delivery status, and media.
+
+## The MCP angle
+
+MCP is what turns Pons from "another WhatsApp dashboard" into something genuinely new. Once connected, your AI assistant can:
+
+- **List your conversations** and see who's waiting for a reply
+- **Search across all your messages** — "find that tracking number someone sent last week"
+- **Read full conversation history** with a specific contact
+- **Send replies** — both free-form text and pre-approved templates
+- **React to messages** with emoji
+
+This works with Claude Desktop, Cursor, OpenCode, ChatGPT, or any MCP-compatible client. You create a scoped API key in Pons, add it to your client's config, and your AI can talk to WhatsApp.
+
+The API keys are scoped for safety: you can create a read-only key for monitoring, a key that can read and write but not send, or a full-access key. This means you can give an AI agent access to read your conversations without worrying about it sending messages on your behalf.
+
+## Getting started
+
+1. **Sign in** at [pons.chat](https://pons.chat) with Google
+2. **Create an account** with your WhatsApp Business credentials ([setup guide](/docs/whatsapp-setup))
+3. **Set your webhook** in the Meta developer console to `https://pons.chat/api/webhook`
+4. **Start chatting** — messages appear in real-time
+
+If you want MCP, create an API key and [connect your client](/docs/mcp-setup). If you want to self-host, [clone the repo](https://github.com/NicolaiSchmid/pons) and follow the [self-hosting guide](/docs/self-hosting).
+
+## Why free?
+
+Pons is MIT-licensed. There's no paid tier, no premium features, no "contact sales" button. The hosted version at [pons.chat](https://pons.chat) is free to use.
+
+The goal is simple: WhatsApp Business shouldn't require expensive middleware. Meta already provides the Cloud API. You just need something to turn it into a usable product. That's Pons.

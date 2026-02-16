@@ -1,0 +1,64 @@
+---
+title: "Connect ChatGPT to WhatsApp via MCP"
+description: "How to use ChatGPT with your WhatsApp Business messages using Pons and the Model Context Protocol."
+date: "2026-02-16"
+author: "Nicolai Schmid"
+---
+
+ChatGPT supports MCP (Model Context Protocol) servers, which means you can connect it to external tools — including your WhatsApp Business inbox. With Pons, ChatGPT can list your conversations, search messages, and send replies.
+
+## Prerequisites
+
+- A ChatGPT Plus or Team subscription (MCP requires a paid plan)
+- A Pons account at [pons.chat](https://pons.chat) with a WhatsApp Business number connected ([setup guide](/docs/whatsapp-setup))
+
+## Step 1: Create an API key
+
+1. Sign in to [pons.chat](https://pons.chat)
+2. Click the **key icon** to open the API Key Manager
+3. Click **Create Key**
+4. Name it "ChatGPT" and select your scopes:
+   - **read** — list conversations, search messages
+   - **write** — mark as read, reactions
+   - **send** — send messages
+5. Copy the key
+
+## Step 2: Add Pons as an MCP server in ChatGPT
+
+1. Open ChatGPT and go to **Settings**
+2. Navigate to the **MCP Servers** section
+3. Click **Add Server**
+4. Enter the details:
+   - **Name:** Pons
+   - **URL:** `https://pons.chat/api/mcp`
+   - **Authentication:** Bearer token — paste your `pons_` API key
+
+## Step 3: Use it
+
+Start a new conversation and ask:
+
+> "List my WhatsApp conversations"
+
+ChatGPT will use the Pons tools to fetch your conversations and display them.
+
+More examples:
+
+- "Who hasn't gotten a reply on WhatsApp?"
+- "Search my WhatsApp messages for 'meeting tomorrow'"
+- "Send 'On my way' to +49123456789"
+- "What templates do I have available?"
+
+## Things to know
+
+**ChatGPT remembers context.** You can have a conversation like: "Show me unanswered messages" → "Reply to the first one saying 'I'll check and get back to you'" — and ChatGPT will use the conversation ID from the first response.
+
+**Scopes control access.** If you created a read-only key, ChatGPT can browse your conversations but can't send messages. This is useful if you want to use ChatGPT for analysis without giving it write access.
+
+**The 24-hour window matters.** If a conversation's window is closed, ChatGPT will need to use `send_template` instead of `send_text`. Pons includes window status in the conversation data, so ChatGPT knows which to use.
+
+## Use cases
+
+- **Daily summary** — "Summarize my unread WhatsApp Business messages"
+- **Customer triage** — "Which WhatsApp conversations need a response? Draft replies for each."
+- **Search** — "Find any WhatsApp messages about the order #12345"
+- **Template sending** — "Send the welcome template to this list of phone numbers"

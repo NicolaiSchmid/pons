@@ -1,0 +1,78 @@
+---
+title: "Connect OpenCode to WhatsApp via MCP"
+description: "How to read and send WhatsApp messages from OpenCode using Pons and the Model Context Protocol."
+date: "2026-02-16"
+author: "Nicolai Schmid"
+---
+
+[OpenCode](https://github.com/nicepkg/opencode) is a terminal-based AI coding assistant that supports MCP. With Pons, you can access your WhatsApp Business messages without leaving the terminal — search conversations, check who's waiting for a reply, and send messages.
+
+This guide takes about 3 minutes.
+
+## Prerequisites
+
+- [OpenCode](https://github.com/nicepkg/opencode) installed
+- A Pons account at [pons.chat](https://pons.chat) with at least one WhatsApp Business number connected ([setup guide](/docs/whatsapp-setup))
+
+## Step 1: Create an API key
+
+1. Sign in to [pons.chat](https://pons.chat)
+2. Click the **key icon** to open the API Key Manager
+3. Click **Create Key**
+4. Name it "OpenCode" and select the scopes you need:
+   - **read** — list conversations, search messages
+   - **write** — mark messages as read, send reactions
+   - **send** — send text and template messages
+5. Copy the key
+
+## Step 2: Configure OpenCode
+
+Edit `~/.config/opencode/config.json` and add Pons to the MCP section:
+
+```json
+{
+  "mcp": {
+    "pons": {
+      "type": "remote",
+      "url": "https://pons.chat/api/mcp",
+      "headers": {
+        "Authorization": "Bearer pons_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+Replace `pons_your_api_key_here` with your API key.
+
+## Step 3: Restart OpenCode
+
+OpenCode reads MCP configuration on startup. Restart it to pick up the new server.
+
+## Step 4: Use it
+
+Ask OpenCode:
+
+> "List my WhatsApp conversations"
+
+It'll call the `list_conversations` tool and return your recent chats.
+
+More things you can do:
+
+- "Who's waiting for a WhatsApp reply?"
+- "Search my WhatsApp for 'deployment'"
+- "Send 'Done, it's deployed' to +49123456789"
+- "What did the last message from Alex say?"
+
+## Why WhatsApp in the terminal?
+
+If you're a developer who spends most of the day in a terminal, checking WhatsApp means context-switching to your phone or a browser tab. With Pons + OpenCode, you can quickly check and reply to business messages without leaving your workflow.
+
+It's especially useful for:
+- **Quick triage** — "show me unanswered WhatsApp messages" between git commits
+- **Searching** — find that API key or tracking number someone sent you over WhatsApp
+- **Automated replies** — let the AI draft a response and send it after your approval
+
+## Scoped keys for safety
+
+If you only want to read messages from OpenCode (no sending), create a key with just the `read` scope. OpenCode will be able to list and search conversations but not send anything. See the [API Keys guide](/docs/api-keys) for more.

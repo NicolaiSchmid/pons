@@ -1,0 +1,111 @@
+---
+title: "WhatsApp Customer Support with AI Agents"
+description: "How to use MCP-connected AI agents for WhatsApp customer support — triage, drafting, and auto-reply with scoped access control."
+date: "2026-02-16"
+author: "Nicolai Schmid"
+---
+
+Two billion people use WhatsApp. If your customers are among them, you've probably thought about using AI to handle — or at least help with — support conversations. But most WhatsApp AI solutions are either expensive SaaS platforms or brittle chatbot builders.
+
+With Pons and MCP, you can connect any AI model to your WhatsApp Business inbox with fine-grained access control. No chatbot builder, no per-message fees, no vendor lock-in.
+
+## The architecture
+
+Here's how it works:
+
+1. **Pons** receives WhatsApp messages via Meta's Cloud API webhook
+2. Messages are stored in your database with real-time sync to the inbox UI
+3. **MCP tools** expose these messages to any connected AI agent
+4. The AI agent uses tools like `list_unanswered`, `search_messages`, and `send_text` to interact with conversations
+5. **API key scopes** control what the agent can do
+
+The key insight is that MCP gives the AI agent the same capabilities a human support agent would have — listing conversations, reading messages, searching history, and sending replies — but through a programmatic interface.
+
+## Three levels of automation
+
+### Level 1: Triage and summarization (read-only)
+
+The safest starting point. Create an API key with only the **read** scope and connect it to your AI assistant.
+
+Ask it things like:
+- "Which WhatsApp conversations need a reply?"
+- "Summarize the last 10 unanswered messages"
+- "Categorize today's WhatsApp messages by topic"
+- "Are there any urgent messages about order issues?"
+
+The AI can read everything but can't send anything. You stay in full control of replies.
+
+### Level 2: Draft and send with approval (read + write + send)
+
+Give the agent full access but use it interactively. The AI drafts a reply, you review it, and then approve the send.
+
+A typical workflow:
+1. "Show me unanswered WhatsApp messages"
+2. AI lists 5 conversations
+3. "Draft replies for each"
+4. AI proposes responses based on conversation context
+5. You review and say "Send the reply to conversation 1 and 3, skip the rest"
+
+This works well with Claude Desktop or Cursor where you're actively in the conversation with the AI.
+
+### Level 3: Autonomous handling
+
+For this, you'd build a script or agent loop that:
+1. Calls `list_unanswered` periodically
+2. Reads each conversation with `get_conversation`
+3. Generates a response
+4. Sends it via `send_text` or `send_template`
+
+You can build this with any MCP client SDK. Pons uses Streamable HTTP transport, so a simple HTTP client works too:
+
+```bash
+curl -X POST https://pons.chat/api/mcp \
+  -H "Authorization: Bearer pons_your_key" \
+  -H "Content-Type: application/json" \
+  -d '{"method": "tools/call", "params": {"name": "list_unanswered"}}'
+```
+
+## The 24-hour window
+
+WhatsApp's rules matter here. When a customer messages you, a **24-hour window** opens. During this window, you can send free-form text with `send_text`. After the window closes, you can only send pre-approved **template messages** with `send_template`.
+
+Pons tracks this automatically. When your AI agent calls `list_conversations` or `list_unanswered`, the response includes the window status for each conversation:
+
+- `[24h window open]` — free-form messaging available
+- `[window closed — template required]` — only templates allowed
+
+A well-configured AI agent will check this and choose the right tool automatically.
+
+## Scoped access for safety
+
+API key scopes are your safety net:
+
+| Scope | What the agent can do |
+|:------|:---------------------|
+| **read** | List conversations, search messages, view templates |
+| **write** | Mark messages as read, send emoji reactions |
+| **send** | Send text messages and templates |
+
+Create different keys for different purposes:
+- A **read-only** key for a monitoring dashboard
+- A **read + write** key for a triage agent that marks messages as read
+- A **full-access** key for an agent that can reply to customers
+
+If an agent only needs to categorize and summarize incoming messages, give it a read-only key. If it misbehaves, it literally cannot send anything.
+
+## Practical tips
+
+**Start with Level 1.** Get comfortable with the AI reading your conversations before letting it send. You'll learn what it gets right and where it needs guidance.
+
+**Use conversation context.** When the AI calls `get_conversation`, it gets the full message history. This helps it draft contextually appropriate replies instead of generic responses.
+
+**Templates for first contact.** If a customer's 24-hour window is closed, the AI should use `send_template` with an appropriate template. Create a few versatile templates in Meta Business Suite — "Thanks for reaching out, we'll get back to you shortly" goes a long way.
+
+**Search is powerful.** `search_messages` does full-text search across all conversations. Your AI agent can find past interactions: "What did we tell this customer about their refund last time?"
+
+## Getting started
+
+1. [Set up Pons](/docs) with your WhatsApp Business number
+2. Create an API key with the scopes you need
+3. Connect your preferred AI client ([Claude Desktop](/blog/connect-claude-desktop-to-whatsapp), [OpenCode](/blog/connect-opencode-to-whatsapp), [Cursor](/blog/connect-cursor-to-whatsapp), or [ChatGPT](/blog/connect-chatgpt-to-whatsapp))
+4. Start with read-only triage and work your way up

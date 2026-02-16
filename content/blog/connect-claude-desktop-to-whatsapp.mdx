@@ -1,0 +1,102 @@
+---
+title: "Connect Claude Desktop to WhatsApp via MCP"
+description: "Step-by-step guide to reading and sending WhatsApp messages from Claude Desktop using Pons and the Model Context Protocol."
+date: "2026-02-16"
+author: "Nicolai Schmid"
+---
+
+Claude Desktop supports the [Model Context Protocol](https://modelcontextprotocol.io/) (MCP), which means it can use external tools — including WhatsApp. With Pons, you can ask Claude to list your conversations, search your messages, and even send replies, all from the Claude Desktop app.
+
+This guide takes about 5 minutes.
+
+## Prerequisites
+
+- [Claude Desktop](https://claude.ai/download) installed
+- A Pons account at [pons.chat](https://pons.chat) with at least one WhatsApp Business number connected ([setup guide](/docs/whatsapp-setup))
+
+## Step 1: Create an API key
+
+1. Sign in to [pons.chat](https://pons.chat)
+2. Click the **key icon** in the top navigation to open the API Key Manager
+3. Click **Create Key**
+4. Give it a name like "Claude Desktop"
+5. Select the scopes you need:
+   - **read** — list conversations, search messages, view templates
+   - **write** — mark messages as read, send reactions
+   - **send** — send text and template messages
+6. Copy the key — it won't be shown again
+
+For a first setup, select all three scopes. You can always create more restrictive keys later.
+
+## Step 2: Configure Claude Desktop
+
+Open your Claude Desktop MCP configuration file:
+
+- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+Add Pons as an MCP server:
+
+```json
+{
+  "mcpServers": {
+    "pons": {
+      "url": "https://pons.chat/api/mcp",
+      "headers": {
+        "Authorization": "Bearer pons_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+Replace `pons_your_api_key_here` with the key you copied in Step 1.
+
+## Step 3: Restart Claude Desktop
+
+Close and reopen Claude Desktop. It reads the MCP configuration on startup.
+
+## Step 4: Verify
+
+Ask Claude something like:
+
+> "List my WhatsApp conversations"
+
+Claude will call the `list_conversations` tool and show you your recent chats with contact names, unread counts, and 24-hour window status.
+
+## What you can do
+
+Once connected, Claude can use all 9 Pons MCP tools depending on your key's scopes:
+
+**Read** (requires `read` scope):
+- "Show my unread WhatsApp conversations"
+- "Search my WhatsApp messages for 'invoice'"
+- "What did Maria send me last?"
+- "List my message templates"
+
+**Write** (requires `write` scope):
+- "Mark that message as read"
+- "React to Maria's last message with 👍"
+
+**Send** (requires `send` scope):
+- "Send Maria 'I'll be there at 3pm'"
+- "Reply to that message with 'Thanks, received!'"
+- "Send the welcome template to +49123456789"
+
+## Tips
+
+**Use read-only keys for exploration.** If you just want Claude to help you search and summarize conversations, create a key with only the `read` scope. This way Claude can't accidentally send a message.
+
+**Combine with other tools.** MCP shines when Claude has access to multiple tools. Connect Pons alongside your calendar, email, or project management tools, and ask things like "Check my WhatsApp for any messages about the Friday meeting and add them to my notes."
+
+**Natural language works.** You don't need to know tool names or parameters. Just ask Claude what you want in plain English and it'll figure out which tools to call.
+
+## Troubleshooting
+
+**Claude doesn't show Pons tools:** Make sure the config file is valid JSON and the path is correct. Restart Claude Desktop completely (Cmd+Q on macOS, not just closing the window).
+
+**"Unauthorized" errors:** Double-check your API key. It should start with `pons_`. Make sure there are no trailing spaces.
+
+**"Scope not allowed" errors:** Your API key doesn't have the required scope for the tool Claude is trying to use. Create a new key with the appropriate scopes.
+
+**Messages not showing up:** Make sure your WhatsApp webhook is configured correctly and messages are flowing into Pons. Check the [WhatsApp setup guide](/docs/whatsapp-setup).
