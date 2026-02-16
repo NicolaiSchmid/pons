@@ -176,16 +176,15 @@ export const webhookIngest = action({
 		payload: v.any(),
 	},
 	handler: async (ctx, args): Promise<void> => {
-		// Look up account
+		// Look up account — use a generic error for both "not found" and
+		// "invalid signature" to prevent phone number ID enumeration.
 		const account = await ctx.runQuery(
 			internal.accounts.getByPhoneNumberIdInternal,
 			{ phoneNumberId: args.phoneNumberId },
 		);
 
 		if (!account) {
-			throw new Error(
-				`No account found for phoneNumberId: ${args.phoneNumberId}`,
-			);
+			throw new Error("Webhook verification failed");
 		}
 
 		// Verify HMAC-SHA256 signature (runs in Node runtime inside Convex)
@@ -199,7 +198,7 @@ export const webhookIngest = action({
 		);
 
 		if (!isValid) {
-			throw new Error("Invalid webhook signature");
+			throw new Error("Webhook verification failed");
 		}
 
 		// Ingest the webhook payload
@@ -226,16 +225,15 @@ export const webhookStatusUpdate = action({
 		errorMessage: v.optional(v.string()),
 	},
 	handler: async (ctx, args): Promise<void> => {
-		// Look up account
+		// Use a generic error for both "not found" and "invalid signature"
+		// to prevent phone number ID enumeration.
 		const account = await ctx.runQuery(
 			internal.accounts.getByPhoneNumberIdInternal,
 			{ phoneNumberId: args.phoneNumberId },
 		);
 
 		if (!account) {
-			throw new Error(
-				`No account found for phoneNumberId: ${args.phoneNumberId}`,
-			);
+			throw new Error("Webhook verification failed");
 		}
 
 		// Verify signature
@@ -249,7 +247,7 @@ export const webhookStatusUpdate = action({
 		);
 
 		if (!isValid) {
-			throw new Error("Invalid webhook signature");
+			throw new Error("Webhook verification failed");
 		}
 
 		await ctx.runMutation(internal.webhook.ingestStatusUpdate, {
