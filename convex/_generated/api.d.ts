@@ -21,6 +21,7 @@ import type * as messages from "../messages.js";
 import type * as nameReview from "../nameReview.js";
 import type * as phoneRegistration from "../phoneRegistration.js";
 import type * as templates from "../templates.js";
+import type * as twilioConnect from "../twilioConnect.js";
 import type * as webhook from "../webhook.js";
 import type * as whatsapp from "../whatsapp.js";
 import type * as whatsappDiscovery from "../whatsappDiscovery.js";
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   nameReview: typeof nameReview;
   phoneRegistration: typeof phoneRegistration;
   templates: typeof templates;
+  twilioConnect: typeof twilioConnect;
   webhook: typeof webhook;
   whatsapp: typeof whatsapp;
   whatsappDiscovery: typeof whatsappDiscovery;

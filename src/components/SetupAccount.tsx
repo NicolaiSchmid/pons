@@ -1,6 +1,6 @@
 "use client";
 
-import { useAction, useMutation } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import {
 	AlertCircle,
 	ArrowLeft,
@@ -38,6 +38,15 @@ type PhoneNumber = {
 	quality_rating: string;
 };
 
+type TwilioNumber = {
+	phoneNumber: string;
+	friendlyName: string;
+	locality: string;
+	region: string;
+	isoCountry: string;
+	capabilities: { sms: boolean; mms: boolean; voice: boolean };
+};
+
 type WizardStep =
 	| "discover" // Loading: scanning businesses
 	| "pick-business"
@@ -45,6 +54,9 @@ type WizardStep =
 	| "pick-phone-source" // Choose: existing / BYON / Twilio
 	| "pick-existing" // Pick from existing numbers on WABA
 	| "byon-input" // Enter phone number + display name
+	| "twilio-connect" // Connect Twilio account (or pick existing)
+	| "twilio-search" // Search available numbers
+	| "twilio-confirm" // Confirm purchase + set display name
 	| "verify-code" // Manual OTP entry (BYON)
 	| "configure" // Final review before connecting (existing path)
 	| "complete" // Success!
@@ -66,6 +78,9 @@ function getStepIndex(step: WizardStep): number {
 		case "pick-phone-source":
 		case "pick-existing":
 		case "byon-input":
+		case "twilio-connect":
+		case "twilio-search":
+		case "twilio-confirm":
 		case "configure":
 			return 2;
 		case "verify-code":
@@ -166,6 +181,7 @@ function AutoSetup({
 }) {
 	const createExisting = useMutation(api.accounts.createExisting);
 	const createByon = useMutation(api.accounts.createByon);
+	const createTwilio = useMutation(api.accounts.createTwilio);
 	const discoverWabas = useAction(api.whatsappDiscovery.discoverWabas);
 	const discoverPhoneNumbers = useAction(
 		api.whatsappDiscovery.discoverPhoneNumbers,
@@ -177,6 +193,11 @@ function AutoSetup({
 	const addPhoneToWaba = useAction(api.phoneRegistration.addPhoneToWaba);
 	const submitCode = useAction(api.phoneRegistration.submitCode);
 	const resendCode = useAction(api.phoneRegistration.resendCode);
+
+	// Twilio Connect
+	const twilioConnections = useQuery(api.twilioConnect.listConnections);
+	const searchTwilioNumbers = useAction(api.twilioConnect.searchNumbers);
+	const buyTwilioNumber = useAction(api.twilioConnect.buyNumber);
 
 	// Wizard state
 	const [step, setStep] = useState<WizardStep>(
@@ -195,6 +216,18 @@ function AutoSetup({
 	const [byonPhone, setByonPhone] = useState("");
 	const [byonDisplayName, setByonDisplayName] = useState("");
 	const [byonCountryCode, setByonCountryCode] = useState("");
+
+	// Twilio form state
+	const [twilioConnectionId, setTwilioConnectionId] =
+		useState<Id<"twilioConnections"> | null>(null);
+	const [twilioCountry, setTwilioCountry] = useState("");
+	const [twilioAreaCode, setTwilioAreaCode] = useState("");
+	const [twilioAvailableNumbers, setTwilioAvailableNumbers] = useState<
+		TwilioNumber[]
+	>([]);
+	const [twilioSelectedNumber, setTwilioSelectedNumber] =
+		useState<TwilioNumber | null>(null);
+	const [twilioDisplayName, setTwilioDisplayName] = useState("");
 
 	// Verification state
 	const [otpCode, setOtpCode] = useState("");
@@ -356,6 +389,91 @@ function AutoSetup({
 		}
 	};
 
+	// Twilio: search for available numbers
+	const handleTwilioSearch = async () => {
+		if (!twilioConnectionId || !twilioCountry) return;
+		setLoading(true);
+		setError(null);
+
+		try {
+			const numbers = await searchTwilioNumbers({
+				connectionId: twilioConnectionId,
+				countryCode: twilioCountry.toUpperCase(),
+				areaCode: twilioAreaCode || undefined,
+				smsEnabled: true,
+				limit: 20,
+			});
+			setTwilioAvailableNumbers(numbers);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to search numbers");
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	// Twilio: buy number and start BYON registration
+	const handleTwilioBuy = async () => {
+		if (
+			!twilioConnectionId ||
+			!twilioSelectedNumber ||
+			!twilioDisplayName ||
+			!selectedWaba
+		)
+			return;
+		setLoading(true);
+		setError(null);
+
+		try {
+			// Buy the number via Twilio
+			const purchased = await buyTwilioNumber({
+				connectionId: twilioConnectionId,
+				phoneNumber: twilioSelectedNumber.phoneNumber,
+			});
+
+			// Extract country code from E.164 number (e.g., "+49..." → "49")
+			const countryCode =
+				twilioSelectedNumber.phoneNumber
+					.replace(/^\+/, "")
+					.match(/^(\d{1,3})/)?.[1] ?? "";
+
+			await registerAppWebhook();
+			await subscribeWaba({ wabaId: selectedWaba.id });
+
+			// Create account with Twilio provider
+			const accountId = await createTwilio({
+				name: twilioDisplayName,
+				wabaId: selectedWaba.id,
+				phoneNumber: twilioSelectedNumber.phoneNumber,
+				displayName: twilioDisplayName,
+				countryCode,
+				accessToken: "",
+				twilioConnectionId,
+				twilioPhoneNumberSid: purchased.sid,
+			});
+			setCreatedAccountId(accountId);
+
+			// Start the phone registration flow (add to WABA + request code)
+			await addPhoneToWaba({ accountId });
+
+			setStep("verify-code");
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to buy number");
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	// Twilio Connect URL
+	const twilioConnectAppSid =
+		typeof window !== "undefined"
+			? // In the browser, use the public env var
+				process.env.NEXT_PUBLIC_TWILIO_CONNECT_APP_SID
+			: undefined;
+
+	const twilioConnectUrl = twilioConnectAppSid
+		? `https://www.twilio.com/authorize/${twilioConnectAppSid}`
+		: null;
+
 	return (
 		<SetupShell>
 			{/* Step indicator */}
@@ -516,16 +634,35 @@ function AutoSetup({
 								</p>
 							</div>
 						</button>
-						{/* Twilio Connect — placeholder for now */}
-						<div className="flex w-full items-center gap-3 rounded-lg border border-border/40 bg-card/20 p-4 text-left opacity-50">
-							<Sparkles className="h-5 w-5 text-muted-foreground" />
-							<div>
-								<p className="font-medium text-sm">Buy via Twilio Connect</p>
-								<p className="text-muted-foreground text-xs">
-									Coming soon — purchase a number automatically
-								</p>
+						{/* Twilio Connect */}
+						{twilioConnectUrl ? (
+							<button
+								className="flex w-full items-center gap-3 rounded-lg border border-border/60 bg-card/40 p-4 text-left transition hover:border-pons-green/40 hover:bg-card/70"
+								onClick={() => {
+									setPhoneSource("twilio");
+									setStep("twilio-connect");
+								}}
+								type="button"
+							>
+								<Sparkles className="h-5 w-5 text-pons-green" />
+								<div>
+									<p className="font-medium text-sm">Buy via Twilio Connect</p>
+									<p className="text-muted-foreground text-xs">
+										Purchase a number automatically via Twilio
+									</p>
+								</div>
+							</button>
+						) : (
+							<div className="flex w-full items-center gap-3 rounded-lg border border-border/40 bg-card/20 p-4 text-left opacity-50">
+								<Sparkles className="h-5 w-5 text-muted-foreground" />
+								<div>
+									<p className="font-medium text-sm">Buy via Twilio Connect</p>
+									<p className="text-muted-foreground text-xs">
+										Not configured — set NEXT_PUBLIC_TWILIO_CONNECT_APP_SID
+									</p>
+								</div>
 							</div>
-						</div>
+						)}
 					</div>
 				</div>
 			)}
@@ -651,7 +788,244 @@ function AutoSetup({
 				</div>
 			)}
 
-			{/* ── Step: Verify Code (BYON) ── */}
+			{/* ── Step: Twilio Connect ── */}
+			{step === "twilio-connect" && !loading && (
+				<div className="space-y-4">
+					<BackButton
+						label="Connect your Twilio account"
+						onClick={() => {
+							setStep("pick-phone-source");
+							setPhoneSource(null);
+							setTwilioConnectionId(null);
+						}}
+					/>
+
+					{/* Existing connections */}
+					{twilioConnections && twilioConnections.length > 0 && (
+						<div className="space-y-2">
+							<p className="text-muted-foreground text-xs">
+								Your connected Twilio accounts:
+							</p>
+							{twilioConnections.map((conn) => (
+								<button
+									className="flex w-full items-center gap-3 rounded-lg border border-border/60 bg-card/40 p-4 text-left transition hover:border-pons-green/40 hover:bg-card/70"
+									key={conn._id}
+									onClick={() => {
+										setTwilioConnectionId(conn._id);
+										setStep("twilio-search");
+									}}
+									type="button"
+								>
+									<Phone className="h-5 w-5 text-pons-green" />
+									<div>
+										<p className="font-medium text-sm">
+											{conn.subaccountSid.slice(0, 12)}...
+										</p>
+										<p className="text-muted-foreground text-xs">
+											Connected{" "}
+											{new Date(conn.connectedAt).toLocaleDateString()}
+										</p>
+									</div>
+								</button>
+							))}
+							<div className="relative py-2">
+								<div className="absolute inset-0 flex items-center">
+									<span className="w-full border-t" />
+								</div>
+								<div className="relative flex justify-center text-xs">
+									<span className="bg-background px-2 text-muted-foreground">
+										or
+									</span>
+								</div>
+							</div>
+						</div>
+					)}
+
+					{/* Connect new account */}
+					{twilioConnectUrl && (
+						<a
+							className="flex w-full items-center justify-center gap-2 rounded-lg bg-pons-green px-4 py-3 font-medium text-primary-foreground text-sm transition hover:bg-pons-green-bright"
+							href={twilioConnectUrl}
+							rel="noopener noreferrer"
+						>
+							<ExternalLink className="h-4 w-4" />
+							Connect Twilio Account
+						</a>
+					)}
+					<p className="text-center text-muted-foreground text-xs">
+						You'll be redirected to Twilio to authorize access, then brought
+						back here.
+					</p>
+				</div>
+			)}
+
+			{/* ── Step: Twilio Search Numbers ── */}
+			{step === "twilio-search" && (
+				<div className="space-y-4">
+					<BackButton
+						label="Search for a phone number"
+						onClick={() => {
+							setStep("twilio-connect");
+							setTwilioAvailableNumbers([]);
+							setTwilioCountry("");
+							setTwilioAreaCode("");
+						}}
+					/>
+
+					<div className="flex gap-2">
+						<div className="flex-1 space-y-2">
+							<Label htmlFor="twilio-country">Country</Label>
+							<Input
+								id="twilio-country"
+								maxLength={2}
+								onChange={(e) => setTwilioCountry(e.target.value.toUpperCase())}
+								placeholder="US"
+								value={twilioCountry}
+							/>
+							<p className="text-muted-foreground text-xs">
+								ISO code (US, DE, GB...)
+							</p>
+						</div>
+						<div className="flex-1 space-y-2">
+							<Label htmlFor="twilio-area">Area Code</Label>
+							<Input
+								id="twilio-area"
+								onChange={(e) => setTwilioAreaCode(e.target.value)}
+								placeholder="415"
+								value={twilioAreaCode}
+							/>
+							<p className="text-muted-foreground text-xs">Optional</p>
+						</div>
+					</div>
+
+					<Button
+						className="w-full bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
+						disabled={loading || twilioCountry.length !== 2}
+						onClick={handleTwilioSearch}
+						size="lg"
+					>
+						{loading ? (
+							<>
+								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								Searching...
+							</>
+						) : (
+							"Search Numbers"
+						)}
+					</Button>
+
+					{/* Results */}
+					{twilioAvailableNumbers.length > 0 && (
+						<div className="space-y-2">
+							<p className="text-muted-foreground text-xs">
+								{twilioAvailableNumbers.length} numbers found — pick one:
+							</p>
+							<div className="max-h-64 space-y-1.5 overflow-y-auto">
+								{twilioAvailableNumbers.map((num) => (
+									<button
+										className="flex w-full items-center gap-3 rounded-lg border border-border/60 bg-card/40 p-3 text-left transition hover:border-pons-green/40 hover:bg-card/70"
+										key={num.phoneNumber}
+										onClick={() => {
+											setTwilioSelectedNumber(num);
+											setStep("twilio-confirm");
+										}}
+										type="button"
+									>
+										<Phone className="h-4 w-4 text-pons-green" />
+										<div className="min-w-0 flex-1">
+											<p className="font-medium font-mono text-sm">
+												{num.friendlyName}
+											</p>
+											{num.locality && (
+												<p className="text-muted-foreground text-xs">
+													{num.locality}
+													{num.region ? `, ${num.region}` : ""}
+												</p>
+											)}
+										</div>
+										<div className="flex gap-1">
+											{num.capabilities.sms && (
+												<span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-400">
+													SMS
+												</span>
+											)}
+										</div>
+									</button>
+								))}
+							</div>
+						</div>
+					)}
+				</div>
+			)}
+
+			{/* ── Step: Twilio Confirm Purchase ── */}
+			{step === "twilio-confirm" && twilioSelectedNumber && (
+				<div className="space-y-4">
+					<BackButton
+						label="Confirm purchase"
+						onClick={() => {
+							setStep("twilio-search");
+							setTwilioSelectedNumber(null);
+						}}
+					/>
+
+					<div className="rounded-lg border border-pons-green/20 bg-pons-green/5 p-4">
+						<div className="mb-3 flex items-center gap-2 font-medium text-pons-green text-xs">
+							<Phone className="h-3.5 w-3.5" />
+							Selected number
+						</div>
+						<p className="font-mono font-semibold text-lg">
+							{twilioSelectedNumber.friendlyName}
+						</p>
+						<p className="text-muted-foreground text-xs">
+							{twilioSelectedNumber.phoneNumber}
+							{twilioSelectedNumber.locality
+								? ` · ${twilioSelectedNumber.locality}`
+								: ""}
+						</p>
+					</div>
+
+					<div className="space-y-2">
+						<Label htmlFor="twilio-display-name">Display Name</Label>
+						<Input
+							id="twilio-display-name"
+							onChange={(e) => setTwilioDisplayName(e.target.value)}
+							placeholder="My Business"
+							value={twilioDisplayName}
+						/>
+						<p className="text-muted-foreground text-xs">
+							Shown to WhatsApp recipients. Must match your business name.
+							Subject to Meta review.
+						</p>
+					</div>
+
+					<Button
+						className="w-full bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
+						disabled={loading || !twilioDisplayName}
+						onClick={handleTwilioBuy}
+						size="lg"
+					>
+						{loading ? (
+							<>
+								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								Purchasing &amp; registering...
+							</>
+						) : (
+							<>
+								<Sparkles className="mr-2 h-4 w-4" />
+								Buy Number &amp; Register
+							</>
+						)}
+					</Button>
+
+					<p className="text-center text-muted-foreground text-xs">
+						The number will be purchased on your Twilio subaccount, then
+						registered on your WhatsApp Business Account.
+					</p>
+				</div>
+			)}
+
+			{/* ── Step: Verify Code (BYON/Twilio) ── */}
 			{step === "verify-code" && (
 				<div className="space-y-4">
 					<h3 className="font-display font-medium text-sm">
@@ -660,7 +1034,9 @@ function AutoSetup({
 					<p className="text-muted-foreground text-sm">
 						We sent a 6-digit code to{" "}
 						<span className="font-medium font-mono text-foreground">
-							{byonPhone}
+							{phoneSource === "twilio"
+								? (twilioSelectedNumber?.phoneNumber ?? "your number")
+								: byonPhone}
 						</span>
 						. Enter it below.
 					</p>
@@ -805,7 +1181,7 @@ function AutoSetup({
 						<h3 className="font-display font-semibold text-lg">
 							Account Connected!
 						</h3>
-						{phoneSource === "byon" ? (
+						{phoneSource === "byon" || phoneSource === "twilio" ? (
 							<p className="mt-2 text-muted-foreground text-sm">
 								Your number is registered. The display name is now under Meta
 								review (typically 1-3 days). You can start sending messages once
