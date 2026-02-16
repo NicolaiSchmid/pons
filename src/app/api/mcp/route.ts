@@ -2,6 +2,38 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { type NextRequest, NextResponse } from "next/server";
 import { createMcpServer } from "../../../lib/mcp-server";
 
+// ============================================
+// Rate limiting (in-memory sliding window)
+// ============================================
+// Limits requests per IP to mitigate API key brute-force.
+// Resets on cold start — for persistent rate limiting, use Vercel KV or similar.
+
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 60; // 60 requests per minute per IP
+
+const requestCounts = new Map<string, { count: number; resetAt: number }>();
+
+function isRateLimited(ip: string): boolean {
+	const now = Date.now();
+	const entry = requestCounts.get(ip);
+
+	if (!entry || now >= entry.resetAt) {
+		requestCounts.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+		return false;
+	}
+
+	entry.count++;
+	return entry.count > RATE_LIMIT_MAX_REQUESTS;
+}
+
+function getClientIp(request: NextRequest): string {
+	return (
+		request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+		request.headers.get("x-real-ip") ??
+		"unknown"
+	);
+}
+
 // Extract API key from Authorization header
 function extractApiKey(request: NextRequest): string | null {
 	const authHeader = request.headers.get("authorization");
@@ -16,6 +48,13 @@ function extractApiKey(request: NextRequest): string | null {
 
 // MCP endpoint - handles both GET (SSE) and POST (messages)
 export async function POST(request: NextRequest) {
+	if (isRateLimited(getClientIp(request))) {
+		return NextResponse.json(
+			{ error: "Too many requests" },
+			{ status: 429, headers: { "Retry-After": "60" } },
+		);
+	}
+
 	const apiKey = extractApiKey(request);
 	if (!apiKey) {
 		return NextResponse.json(
@@ -49,6 +88,13 @@ export async function POST(request: NextRequest) {
 
 // Handle GET for SSE connections
 export async function GET(request: NextRequest) {
+	if (isRateLimited(getClientIp(request))) {
+		return NextResponse.json(
+			{ error: "Too many requests" },
+			{ status: 429, headers: { "Retry-After": "60" } },
+		);
+	}
+
 	const apiKey = extractApiKey(request);
 	if (!apiKey) {
 		return NextResponse.json(
