@@ -424,12 +424,26 @@ export const listMembers = query({
 	},
 });
 
-// Find a user by email (for inviting)
+// Find a user by email (for inviting). Requires admin/owner of the account
+// to prevent unauthenticated user enumeration.
 export const findUserByEmail = query({
-	args: { email: v.string() },
+	args: {
+		accountId: v.id("accounts"),
+		email: v.string(),
+	},
 	handler: async (ctx, args) => {
 		const userId = await auth.getUserId(ctx);
 		if (!userId) return null;
+
+		// Verify caller is admin/owner of the account
+		const membership = await ctx.db
+			.query("accountMembers")
+			.withIndex("by_account_user", (q) =>
+				q.eq("accountId", args.accountId).eq("userId", userId),
+			)
+			.first();
+
+		if (!membership || membership.role === "member") return null;
 
 		const user = await ctx.db
 			.query("users")
