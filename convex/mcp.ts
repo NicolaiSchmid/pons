@@ -24,6 +24,10 @@ export const createApiKey = action({
 		ctx,
 		args,
 	): Promise<{ apiKey: string; keyPrefix: string }> => {
+		// Defense-in-depth: verify auth before generating key material
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Unauthorized");
+
 		// Generate the key using Node action
 		const { apiKey, keyHash, keyPrefix } = await ctx.runAction(
 			internal.mcpNode.generateApiKeyAction,
