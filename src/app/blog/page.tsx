@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { getAllPosts } from "@/lib/blog";
 
@@ -12,7 +13,7 @@ export default function BlogIndex() {
 	const posts = getAllPosts();
 
 	return (
-		<main className="mx-auto max-w-2xl px-4 py-16">
+		<main className="mx-auto max-w-4xl px-4 py-16">
 			<h1 className="font-bold font-display text-3xl tracking-tight sm:text-4xl">
 				Blog
 			</h1>
@@ -21,38 +22,50 @@ export default function BlogIndex() {
 				messaging.
 			</p>
 
-			<div className="mt-12 flex flex-col gap-1">
+			<div className="mt-12 grid gap-6 sm:grid-cols-2">
 				{posts.map((post) => (
 					<Link
-						className="group -mx-3 flex items-baseline justify-between gap-4 rounded-lg px-3 py-3 transition hover:bg-pons-green/5"
+						className="group overflow-hidden rounded-xl border border-border/60 bg-card transition hover:border-pons-green/30 hover:bg-card/80"
 						href={`/blog/${post.slug}`}
 						key={post.slug}
 					>
-						<div className="min-w-0">
-							<h2 className="truncate font-medium text-foreground transition group-hover:text-pons-green">
+						{/* Cover image — generated OG image */}
+						<div className="relative aspect-[1200/630] overflow-hidden bg-background">
+							<Image
+								alt={post.title}
+								className="object-cover transition group-hover:scale-[1.02]"
+								fill
+								sizes="(max-width: 640px) 100vw, 50vw"
+								src={`/api/og?title=${encodeURIComponent(post.title)}&subtitle=${encodeURIComponent(post.description)}`}
+							/>
+						</div>
+
+						{/* Content */}
+						<div className="p-4">
+							<time
+								className="text-muted-foreground text-xs tabular-nums"
+								dateTime={post.date}
+							>
+								{new Date(post.date).toLocaleDateString("en-US", {
+									year: "numeric",
+									month: "short",
+									day: "numeric",
+								})}
+							</time>
+							<h2 className="mt-1.5 font-display font-medium text-foreground leading-snug tracking-tight transition group-hover:text-pons-green">
 								{post.title}
 							</h2>
-							<p className="mt-0.5 line-clamp-1 text-muted-foreground text-sm">
+							<p className="mt-1.5 line-clamp-2 text-muted-foreground text-sm">
 								{post.description}
 							</p>
 						</div>
-						<time
-							className="shrink-0 text-muted-foreground text-xs tabular-nums"
-							dateTime={post.date}
-						>
-							{new Date(post.date).toLocaleDateString("en-US", {
-								year: "numeric",
-								month: "short",
-								day: "numeric",
-							})}
-						</time>
 					</Link>
 				))}
-
-				{posts.length === 0 && (
-					<p className="text-muted-foreground">No posts yet.</p>
-				)}
 			</div>
+
+			{posts.length === 0 && (
+				<p className="mt-12 text-muted-foreground">No posts yet.</p>
+			)}
 		</main>
 	);
 }
