@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, ChevronsUpDown } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -44,6 +44,30 @@ export function CountryCodeSelector({
 	disabled,
 }: CountryCodeSelectorProps) {
 	const [open, setOpen] = useState(false);
+
+	// Auto-detect country from browser locale when no value is set
+	// biome-ignore lint/correctness/useExhaustiveDependencies: intentionally fire-once on mount
+	useEffect(() => {
+		if (value) return;
+
+		// navigator.language gives e.g. "en-US", "de-DE", "pt-BR"
+		const locale = navigator.language ?? "";
+		const parts = locale.split("-");
+		const regionCode =
+			parts.length >= 2
+				? (parts[parts.length - 1] ?? "").toUpperCase()
+				: "";
+		if (!regionCode || regionCode.length !== 2) return;
+
+		// Only auto-select if it's in the available countries list
+		const isAvailable = availableCodes
+			? availableCodes.includes(regionCode)
+			: COUNTRIES.some((c) => c.code === regionCode);
+
+		if (isAvailable) {
+			onChange(regionCode);
+		}
+	}, []);
 
 	const countries = availableCodes
 		? COUNTRIES.filter((c) => availableCodes.includes(c.code))
