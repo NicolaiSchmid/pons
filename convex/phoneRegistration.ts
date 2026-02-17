@@ -66,6 +66,14 @@ export const addPhoneToWaba = action({
 		const token = fbToken;
 
 		try {
+			// Meta wants phone_number WITHOUT country code or "+" prefix.
+			// e.g. for "+18302228750" with cc "1" → phone_number "8302228750"
+			const rawDigits = account.phoneNumber.replace(/^\+/, "");
+			const nationalNumber =
+				account.countryCode && rawDigits.startsWith(account.countryCode)
+					? rawDigits.slice(account.countryCode.length)
+					: rawDigits;
+
 			const res = await fetch(
 				`${META_API_BASE}/${account.wabaId}/phone_numbers`,
 				{
@@ -73,7 +81,7 @@ export const addPhoneToWaba = action({
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						cc: account.countryCode,
-						phone_number: account.phoneNumber,
+						phone_number: nationalNumber,
 						verified_name: account.displayName,
 						access_token: token,
 					}),
