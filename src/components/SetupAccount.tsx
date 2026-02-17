@@ -1460,6 +1460,7 @@ function QualityBadge({ rating }: { rating: string }) {
 	return (
 		<span
 			className={`rounded-full border px-2 py-0.5 font-medium text-[10px] ${classes}`}
+			title="Meta Number Reputation"
 		>
 			{label}
 		</span>
