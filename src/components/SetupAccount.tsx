@@ -1,6 +1,7 @@
 "use client";
 
 import { useAction, useMutation, useQuery } from "convex/react";
+import parsePhoneNumber from "libphonenumber-js";
 import {
 	AlertCircle,
 	ArrowLeft,
@@ -28,7 +29,6 @@ import {
 	ItemTitle,
 } from "@/components/ui/item";
 import { Label } from "@/components/ui/label";
-import { COUNTRIES } from "@/lib/countries";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
@@ -155,40 +155,13 @@ export function SetupAccount({ onComplete }: SetupAccountProps) {
 // ── Helpers ──
 
 /**
- * Extract the numeric dial code from an E.164 phone number.
- * Tries exact match against our countries list (longest match wins).
+ * Extract the country calling code from an E.164 phone number
+ * using libphonenumber-js (Google's phone metadata).
  * e.g. "+18302228750" → "1", "+4915888643259" → "49"
  */
-function extractDialCode(phoneNumber: string): string {
-	const digits = phoneNumber.replace(/^\+/, "");
-	// Try longest dial codes first (e.g. "+1868" Trinidad before "+1" US)
-	const sorted = COUNTRIES.map((c) => c.dial.replace("+", "")).sort(
-		(a, b) => b.length - a.length,
-	);
-	for (const code of sorted) {
-		if (digits.startsWith(code)) return code;
-	}
-	// Fallback: first 1-3 digits (shouldn't happen with a complete list)
-	return digits.match(/^(\d{1,3})/)?.[1] ?? "";
-}
-
-/**
- * Resolve the dial code for a Twilio number.
- * For search results we have isoCountry, for owned numbers we parse the phone number.
- */
-function resolveDialCode(
-	num: TwilioAvailableNumber | TwilioOwnedNumber | null,
-): string {
-	if (!num) return "";
-	// Search results have isoCountry — direct lookup
-	if ("isoCountry" in num && num.isoCountry) {
-		const country = COUNTRIES.find(
-			(c) => c.code.toUpperCase() === num.isoCountry.toUpperCase(),
-		);
-		if (country) return country.dial.replace("+", "");
-	}
-	// Fall back to parsing the phone number
-	return extractDialCode(num.phoneNumber);
+function getCallingCode(phoneNumber: string): string {
+	const parsed = parsePhoneNumber(phoneNumber);
+	return parsed?.countryCallingCode ?? "";
 }
 
 /**
@@ -201,13 +174,11 @@ function buildTwilioConsoleUrl(
 	numberType?: "Local" | "Mobile" | "TollFree",
 ): string {
 	// Strip the dial code prefix to get the local number for searchTerm
-	const country = COUNTRIES.find(
-		(c) => c.code.toUpperCase() === isoCountry.toUpperCase(),
-	);
-	const dialDigits = country?.dial.replace("+", "") ?? "";
-	const stripped = phoneNumber.startsWith(`+${dialDigits}`)
-		? phoneNumber.slice(1 + dialDigits.length) // strip "+" + dial digits
-		: phoneNumber.replace(/^\+/, "");
+	const callingCode = getCallingCode(phoneNumber);
+	const stripped =
+		callingCode && phoneNumber.startsWith(`+${callingCode}`)
+			? phoneNumber.slice(1 + callingCode.length) // strip "+" + calling code
+			: phoneNumber.replace(/^\+/, "");
 
 	const params = new URLSearchParams();
 	params.set("isoCountry", isoCountry.toUpperCase());
@@ -632,8 +603,8 @@ function AutoSetup({
 				phoneNumber = owned.phoneNumber;
 			}
 
-			// Resolve dial code (e.g. "1" for US, "49" for DE)
-			const countryCode = resolveDialCode(twilioSelectedNumber);
+			// Extract country calling code (e.g. "1" for US, "49" for DE)
+			const countryCode = getCallingCode(phoneNumber);
 
 			await registerAppWebhook();
 			await subscribeWaba({ wabaId: twilioWabaId });

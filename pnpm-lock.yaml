@@ -50,6 +50,9 @@ importers:
       gray-matter:
         specifier: ^4.0.3
         version: 4.0.3
+      libphonenumber-js:
+        specifier: ^1.12.37
+        version: 1.12.37
       lucide-react:
         specifier: ^0.564.0
         version: 0.564.0(react@19.2.4)
@@ -2547,6 +2550,9 @@ packages:
   kind-of@6.0.3:
     resolution: {integrity: sha512-dcS1ul+9tmeD95T+x28/ehLgd9mENa3LsvDTtzm3vyBEO7RPptvAD+t44WVXaUjTBRcrpFeFlC8WCruUR456hw==}
     engines: {node: '>=0.10.0'}
+
+  libphonenumber-js@1.12.37:
+    resolution: {integrity: sha512-rDU6bkpuMs8YRt/UpkuYEAsYSoNuDEbrE41I3KNvmXREGH6DGBJ8Wbak4by29wNOQ27zk4g4HL82zf0OGhwRuw==}
 
   lightningcss-android-arm64@1.30.2:
     resolution: {integrity: sha512-BH9sEdOCahSgmkVhBLeU7Hc9DWeZ1Eb6wNS6Da8igvUwAe0sqROHddIlvU06q3WyXVEOYDZ6ykBZQnjTbmo4+A==}
@@ -6056,6 +6062,8 @@ snapshots:
   jwt-decode@4.0.0: {}
 
   kind-of@6.0.3: {}
+
+  libphonenumber-js@1.12.37: {}
 
   lightningcss-android-arm64@1.30.2:
     optional: true
