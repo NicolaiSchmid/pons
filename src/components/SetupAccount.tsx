@@ -271,6 +271,9 @@ function AutoSetup({
 	const [twilioDisplayName, setTwilioDisplayName] = useState("");
 	const [twilioWabaId, setTwilioWabaId] = useState("");
 
+	// Twilio panel inline loading (for fetching owned numbers on panel expand)
+	const [twilioInlineLoading, setTwilioInlineLoading] = useState(false);
+
 	// Twilio regulatory error (shown when buy fails due to address/bundle requirement)
 	const [twilioRegulatoryError, setTwilioRegulatoryError] = useState<
 		string | null
@@ -355,6 +358,29 @@ function AutoSetup({
 			]),
 		).values(),
 	);
+
+	// Auto-fetch owned Twilio numbers when the panel opens and credentials exist
+	useEffect(() => {
+		if (newNumberPanel !== "twilio" || !twilioCredentials) return;
+		// Don't re-fetch if we already have them loaded (e.g. came back from twilio-search)
+		if (twilioOwnedNumbers.length > 0) return;
+
+		const credId = twilioCredentials._id;
+		setTwilioCredentialsId(credId);
+		setTwilioInlineLoading(true);
+
+		listTwilioNumbers({ credentialsId: credId })
+			.then((owned) => setTwilioOwnedNumbers(owned))
+			.catch(() => {
+				// Non-fatal
+			})
+			.finally(() => setTwilioInlineLoading(false));
+	}, [
+		newNumberPanel,
+		twilioCredentials,
+		twilioOwnedNumbers.length,
+		listTwilioNumbers,
+	]);
 
 	// ── Handlers ──
 
@@ -829,28 +855,94 @@ function AutoSetup({
 								</div>
 
 								{twilioCredentials ? (
-									<div className="flex items-center justify-between rounded-lg border border-pons-green/20 bg-pons-green/5 px-4 py-3">
-										<div className="flex items-center gap-2">
-											<Check className="h-4 w-4 text-pons-green" />
-											<span className="text-sm">
-												Connected as{" "}
-												<span className="font-medium">
-													{twilioCredentials.friendlyName ??
-														twilioCredentials.accountSid.slice(0, 12)}
-												</span>
+									<div className="space-y-3">
+										<div className="flex items-center gap-2 text-muted-foreground text-xs">
+											<Check className="h-3.5 w-3.5 text-pons-green" />
+											Connected as{" "}
+											<span className="font-medium text-foreground">
+												{twilioCredentials.friendlyName ??
+													twilioCredentials.accountSid.slice(0, 12)}
 											</span>
 										</div>
+
+										{/* Inline owned numbers */}
+										{twilioInlineLoading && (
+											<div className="flex items-center gap-2 py-3 text-muted-foreground text-xs">
+												<Loader2 className="h-3.5 w-3.5 animate-spin" />
+												Loading your numbers...
+											</div>
+										)}
+
+										{!twilioInlineLoading && twilioOwnedNumbers.length > 0 && (
+											<div className="space-y-1.5">
+												{twilioOwnedNumbers.map((num) => (
+													<Item
+														className="cursor-pointer hover:border-pons-green/40 hover:bg-card/70"
+														key={num.sid}
+														onClick={() => {
+															setTwilioSelectedNumber(num);
+															setTwilioRegulatoryError(null);
+															setStep("twilio-confirm");
+														}}
+														size="sm"
+														variant="outline"
+													>
+														<ItemMedia>
+															<Phone className="size-4 text-pons-green" />
+														</ItemMedia>
+														<ItemContent>
+															<ItemTitle className="font-mono text-sm">
+																{num.phoneNumber}
+															</ItemTitle>
+															<ItemDescription className="text-xs">
+																{num.friendlyName}
+															</ItemDescription>
+														</ItemContent>
+														<ItemActions>
+															{num.capabilities.sms && (
+																<span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-400">
+																	SMS
+																</span>
+															)}
+															<ChevronRight className="size-4 text-muted-foreground" />
+														</ItemActions>
+													</Item>
+												))}
+											</div>
+										)}
+
+										{!twilioInlineLoading &&
+											twilioOwnedNumbers.length === 0 && (
+												<p className="py-1 text-muted-foreground text-xs">
+													No numbers on this account yet.
+												</p>
+											)}
+
+										{/* Divider + browse for new numbers */}
+										<div className="relative">
+											<div className="absolute inset-0 flex items-center">
+												<span className="w-full border-t" />
+											</div>
+											<div className="relative flex justify-center text-xs">
+												<span className="bg-background px-2 text-muted-foreground">
+													or
+												</span>
+											</div>
+										</div>
+
 										<Button
-											className="bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
+											className="w-full"
 											disabled={loading}
 											onClick={handleBrowseTwilio}
 											size="sm"
+											variant="outline"
 										>
 											{loading ? (
-												<Loader2 className="h-3.5 w-3.5 animate-spin" />
+												<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
 											) : (
-												"Browse numbers"
+												<ShoppingCart className="mr-2 h-3.5 w-3.5" />
 											)}
+											Browse &amp; buy a new number
 										</Button>
 									</div>
 								) : (
