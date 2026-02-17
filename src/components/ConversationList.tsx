@@ -2,6 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { MessageSquare, Search } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -11,13 +12,11 @@ import type { Id } from "../../convex/_generated/dataModel";
 interface ConversationListProps {
 	accountId: Id<"accounts">;
 	selectedConversationId?: Id<"conversations">;
-	onSelectConversation: (conversationId: Id<"conversations">) => void;
 }
 
 export function ConversationList({
 	accountId,
 	selectedConversationId,
-	onSelectConversation,
 }: ConversationListProps) {
 	const conversations = useQuery(api.conversations.list, { accountId });
 	const [search, setSearch] = useState("");
@@ -79,14 +78,13 @@ export function ConversationList({
 					</div>
 				) : (
 					filtered.map((conv) => (
-						<button
+						<Link
 							className={cn(
 								"group flex w-full flex-col gap-1 border-border/50 border-b px-4 py-3 text-left transition-colors hover:bg-muted/50",
 								selectedConversationId === conv._id && "bg-muted/70",
 							)}
+							href={`/dashboard/${accountId}/${conv._id}`}
 							key={conv._id}
-							onClick={() => onSelectConversation(conv._id)}
-							type="button"
 						>
 							<div className="flex items-center justify-between gap-2">
 								<div className="flex min-w-0 items-center gap-2">
@@ -118,7 +116,7 @@ export function ConversationList({
 									{conv.lastMessagePreview}
 								</p>
 							)}
-						</button>
+						</Link>
 					))
 				)}
 			</div>

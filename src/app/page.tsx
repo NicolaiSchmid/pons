@@ -15,10 +15,10 @@ import {
 	Terminal,
 	Users,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
-import { Dashboard } from "../components/Dashboard";
 
 const mcpConfig = `{
   "mcpServers": {
@@ -168,12 +168,20 @@ function FacebookIcon() {
 export default function Home() {
 	const { isAuthenticated, isLoading } = useConvexAuth();
 	const { signIn } = useAuthActions();
+	const router = useRouter();
 
 	const handleSignIn = () => {
-		void signIn("facebook");
+		void signIn("facebook", { redirectTo: "/dashboard" });
 	};
 
-	if (isLoading) {
+	// Redirect authenticated users to /dashboard
+	useEffect(() => {
+		if (isAuthenticated) {
+			router.replace("/dashboard");
+		}
+	}, [isAuthenticated, router]);
+
+	if (isLoading || isAuthenticated) {
 		return (
 			<main className="flex min-h-screen items-center justify-center">
 				<div className="flex flex-col items-center gap-3">
@@ -182,10 +190,6 @@ export default function Home() {
 				</div>
 			</main>
 		);
-	}
-
-	if (isAuthenticated) {
-		return <Dashboard />;
 	}
 
 	return (

@@ -10,11 +10,10 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
 
 interface AccountSelectorProps {
-	selectedAccountId?: Id<"accounts">;
-	onSelectAccount: (accountId: Id<"accounts">) => void;
+	selectedAccountId?: string;
+	onSelectAccount: (accountId: string) => void;
 }
 
 function StatusDot({ status }: { status: string }) {
@@ -51,17 +50,16 @@ export function AccountSelector({
 
 	// Single account — just show info
 	if (accounts.length === 1) {
-		if (!selectedAccountId && accounts[0]) {
-			onSelectAccount(accounts[0]._id);
-		}
+		const account = accounts[0];
+		if (!account) return null;
 		return (
 			<div className="flex items-center gap-1.5 text-muted-foreground text-xs">
-				<StatusDot status={accounts[0]?.status ?? "active"} />
-				<span>{accounts[0]?.name ?? "Account"}</span>
-				{accounts[0]?.phoneNumber && (
+				<StatusDot status={account.status} />
+				<span>{account.name}</span>
+				{account.phoneNumber && (
 					<>
 						<span className="text-border">·</span>
-						<span className="font-mono">{accounts[0].phoneNumber}</span>
+						<span className="font-mono">{account.phoneNumber}</span>
 					</>
 				)}
 			</div>

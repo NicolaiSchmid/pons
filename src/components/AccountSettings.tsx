@@ -18,13 +18,7 @@ import {
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -34,7 +28,6 @@ import type { Id } from "../../convex/_generated/dataModel";
 
 interface AccountSettingsProps {
 	accountId: Id<"accounts">;
-	onClose: () => void;
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -51,7 +44,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 	failed: { label: "Failed", color: "text-red-400" },
 };
 
-export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
+export function AccountSettings({ accountId }: AccountSettingsProps) {
 	const account = useQuery(api.accounts.get, { accountId });
 	const secrets = useQuery(api.accounts.getSecrets, { accountId });
 	const members = useQuery(api.accounts.listMembers, { accountId });
@@ -154,13 +147,9 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 
 	if (!account) {
 		return (
-			<Dialog onOpenChange={(open) => !open && onClose()} open>
-				<DialogContent className="max-w-lg">
-					<div className="flex items-center justify-center py-12">
-						<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-					</div>
-				</DialogContent>
-			</Dialog>
+			<div className="flex h-full items-center justify-center">
+				<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+			</div>
 		);
 	}
 
@@ -170,18 +159,18 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 	};
 
 	return (
-		<Dialog onOpenChange={(open) => !open && onClose()} open>
-			<DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
-				<DialogHeader>
-					<DialogTitle className="flex items-center gap-2 font-display">
-						<Settings className="h-4 w-4 text-pons-green" />
-						Account Settings
-					</DialogTitle>
-					<DialogDescription>
-						View and update your WhatsApp Business account configuration.
-					</DialogDescription>
-				</DialogHeader>
+		<div className="mx-auto h-full max-w-lg overflow-y-auto p-6">
+			<div className="mb-6">
+				<h1 className="flex items-center gap-2 font-display font-semibold text-lg">
+					<Settings className="h-4 w-4 text-pons-green" />
+					Account Settings
+				</h1>
+				<p className="mt-1 text-muted-foreground text-sm">
+					View and update your WhatsApp Business account configuration.
+				</p>
+			</div>
 
+			<div className="space-y-6">
 				{/* Status badge */}
 				<div className="flex items-center gap-2 rounded-lg border bg-card p-3">
 					<span className="text-muted-foreground text-xs">Status</span>
@@ -460,8 +449,8 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 						Users must have signed in at least once before they can be invited.
 					</p>
 				</div>
-			</DialogContent>
-		</Dialog>
+			</div>
+		</div>
 	);
 }
 

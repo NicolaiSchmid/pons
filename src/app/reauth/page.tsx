@@ -18,7 +18,7 @@ export default function ReAuth() {
 	useEffect(() => {
 		if (triggered.current) return;
 		triggered.current = true;
-		void signIn("facebook", { redirectTo: "/" });
+		void signIn("facebook", { redirectTo: "/dashboard" });
 	}, [signIn]);
 
 	return (

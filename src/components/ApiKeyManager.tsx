@@ -14,13 +14,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -36,7 +30,6 @@ import type { Id } from "../../convex/_generated/dataModel";
 
 interface ApiKeyManagerProps {
 	accountId: Id<"accounts">;
-	onClose: () => void;
 }
 
 const AVAILABLE_SCOPES = [
@@ -57,7 +50,7 @@ const AVAILABLE_SCOPES = [
 	},
 ];
 
-export function ApiKeyManager({ accountId, onClose }: ApiKeyManagerProps) {
+export function ApiKeyManager({ accountId }: ApiKeyManagerProps) {
 	const apiKeys = useQuery(api.mcp.listApiKeys, { accountId });
 	const createApiKey = useAction(api.mcp.createApiKey);
 	const revokeApiKey = useMutation(api.mcp.revokeApiKey);
@@ -137,18 +130,18 @@ export function ApiKeyManager({ accountId, onClose }: ApiKeyManagerProps) {
 	};
 
 	return (
-		<Dialog onOpenChange={(open) => !open && onClose()} open>
-			<DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
-				<DialogHeader>
-					<DialogTitle className="flex items-center gap-2 font-display">
-						<KeyRound className="h-4 w-4 text-pons-green" />
-						API Keys
-					</DialogTitle>
-					<DialogDescription>
-						Create and manage API keys for MCP client access.
-					</DialogDescription>
-				</DialogHeader>
+		<div className="mx-auto h-full max-w-2xl overflow-y-auto p-6">
+			<div className="mb-6">
+				<h1 className="flex items-center gap-2 font-display font-semibold text-lg">
+					<KeyRound className="h-4 w-4 text-pons-green" />
+					API Keys
+				</h1>
+				<p className="mt-1 text-muted-foreground text-sm">
+					Create and manage API keys for MCP client access.
+				</p>
+			</div>
 
+			<div className="space-y-6">
 				{/* Newly created key alert */}
 				{newlyCreatedKey && (
 					<div className="rounded-lg border border-pons-green/30 bg-pons-green-surface p-4">
@@ -377,8 +370,8 @@ export function ApiKeyManager({ accountId, onClose }: ApiKeyManagerProps) {
 
 				{/* MCP Config */}
 				<McpConfigSnippet />
-			</DialogContent>
-		</Dialog>
+			</div>
+		</div>
 	);
 }
 
