@@ -5,19 +5,26 @@ import {
 	AlertCircle,
 	ArrowLeft,
 	Check,
-	ChevronDown,
-	ChevronUp,
+	ChevronRight,
 	ExternalLink,
 	Loader2,
 	MessageSquare,
 	Phone,
-	Plus,
 	RefreshCw,
+	ShoppingCart,
 	Sparkles,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+	Item,
+	ItemActions,
+	ItemContent,
+	ItemDescription,
+	ItemMedia,
+	ItemTitle,
+} from "@/components/ui/item";
 import { Label } from "@/components/ui/label";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -173,9 +180,9 @@ function AutoSetup({
 
 	// Wizard state
 	const [step, setStep] = useState<WizardStep>("pick-number");
-	const [newNumberExpanded, setNewNumberExpanded] = useState(
-		discoveredNumbers.length === 0,
-	);
+	const [newNumberPanel, setNewNumberPanel] = useState<
+		null | "byon" | "twilio"
+	>(null);
 
 	// Selected existing number (for configure step)
 	const [selectedNumber, setSelectedNumber] = useState<DiscoveredNumber | null>(
@@ -483,140 +490,48 @@ function AutoSetup({
 			{/* ── Main screen: pick-number ── */}
 			{step === "pick-number" && (
 				<div className="space-y-6">
-					{/* ── Set up a new number (primary action) ── */}
-					<Button
-						className="flex w-full items-center gap-3 rounded-lg border border-border/60 bg-card/40 p-4 text-left transition hover:border-pons-green/40 hover:bg-card/70"
-						onClick={() => setNewNumberExpanded(!newNumberExpanded)}
-						size="lg"
-						variant="ghost"
-					>
-						<Plus className="h-5 w-5 text-pons-green" />
-						<div className="min-w-0 flex-1">
-							<p className="font-medium text-sm">Set up a new number</p>
-							<p className="text-muted-foreground text-xs">
-								Buy via Twilio or bring your own
-							</p>
-						</div>
-						{newNumberExpanded ? (
-							<ChevronUp className="h-4 w-4 text-muted-foreground" />
+					{/* ── Set up a new number ── */}
+					<h3 className="font-display font-medium text-sm">
+						Set up a new number
+					</h3>
+
+					<div className="space-y-2">
+						{/* Bring your own number */}
+						{newNumberPanel !== "byon" ? (
+							<Item
+								className="cursor-pointer hover:border-pons-green/40 hover:bg-card/70"
+								onClick={() => setNewNumberPanel("byon")}
+								variant="outline"
+							>
+								<ItemMedia>
+									<Phone className="size-5 text-pons-green" />
+								</ItemMedia>
+								<ItemContent>
+									<ItemTitle>Bring your own number</ItemTitle>
+									<ItemDescription className="text-xs">
+										Register an existing phone number on WhatsApp
+									</ItemDescription>
+								</ItemContent>
+								<ItemActions>
+									<ChevronRight className="size-4 text-muted-foreground" />
+								</ItemActions>
+							</Item>
 						) : (
-							<ChevronDown className="h-4 w-4 text-muted-foreground" />
-						)}
-					</Button>
-
-					{newNumberExpanded && (
-						<div className="space-y-6">
-							{/* ── Twilio section ── */}
-							<div className="space-y-3">
-								<div className="flex items-center gap-2">
-									<Sparkles className="h-4 w-4 text-pons-green" />
-									<h3 className="font-display font-medium text-sm">
-										Buy via Twilio
-									</h3>
-									<span className="text-muted-foreground text-xs">~$1/mo</span>
-								</div>
-
-								{twilioCredentials ? (
-									<div className="space-y-3">
-										<div className="flex items-center justify-between rounded-lg border border-pons-green/20 bg-pons-green/5 px-4 py-3">
-											<div className="flex items-center gap-2">
-												<Check className="h-4 w-4 text-pons-green" />
-												<span className="text-sm">
-													Connected as{" "}
-													<span className="font-medium">
-														{twilioCredentials.friendlyName ??
-															twilioCredentials.accountSid.slice(0, 12)}
-													</span>
-												</span>
-											</div>
-											<Button
-												className="bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
-												disabled={loading}
-												onClick={handleBrowseTwilio}
-												size="sm"
-											>
-												{loading ? (
-													<Loader2 className="h-3.5 w-3.5 animate-spin" />
-												) : (
-													"Browse numbers"
-												)}
-											</Button>
-										</div>
+							<div className="space-y-4 rounded-md border border-pons-green/40 p-4">
+								<div className="flex items-center justify-between">
+									<div className="flex items-center gap-2">
+										<Phone className="size-4 text-pons-green" />
+										<span className="font-medium text-sm">
+											Bring your own number
+										</span>
 									</div>
-								) : (
-									<div className="space-y-3">
-										<p className="text-muted-foreground text-xs">
-											Paste your Account SID and Auth Token from the{" "}
-											<a
-												className="inline-flex items-center gap-1 text-pons-green underline underline-offset-2 hover:text-pons-green-bright"
-												href="https://console.twilio.com/"
-												rel="noopener noreferrer"
-												target="_blank"
-											>
-												Twilio Console
-												<ExternalLink className="h-3 w-3" />
-											</a>
-										</p>
-										<div className="space-y-2">
-											<Input
-												onChange={(e) => setTwilioSid(e.target.value)}
-												placeholder="Account SID (AC...)"
-												value={twilioSid}
-											/>
-											<Input
-												onChange={(e) => setTwilioToken(e.target.value)}
-												placeholder="Auth Token"
-												type="password"
-												value={twilioToken}
-											/>
-										</div>
-										{twilioSaveError && (
-											<p className="text-destructive text-xs">
-												{twilioSaveError}
-											</p>
-										)}
-										<Button
-											className="w-full bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
-											disabled={
-												twilioValidating ||
-												!twilioSid.startsWith("AC") ||
-												!twilioToken
-											}
-											onClick={handleSaveTwilio}
-											size="sm"
-										>
-											{twilioValidating ? (
-												<>
-													<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-													Validating...
-												</>
-											) : (
-												"Connect Twilio"
-											)}
-										</Button>
-									</div>
-								)}
-							</div>
-
-							{/* ── "or" divider ── */}
-							<div className="relative">
-								<div className="absolute inset-0 flex items-center">
-									<span className="w-full border-t" />
-								</div>
-								<div className="relative flex justify-center text-xs">
-									<span className="bg-background px-2 text-muted-foreground">
-										or
-									</span>
-								</div>
-							</div>
-
-							{/* ── BYON section ── */}
-							<div className="space-y-3">
-								<div className="flex items-center gap-2">
-									<Phone className="h-4 w-4 text-pons-green" />
-									<h3 className="font-display font-medium text-sm">
-										Bring your own number
-									</h3>
+									<button
+										className="text-muted-foreground text-xs hover:text-foreground"
+										onClick={() => setNewNumberPanel(null)}
+										type="button"
+									>
+										Cancel
+									</button>
 								</div>
 
 								<div className="space-y-2">
@@ -716,8 +631,128 @@ function AutoSetup({
 									)}
 								</Button>
 							</div>
-						</div>
-					)}
+						)}
+
+						{/* Buy via Twilio */}
+						{newNumberPanel !== "twilio" ? (
+							<Item
+								className="cursor-pointer hover:border-pons-green/40 hover:bg-card/70"
+								onClick={() => setNewNumberPanel("twilio")}
+								variant="outline"
+							>
+								<ItemMedia>
+									<ShoppingCart className="size-5 text-pons-green" />
+								</ItemMedia>
+								<ItemContent>
+									<ItemTitle>Buy a number via Twilio</ItemTitle>
+									<ItemDescription className="text-xs">
+										Purchase a new phone number for ~$1/mo
+									</ItemDescription>
+								</ItemContent>
+								<ItemActions>
+									<ChevronRight className="size-4 text-muted-foreground" />
+								</ItemActions>
+							</Item>
+						) : (
+							<div className="space-y-4 rounded-md border border-pons-green/40 p-4">
+								<div className="flex items-center justify-between">
+									<div className="flex items-center gap-2">
+										<ShoppingCart className="size-4 text-pons-green" />
+										<span className="font-medium text-sm">Buy via Twilio</span>
+										<span className="text-muted-foreground text-xs">
+											~$1/mo
+										</span>
+									</div>
+									<button
+										className="text-muted-foreground text-xs hover:text-foreground"
+										onClick={() => setNewNumberPanel(null)}
+										type="button"
+									>
+										Cancel
+									</button>
+								</div>
+
+								{twilioCredentials ? (
+									<div className="flex items-center justify-between rounded-lg border border-pons-green/20 bg-pons-green/5 px-4 py-3">
+										<div className="flex items-center gap-2">
+											<Check className="h-4 w-4 text-pons-green" />
+											<span className="text-sm">
+												Connected as{" "}
+												<span className="font-medium">
+													{twilioCredentials.friendlyName ??
+														twilioCredentials.accountSid.slice(0, 12)}
+												</span>
+											</span>
+										</div>
+										<Button
+											className="bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
+											disabled={loading}
+											onClick={handleBrowseTwilio}
+											size="sm"
+										>
+											{loading ? (
+												<Loader2 className="h-3.5 w-3.5 animate-spin" />
+											) : (
+												"Browse numbers"
+											)}
+										</Button>
+									</div>
+								) : (
+									<div className="space-y-3">
+										<p className="text-muted-foreground text-xs">
+											Paste your Account SID and Auth Token from the{" "}
+											<a
+												className="inline-flex items-center gap-1 text-pons-green underline underline-offset-2 hover:text-pons-green-bright"
+												href="https://console.twilio.com/"
+												rel="noopener noreferrer"
+												target="_blank"
+											>
+												Twilio Console
+												<ExternalLink className="h-3 w-3" />
+											</a>
+										</p>
+										<div className="space-y-2">
+											<Input
+												onChange={(e) => setTwilioSid(e.target.value)}
+												placeholder="Account SID (AC...)"
+												value={twilioSid}
+											/>
+											<Input
+												onChange={(e) => setTwilioToken(e.target.value)}
+												placeholder="Auth Token"
+												type="password"
+												value={twilioToken}
+											/>
+										</div>
+										{twilioSaveError && (
+											<p className="text-destructive text-xs">
+												{twilioSaveError}
+											</p>
+										)}
+										<Button
+											className="w-full bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
+											disabled={
+												twilioValidating ||
+												!twilioSid.startsWith("AC") ||
+												!twilioToken
+											}
+											onClick={handleSaveTwilio}
+											size="sm"
+										>
+											{twilioValidating ? (
+												<>
+													<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+													Validating...
+												</>
+											) : (
+												"Connect Twilio"
+											)}
+										</Button>
+									</div>
+								)}
+							</div>
+						)}
+					</div>
 
 					{/* ── Existing WABA numbers ── */}
 					{discoveredNumbers.length > 0 && (
@@ -728,36 +763,40 @@ function AutoSetup({
 								</div>
 								<div className="relative flex justify-center text-xs">
 									<span className="bg-background px-2 text-muted-foreground">
-										or use an existing number
+										or
 									</span>
 								</div>
 							</div>
 
+							<h3 className="font-display font-medium text-sm">
+								Connect a configured number
+							</h3>
+
 							<div className="space-y-2">
 								{discoveredNumbers.map((num) => (
-									<button
-										className="flex w-full items-center gap-3 rounded-lg border border-border/60 bg-card/40 p-4 text-left transition hover:border-pons-green/40 hover:bg-card/70"
+									<Item
+										className="cursor-pointer hover:border-pons-green/40 hover:bg-card/70"
 										key={`${num.wabaId}-${num.id}`}
 										onClick={() => {
 											setSelectedNumber(num);
 											setStep("configure");
 										}}
-										type="button"
+										variant="outline"
 									>
-										<Phone className="h-5 w-5 text-pons-green" />
-										<div className="min-w-0 flex-1">
-											<p className="font-medium text-sm">
-												{num.display_phone_number}
-											</p>
-											<p className="text-muted-foreground text-xs">
-												{num.verified_name}
-											</p>
-											<p className="text-[11px] text-muted-foreground/70">
-												{num.businessName} · {num.wabaName}
-											</p>
-										</div>
-										<QualityBadge rating={num.quality_rating} />
-									</button>
+										<ItemMedia>
+											<Phone className="size-5 text-pons-green" />
+										</ItemMedia>
+										<ItemContent>
+											<ItemTitle>{num.display_phone_number}</ItemTitle>
+											<ItemDescription className="text-xs">
+												{num.verified_name} · {num.businessName}
+											</ItemDescription>
+										</ItemContent>
+										<ItemActions>
+											<QualityBadge rating={num.quality_rating} />
+											<ChevronRight className="size-4 text-muted-foreground" />
+										</ItemActions>
+									</Item>
 								))}
 							</div>
 						</>
@@ -864,30 +903,36 @@ function AutoSetup({
 							</p>
 							<div className="space-y-1.5">
 								{twilioOwnedNumbers.map((num) => (
-									<button
-										className="flex w-full items-center gap-3 rounded-lg border border-border/60 bg-card/40 p-3 text-left transition hover:border-pons-green/40 hover:bg-card/70"
+									<Item
+										className="cursor-pointer hover:border-pons-green/40 hover:bg-card/70"
 										key={num.sid}
 										onClick={() => {
 											setTwilioSelectedNumber(num);
 											setStep("twilio-confirm");
 										}}
-										type="button"
+										size="sm"
+										variant="outline"
 									>
-										<Phone className="h-4 w-4 text-pons-green" />
-										<div className="min-w-0 flex-1">
-											<p className="font-medium font-mono text-sm">
+										<ItemMedia>
+											<Phone className="size-4 text-pons-green" />
+										</ItemMedia>
+										<ItemContent>
+											<ItemTitle className="font-mono">
 												{num.phoneNumber}
-											</p>
-											<p className="text-muted-foreground text-xs">
+											</ItemTitle>
+											<ItemDescription className="text-xs">
 												{num.friendlyName}
-											</p>
-										</div>
-										{num.capabilities.sms && (
-											<span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-400">
-												SMS
-											</span>
-										)}
-									</button>
+											</ItemDescription>
+										</ItemContent>
+										<ItemActions>
+											{num.capabilities.sms && (
+												<span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-400">
+													SMS
+												</span>
+											)}
+											<ChevronRight className="size-4 text-muted-foreground" />
+										</ItemActions>
+									</Item>
 								))}
 							</div>
 						</div>
@@ -960,33 +1005,39 @@ function AutoSetup({
 								</p>
 								<div className="max-h-64 space-y-1.5 overflow-y-auto">
 									{twilioAvailableNumbers.map((num) => (
-										<button
-											className="flex w-full items-center gap-3 rounded-lg border border-border/60 bg-card/40 p-3 text-left transition hover:border-pons-green/40 hover:bg-card/70"
+										<Item
+											className="cursor-pointer hover:border-pons-green/40 hover:bg-card/70"
 											key={num.phoneNumber}
 											onClick={() => {
 												setTwilioSelectedNumber(num);
 												setStep("twilio-confirm");
 											}}
-											type="button"
+											size="sm"
+											variant="outline"
 										>
-											<Phone className="h-4 w-4 text-pons-green" />
-											<div className="min-w-0 flex-1">
-												<p className="font-medium font-mono text-sm">
+											<ItemMedia>
+												<Phone className="size-4 text-pons-green" />
+											</ItemMedia>
+											<ItemContent>
+												<ItemTitle className="font-mono">
 													{num.friendlyName}
-												</p>
+												</ItemTitle>
 												{num.locality && (
-													<p className="text-muted-foreground text-xs">
+													<ItemDescription className="text-xs">
 														{num.locality}
 														{num.region ? `, ${num.region}` : ""}
-													</p>
+													</ItemDescription>
 												)}
-											</div>
-											{num.capabilities.sms && (
-												<span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-400">
-													SMS
-												</span>
-											)}
-										</button>
+											</ItemContent>
+											<ItemActions>
+												{num.capabilities.sms && (
+													<span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-400">
+														SMS
+													</span>
+												)}
+												<ChevronRight className="size-4 text-muted-foreground" />
+											</ItemActions>
+										</Item>
 									))}
 								</div>
 							</div>
