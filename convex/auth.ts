@@ -93,6 +93,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
 					await ctx.db.patch(existing._id, {
 						accessToken: facebookAccessToken,
 						expiresAt: facebookTokenExpiresAt,
+						lastExpiryEmailTier: undefined,
 					});
 				} else {
 					await ctx.db.insert("facebookTokens", {

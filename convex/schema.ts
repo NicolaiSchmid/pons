@@ -36,6 +36,7 @@ export default defineSchema({
 		userId: v.id("users"),
 		accessToken: v.string(), // Facebook user access token
 		expiresAt: v.optional(v.number()), // Token expiry timestamp (ms)
+		lastExpiryEmailTier: v.optional(v.string()), // Last warning tier sent (e.g. "14d", "1h")
 	}).index("by_user", ["userId"]),
 
 	// ── WhatsApp Business Accounts (single state machine) ──
