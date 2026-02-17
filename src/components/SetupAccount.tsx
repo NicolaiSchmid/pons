@@ -14,7 +14,7 @@ import {
 	ShoppingCart,
 	Sparkles,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CountryCodeSelector } from "@/components/CountryCodeSelector";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ import {
 	ItemTitle,
 } from "@/components/ui/item";
 import { Label } from "@/components/ui/label";
+import { COUNTRIES } from "@/lib/countries";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
@@ -151,6 +152,50 @@ export function SetupAccount({ onComplete }: SetupAccountProps) {
 	);
 }
 
+// ── Helpers ──
+
+/**
+ * Build a Twilio Console deep link to buy a specific number.
+ * Pre-fills country, number type, SMS capability, and the number itself.
+ */
+function buildTwilioConsoleUrl(
+	isoCountry: string,
+	phoneNumber: string,
+	numberType?: "Local" | "Mobile" | "TollFree",
+): string {
+	// Strip the dial code prefix to get the local number for searchTerm
+	const country = COUNTRIES.find(
+		(c) => c.code.toUpperCase() === isoCountry.toUpperCase(),
+	);
+	const dialDigits = country?.dial.replace("+", "") ?? "";
+	const stripped = phoneNumber.startsWith(`+${dialDigits}`)
+		? phoneNumber.slice(1 + dialDigits.length) // strip "+" + dial digits
+		: phoneNumber.replace(/^\+/, "");
+
+	const params = new URLSearchParams();
+	params.set("isoCountry", isoCountry.toUpperCase());
+	// Number types — include all if we don't know, otherwise just the matched type
+	const types =
+		numberType === "Mobile"
+			? ["Mobile"]
+			: numberType === "TollFree"
+				? ["Tollfree"]
+				: numberType === "Local"
+					? ["Local"]
+					: ["Local", "Mobile", "Tollfree"];
+	for (const t of types) params.append("types[]", t);
+	params.append("capabilities[]", "Sms");
+	params.append("capabilities[]", "Voice");
+	params.set("searchTerm", stripped);
+	params.set("searchFilter", "left");
+	params.set("searchType", "number");
+
+	return `https://console.twilio.com/us1/develop/phone-numbers/manage/search?${params}`;
+}
+
+/** Polling interval for checking if a number was purchased in the Twilio Console */
+const PURCHASE_POLL_INTERVAL = 5_000; // 5 seconds
+
 // ════════════════════════════════════════════════════════════════════════════
 // AUTO SETUP — FLAT DESIGN
 // ════════════════════════════════════════════════════════════════════════════
@@ -243,6 +288,63 @@ function AutoSetup({
 
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+
+	// ── Poll for number purchase in Twilio Console ──
+	// When a regulatory error is shown, poll the user's Twilio account every 5s
+	// to detect when they've bought the number in the Console.
+	const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+	const stopPolling = useCallback(() => {
+		if (pollTimerRef.current) {
+			clearInterval(pollTimerRef.current);
+			pollTimerRef.current = null;
+		}
+	}, []);
+
+	useEffect(() => {
+		// Only poll when we have a regulatory error + a selected number + credentials
+		if (
+			!twilioRegulatoryError ||
+			!twilioSelectedNumber ||
+			!twilioCredentialsId
+		) {
+			stopPolling();
+			return;
+		}
+
+		const targetPhone = twilioSelectedNumber.phoneNumber;
+
+		const poll = async () => {
+			try {
+				const owned = await listTwilioNumbers({
+					credentialsId: twilioCredentialsId,
+				});
+				const found = owned.find((n) => n.phoneNumber === targetPhone);
+				if (found) {
+					stopPolling();
+					// Swap to owned number (has sid) and clear the regulatory error
+					setTwilioSelectedNumber(found);
+					setTwilioRegulatoryError(null);
+					setTwilioOwnedNumbers(owned);
+					toast.success("Number purchased! Confirm to register on WhatsApp.");
+				}
+			} catch {
+				// Non-fatal — just retry on next tick
+			}
+		};
+
+		// Initial check + start interval
+		poll();
+		pollTimerRef.current = setInterval(poll, PURCHASE_POLL_INTERVAL);
+
+		return () => stopPolling();
+	}, [
+		twilioRegulatoryError,
+		twilioSelectedNumber,
+		twilioCredentialsId,
+		listTwilioNumbers,
+		stopPolling,
+	]);
 
 	// Unique WABAs for BYON/Twilio WABA selectors
 	const uniqueWabas = Array.from(
@@ -1212,35 +1314,46 @@ function AutoSetup({
 										Regulatory compliance required
 									</p>
 									<p className="text-muted-foreground text-xs">
-										This number requires regulatory documents (address or
-										identity bundle) before it can be purchased. Buy the number
-										directly in the Twilio Console, then come back and select it
-										from your owned numbers.
+										This number requires regulatory documents before it can be
+										purchased via API. Buy it directly in the Twilio Console —
+										we'll detect the purchase automatically.
 									</p>
 								</div>
 							</div>
-							<div className="flex gap-2">
-								<a
-									className="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-amber-500/20 px-3 py-1.5 font-medium text-amber-200 text-xs transition-colors hover:bg-amber-500/30"
-									href="https://console.twilio.com/us1/develop/phone-numbers/manage/search"
-									rel="noopener noreferrer"
-									target="_blank"
-								>
-									<ExternalLink className="h-3 w-3" />
-									Buy in Twilio Console
-								</a>
-								<Button
+							<a
+								className="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md bg-amber-500/20 px-3 py-2 font-medium text-amber-200 text-sm transition-colors hover:bg-amber-500/30"
+								href={(() => {
+									const num = twilioSelectedNumber as TwilioAvailableNumber;
+									return num.isoCountry
+										? buildTwilioConsoleUrl(
+												num.isoCountry,
+												num.phoneNumber,
+												num.numberType,
+											)
+										: "https://console.twilio.com/us1/develop/phone-numbers/manage/search";
+								})()}
+								rel="noopener noreferrer"
+								target="_blank"
+							>
+								<ExternalLink className="h-3.5 w-3.5" />
+								Buy in Twilio Console
+							</a>
+							<div className="flex items-center justify-between">
+								<div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+									<Loader2 className="h-3 w-3 animate-spin" />
+									Waiting for purchase...
+								</div>
+								<button
+									className="cursor-pointer text-muted-foreground text-xs transition-colors hover:text-foreground"
 									onClick={() => {
 										setTwilioRegulatoryError(null);
 										setTwilioSelectedNumber(null);
 										setStep("twilio-search");
 									}}
-									size="sm"
-									variant="ghost"
+									type="button"
 								>
-									<ArrowLeft className="mr-1.5 h-3 w-3" />
 									Pick a different number
-								</Button>
+								</button>
 							</div>
 						</div>
 					)}
