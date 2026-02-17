@@ -100,7 +100,7 @@ export const checkExpiringTokens = internalAction({
 			});
 			if (!user?.email) continue;
 
-			const reAuthUrl = "https://pons.chat";
+			const reAuthUrl = "https://pons.chat/reauth";
 
 			// Send the warning email
 			await ctx.runAction(internal.email.sendTokenExpiryWarning, {
