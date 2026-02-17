@@ -8,10 +8,8 @@ import {
 	ChevronRight,
 	ExternalLink,
 	Loader2,
-	MapPin,
 	MessageSquare,
 	Phone,
-	Plus,
 	RefreshCw,
 	ShoppingCart,
 	Sparkles,
@@ -65,18 +63,6 @@ type TwilioAvailableNumber = {
 	isoCountry: string;
 	capabilities: { sms: boolean; mms: boolean; voice: boolean };
 	numberType: "Local" | "Mobile" | "TollFree";
-	addressRequirements: "none" | "any" | "local" | "foreign";
-};
-
-type TwilioAddress = {
-	sid: string;
-	friendlyName: string;
-	customerName: string;
-	street: string;
-	city: string;
-	region: string;
-	postalCode: string;
-	isoCountry: string;
 };
 
 type WizardStep =
@@ -197,8 +183,6 @@ function AutoSetup({
 	);
 	const searchTwilioNumbers = useAction(api.twilioConnect.searchNumbers);
 	const buyTwilioNumber = useAction(api.twilioConnect.buyNumber);
-	const listTwilioAddresses = useAction(api.twilioConnect.listAddresses);
-	const createTwilioAddress = useAction(api.twilioConnect.createAddress);
 
 	// Wizard state
 	const [step, setStep] = useState<WizardStep>("pick-number");
@@ -242,18 +226,10 @@ function AutoSetup({
 	const [twilioDisplayName, setTwilioDisplayName] = useState("");
 	const [twilioWabaId, setTwilioWabaId] = useState("");
 
-	// Twilio address (required for some countries)
-	const [twilioAddresses, setTwilioAddresses] = useState<TwilioAddress[]>([]);
-	const [twilioAddressSid, setTwilioAddressSid] = useState<string | null>(null);
-	const [twilioAddressLoading, setTwilioAddressLoading] = useState(false);
-	const [showAddressForm, setShowAddressForm] = useState(false);
-	const [addressForm, setAddressForm] = useState({
-		customerName: "",
-		street: "",
-		city: "",
-		region: "",
-		postalCode: "",
-	});
+	// Twilio regulatory error (shown when buy fails due to address/bundle requirement)
+	const [twilioRegulatoryError, setTwilioRegulatoryError] = useState<
+		string | null
+	>(null);
 
 	// Verification state
 	const [otpCode, setOtpCode] = useState("");
@@ -436,80 +412,12 @@ function AutoSetup({
 	};
 
 	// Select a Twilio number and transition to confirm step
-	// If the number requires an address, fetch addresses for that country
-	const handleSelectTwilioNumber = async (
+	const handleSelectTwilioNumber = (
 		num: TwilioAvailableNumber | (TwilioOwnedNumber & { isoCountry?: string }),
 	) => {
 		setTwilioSelectedNumber(num);
-		setTwilioAddressSid(null);
-		setTwilioAddresses([]);
-		setShowAddressForm(false);
-		setAddressForm({
-			customerName: "",
-			street: "",
-			city: "",
-			region: "",
-			postalCode: "",
-		});
-
-		const needsAddress =
-			"addressRequirements" in num && num.addressRequirements !== "none";
-		const country = "isoCountry" in num ? num.isoCountry : undefined;
-
-		if (needsAddress && country && twilioCredentialsId) {
-			setTwilioAddressLoading(true);
-			setStep("twilio-confirm");
-			try {
-				const addresses = await listTwilioAddresses({
-					credentialsId: twilioCredentialsId,
-					isoCountry: country,
-				});
-				setTwilioAddresses(addresses);
-				// Auto-select if there's exactly one
-				if (addresses.length === 1 && addresses[0]) {
-					setTwilioAddressSid(addresses[0].sid);
-				}
-			} catch {
-				// Non-fatal — user can still create an address inline
-				setTwilioAddresses([]);
-			} finally {
-				setTwilioAddressLoading(false);
-			}
-		} else {
-			setStep("twilio-confirm");
-		}
-	};
-
-	// Save a new Twilio address inline and select it
-	const handleCreateAddress = async () => {
-		if (!twilioCredentialsId || !twilioSelectedNumber) return;
-		const country =
-			"isoCountry" in twilioSelectedNumber
-				? twilioSelectedNumber.isoCountry
-				: undefined;
-		if (!country) return;
-
-		setTwilioAddressLoading(true);
-		setError(null);
-
-		try {
-			const addr = await createTwilioAddress({
-				credentialsId: twilioCredentialsId,
-				customerName: addressForm.customerName,
-				street: addressForm.street,
-				city: addressForm.city,
-				region: addressForm.region,
-				postalCode: addressForm.postalCode,
-				isoCountry: country,
-			});
-			setTwilioAddresses((prev) => [...prev, addr]);
-			setTwilioAddressSid(addr.sid);
-			setShowAddressForm(false);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to create address");
-		} finally {
-			setTwilioAddressLoading(false);
-		}
+		setTwilioRegulatoryError(null);
+		setStep("twilio-confirm");
 	};
 
 	// Buy Twilio number and register on WABA
@@ -523,6 +431,7 @@ function AutoSetup({
 			return;
 		setLoading(true);
 		setError(null);
+		setTwilioRegulatoryError(null);
 
 		try {
 			const isNewPurchase =
@@ -534,13 +443,23 @@ function AutoSetup({
 
 			if (isNewPurchase) {
 				// Buy the number via Twilio
-				const purchased = await buyTwilioNumber({
+				const result = await buyTwilioNumber({
 					credentialsId: twilioCredentialsId,
 					phoneNumber: twilioSelectedNumber.phoneNumber,
-					addressSid: twilioAddressSid ?? undefined,
 				});
-				phoneNumberSid = purchased.sid;
-				phoneNumber = purchased.phoneNumber;
+
+				if (!result.ok) {
+					if (result.regulatory) {
+						// Regulatory error — show helpful message instead of generic error
+						setTwilioRegulatoryError(result.message);
+						setLoading(false);
+						return;
+					}
+					throw new Error(result.message);
+				}
+
+				phoneNumberSid = result.sid;
+				phoneNumber = result.phoneNumber;
 			} else {
 				// Using an existing owned number
 				const owned = twilioSelectedNumber as TwilioOwnedNumber;
@@ -1035,9 +954,26 @@ function AutoSetup({
 					{/* Owned numbers */}
 					{twilioOwnedNumbers.length > 0 && (
 						<div className="space-y-2">
-							<p className="font-medium text-muted-foreground text-xs">
-								Your Twilio numbers
-							</p>
+							<div className="flex items-center justify-between">
+								<p className="font-medium text-muted-foreground text-xs">
+									Your Twilio numbers
+								</p>
+								<button
+									className="flex cursor-pointer items-center gap-1 text-muted-foreground text-xs transition-colors hover:text-foreground"
+									onClick={async () => {
+										if (!twilioCredentialsId) return;
+										const owned = await listTwilioNumbers({
+											credentialsId: twilioCredentialsId,
+										});
+										setTwilioOwnedNumbers(owned);
+										toast.success("Numbers refreshed");
+									}}
+									type="button"
+								>
+									<RefreshCw className="h-3 w-3" />
+									Refresh
+								</button>
+							</div>
 							<div className="space-y-1.5">
 								{twilioOwnedNumbers.map((num) => (
 									<Item
@@ -1266,195 +1202,84 @@ function AutoSetup({
 						</div>
 					</div>
 
-					{/* ── Address (required for some countries) ── */}
-					{(() => {
-						const needsAddress =
-							"addressRequirements" in twilioSelectedNumber &&
-							twilioSelectedNumber.addressRequirements !== "none";
-
-						if (!needsAddress) return null;
-
-						return (
-							<div className="space-y-3">
-								<div className="flex items-center gap-2">
-									<MapPin className="h-3.5 w-3.5 text-pons-green" />
-									<Label className="text-xs">
-										Regulatory Address{" "}
-										<span className="text-muted-foreground">(required)</span>
-									</Label>
+					{/* ── Regulatory error (buy failed due to address/bundle) ── */}
+					{twilioRegulatoryError && (
+						<div className="space-y-3 rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
+							<div className="flex items-start gap-2">
+								<AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+								<div className="space-y-1">
+									<p className="font-medium text-amber-200 text-sm">
+										Regulatory compliance required
+									</p>
+									<p className="text-muted-foreground text-xs">
+										This number requires regulatory documents (address or
+										identity bundle) before it can be purchased. Buy the number
+										directly in the Twilio Console, then come back and select it
+										from your owned numbers.
+									</p>
 								</div>
-
-								{twilioAddressLoading ? (
-									<div className="flex items-center gap-2 text-muted-foreground text-xs">
-										<Loader2 className="h-3 w-3 animate-spin" />
-										Loading addresses...
-									</div>
-								) : twilioAddresses.length > 0 && !showAddressForm ? (
-									<div className="space-y-2">
-										<select
-											className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-											onChange={(e) =>
-												setTwilioAddressSid(e.target.value || null)
-											}
-											value={twilioAddressSid ?? ""}
-										>
-											<option value="">Select an address...</option>
-											{twilioAddresses.map((a) => (
-												<option key={a.sid} value={a.sid}>
-													{a.customerName} — {a.street}, {a.city}
-												</option>
-											))}
-										</select>
-										<button
-											className="flex items-center gap-1 text-pons-green text-xs hover:text-pons-green-bright"
-											onClick={() => setShowAddressForm(true)}
-											type="button"
-										>
-											<Plus className="h-3 w-3" />
-											Add new address
-										</button>
-									</div>
-								) : (
-									<div className="space-y-2 rounded-md border p-3">
-										<p className="text-muted-foreground text-xs">
-											This country requires a regulatory address to buy a
-											number.
-										</p>
-										<Input
-											onChange={(e) =>
-												setAddressForm((p) => ({
-													...p,
-													customerName: e.target.value,
-												}))
-											}
-											placeholder="Full name or company"
-											value={addressForm.customerName}
-										/>
-										<Input
-											onChange={(e) =>
-												setAddressForm((p) => ({
-													...p,
-													street: e.target.value,
-												}))
-											}
-											placeholder="Street address"
-											value={addressForm.street}
-										/>
-										<div className="flex gap-2">
-											<Input
-												className="flex-1"
-												onChange={(e) =>
-													setAddressForm((p) => ({
-														...p,
-														postalCode: e.target.value,
-													}))
-												}
-												placeholder="Postal code"
-												value={addressForm.postalCode}
-											/>
-											<Input
-												className="flex-1"
-												onChange={(e) =>
-													setAddressForm((p) => ({
-														...p,
-														city: e.target.value,
-													}))
-												}
-												placeholder="City"
-												value={addressForm.city}
-											/>
-										</div>
-										<Input
-											onChange={(e) =>
-												setAddressForm((p) => ({
-													...p,
-													region: e.target.value,
-												}))
-											}
-											placeholder="State / Region"
-											value={addressForm.region}
-										/>
-										<div className="flex gap-2">
-											<Button
-												className="bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
-												disabled={
-													twilioAddressLoading ||
-													!addressForm.customerName ||
-													!addressForm.street ||
-													!addressForm.city ||
-													!addressForm.postalCode
-												}
-												onClick={handleCreateAddress}
-												size="sm"
-											>
-												{twilioAddressLoading ? (
-													<Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-												) : null}
-												Save Address
-											</Button>
-											{twilioAddresses.length > 0 && (
-												<Button
-													onClick={() => setShowAddressForm(false)}
-													size="sm"
-													variant="ghost"
-												>
-													Cancel
-												</Button>
-											)}
-										</div>
-									</div>
-								)}
 							</div>
-						);
-					})()}
-
-					{(() => {
-						const needsAddress =
-							"addressRequirements" in twilioSelectedNumber &&
-							twilioSelectedNumber.addressRequirements !== "none";
-						const addressReady = !needsAddress || !!twilioAddressSid;
-
-						return (
-							<>
-								<Button
-									className="w-full bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
-									disabled={
-										loading ||
-										!twilioDisplayName ||
-										!twilioWabaId ||
-										!addressReady
-									}
-									onClick={handleTwilioBuy}
-									size="lg"
+							<div className="flex gap-2">
+								<a
+									className="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-amber-500/20 px-3 py-1.5 font-medium text-amber-200 text-xs transition-colors hover:bg-amber-500/30"
+									href="https://console.twilio.com/us1/develop/phone-numbers/manage/search"
+									rel="noopener noreferrer"
+									target="_blank"
 								>
-									{loading ? (
-										<>
-											<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-											{"isoCountry" in twilioSelectedNumber &&
-											twilioSelectedNumber.isoCountry
-												? "Purchasing & registering..."
-												: "Registering..."}
-										</>
-									) : (
-										<>
-											<Sparkles className="mr-2 h-4 w-4" />
-											{"isoCountry" in twilioSelectedNumber &&
-											twilioSelectedNumber.isoCountry
-												? "Buy Number & Register"
-												: "Register on WhatsApp"}
-										</>
-									)}
+									<ExternalLink className="h-3 w-3" />
+									Buy in Twilio Console
+								</a>
+								<Button
+									onClick={() => {
+										setTwilioRegulatoryError(null);
+										setTwilioSelectedNumber(null);
+										setStep("twilio-search");
+									}}
+									size="sm"
+									variant="ghost"
+								>
+									<ArrowLeft className="mr-1.5 h-3 w-3" />
+									Pick a different number
 								</Button>
+							</div>
+						</div>
+					)}
 
-								<p className="text-center text-muted-foreground text-xs">
-									{"isoCountry" in twilioSelectedNumber &&
-									twilioSelectedNumber.isoCountry
-										? "The number will be purchased on your Twilio account, then registered on your WhatsApp Business Account."
-										: "This number will be registered on your WhatsApp Business Account."}
-								</p>
-							</>
-						);
-					})()}
+					{!twilioRegulatoryError && (
+						<>
+							<Button
+								className="w-full bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
+								disabled={loading || !twilioDisplayName || !twilioWabaId}
+								onClick={handleTwilioBuy}
+								size="lg"
+							>
+								{loading ? (
+									<>
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+										{"isoCountry" in twilioSelectedNumber &&
+										twilioSelectedNumber.isoCountry
+											? "Purchasing & registering..."
+											: "Registering..."}
+									</>
+								) : (
+									<>
+										<Sparkles className="mr-2 h-4 w-4" />
+										{"isoCountry" in twilioSelectedNumber &&
+										twilioSelectedNumber.isoCountry
+											? "Buy Number & Register"
+											: "Register on WhatsApp"}
+									</>
+								)}
+							</Button>
+
+							<p className="text-center text-muted-foreground text-xs">
+								{"isoCountry" in twilioSelectedNumber &&
+								twilioSelectedNumber.isoCountry
+									? "The number will be purchased on your Twilio account, then registered on your WhatsApp Business Account."
+									: "This number will be registered on your WhatsApp Business Account."}
+							</p>
+						</>
+					)}
 				</div>
 			)}
 

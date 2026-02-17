@@ -127,19 +127,13 @@ type AvailableNumber = {
 	isoCountry: string;
 	capabilities: { sms: boolean; mms: boolean; voice: boolean };
 	numberType: "Local" | "Mobile" | "TollFree";
-	addressRequirements: "none" | "any" | "local" | "foreign";
 };
 
-type TwilioAddress = {
-	sid: string;
-	friendlyName: string;
-	customerName: string;
-	street: string;
-	city: string;
-	region: string;
-	postalCode: string;
-	isoCountry: string;
-};
+/** Known Twilio error codes for regulatory issues when buying numbers */
+const REGULATORY_ERROR_CODES = new Set([
+	21631, // Address required
+	21649, // Bundle required
+]);
 
 /**
  * Validate Twilio credentials and return account info.
@@ -335,7 +329,6 @@ export const searchNumbers = action({
 							mms: boolean;
 							voice: boolean;
 						};
-						address_requirements: "none" | "any" | "local" | "foreign";
 					}>;
 				};
 
@@ -347,7 +340,6 @@ export const searchNumbers = action({
 					isoCountry: n.iso_country,
 					capabilities: n.capabilities,
 					numberType: type,
-					addressRequirements: n.address_requirements,
 				}));
 			} catch {
 				return [];
@@ -366,20 +358,25 @@ export const searchNumbers = action({
 	},
 });
 
+type BuyNumberResult =
+	| { ok: true; sid: string; phoneNumber: string; friendlyName: string }
+	| { ok: false; regulatory: true; twilioCode: number; message: string }
+	| { ok: false; regulatory: false; message: string };
+
 /**
  * Buy a phone number on the user's Twilio account.
  * Configures the SMS webhook URL so we can auto-capture Meta verification codes.
+ *
+ * Returns a structured result. For regulatory errors (address/bundle required),
+ * returns `{ ok: false, regulatory: true }` so the frontend can show a helpful
+ * message linking to the Twilio Console instead of a generic error.
  */
 export const buyNumber = action({
 	args: {
 		credentialsId: v.id("twilioCredentials"),
 		phoneNumber: v.string(), // E.164: "+14155552671"
-		addressSid: v.optional(v.string()), // Required for some countries (e.g. DE)
 	},
-	handler: async (
-		ctx,
-		args,
-	): Promise<{ sid: string; phoneNumber: string; friendlyName: string }> => {
+	handler: async (ctx, args): Promise<BuyNumberResult> => {
 		const userId = await auth.getUserId(ctx);
 		if (!userId) throw new Error("Unauthorized");
 
@@ -394,9 +391,6 @@ export const buyNumber = action({
 
 		const params = new URLSearchParams();
 		params.set("PhoneNumber", args.phoneNumber);
-		if (args.addressSid) {
-			params.set("AddressSid", args.addressSid);
-		}
 		if (smsWebhookUrl) {
 			params.set("SmsUrl", smsWebhookUrl);
 			params.set("SmsMethod", "POST");
@@ -414,7 +408,32 @@ export const buyNumber = action({
 
 		if (!res.ok) {
 			const body = await res.text();
-			throw new Error(`Twilio buy failed (${res.status}): ${body}`);
+
+			// Try to parse Twilio error response
+			try {
+				const twilioErr = JSON.parse(body) as {
+					code?: number;
+					message?: string;
+				};
+				if (twilioErr.code && REGULATORY_ERROR_CODES.has(twilioErr.code)) {
+					return {
+						ok: false,
+						regulatory: true,
+						twilioCode: twilioErr.code,
+						message:
+							twilioErr.message ??
+							"This number requires regulatory compliance (address or bundle).",
+					};
+				}
+			} catch {
+				// Not JSON — fall through to generic error
+			}
+
+			return {
+				ok: false,
+				regulatory: false,
+				message: `Twilio buy failed (${res.status}): ${body}`,
+			};
 		}
 
 		const data = (await res.json()) as {
@@ -424,158 +443,10 @@ export const buyNumber = action({
 		};
 
 		return {
+			ok: true,
 			sid: data.sid,
 			phoneNumber: data.phone_number,
 			friendlyName: data.friendly_name,
-		};
-	},
-});
-
-// ============================================================================
-// ADDRESS MANAGEMENT — required for buying numbers in some countries
-// ============================================================================
-
-/**
- * List addresses on the user's Twilio account.
- * Optionally filter by ISO country code.
- */
-export const listAddresses = action({
-	args: {
-		credentialsId: v.id("twilioCredentials"),
-		isoCountry: v.optional(v.string()),
-	},
-	handler: async (ctx, args): Promise<TwilioAddress[]> => {
-		const userId = await auth.getUserId(ctx);
-		if (!userId) throw new Error("Unauthorized");
-
-		const creds = await ctx.runQuery(
-			internal.twilioConnect.getCredentialsInternal,
-			{ credentialsId: args.credentialsId },
-		);
-		if (!creds) throw new Error("Twilio credentials not found");
-		if (creds.userId !== userId) throw new Error("Unauthorized");
-
-		const params = new URLSearchParams({ PageSize: "50" });
-		if (args.isoCountry) params.set("IsoCountry", args.isoCountry);
-
-		const res = await fetch(
-			`${TWILIO_API_BASE}/Accounts/${creds.accountSid}/Addresses.json?${params}`,
-			{
-				headers: {
-					Authorization: twilioAuthHeader(creds.accountSid, creds.authToken),
-				},
-			},
-		);
-
-		if (!res.ok) {
-			const body = await res.text();
-			throw new Error(
-				`Failed to list Twilio addresses (${res.status}): ${body}`,
-			);
-		}
-
-		const data = (await res.json()) as {
-			addresses: Array<{
-				sid: string;
-				friendly_name: string;
-				customer_name: string;
-				street: string;
-				city: string;
-				region: string;
-				postal_code: string;
-				iso_country: string;
-			}>;
-		};
-
-		return (data.addresses ?? []).map((a) => ({
-			sid: a.sid,
-			friendlyName: a.friendly_name,
-			customerName: a.customer_name,
-			street: a.street,
-			city: a.city,
-			region: a.region,
-			postalCode: a.postal_code,
-			isoCountry: a.iso_country,
-		}));
-	},
-});
-
-/**
- * Create an address on the user's Twilio account.
- * Returns the new address SID.
- */
-export const createAddress = action({
-	args: {
-		credentialsId: v.id("twilioCredentials"),
-		customerName: v.string(),
-		street: v.string(),
-		city: v.string(),
-		region: v.string(),
-		postalCode: v.string(),
-		isoCountry: v.string(), // ISO 3166-1 alpha-2
-		friendlyName: v.optional(v.string()),
-	},
-	handler: async (ctx, args): Promise<TwilioAddress> => {
-		const userId = await auth.getUserId(ctx);
-		if (!userId) throw new Error("Unauthorized");
-
-		const creds = await ctx.runQuery(
-			internal.twilioConnect.getCredentialsInternal,
-			{ credentialsId: args.credentialsId },
-		);
-		if (!creds) throw new Error("Twilio credentials not found");
-		if (creds.userId !== userId) throw new Error("Unauthorized");
-
-		const params = new URLSearchParams();
-		params.set("CustomerName", args.customerName);
-		params.set("Street", args.street);
-		params.set("City", args.city);
-		params.set("Region", args.region);
-		params.set("PostalCode", args.postalCode);
-		params.set("IsoCountry", args.isoCountry);
-		if (args.friendlyName) {
-			params.set("FriendlyName", args.friendlyName);
-		}
-
-		const res = await fetch(
-			`${TWILIO_API_BASE}/Accounts/${creds.accountSid}/Addresses.json`,
-			{
-				method: "POST",
-				headers: {
-					Authorization: twilioAuthHeader(creds.accountSid, creds.authToken),
-					"Content-Type": "application/x-www-form-urlencoded",
-				},
-				body: params.toString(),
-			},
-		);
-
-		if (!res.ok) {
-			const body = await res.text();
-			throw new Error(
-				`Failed to create Twilio address (${res.status}): ${body}`,
-			);
-		}
-
-		const a = (await res.json()) as {
-			sid: string;
-			friendly_name: string;
-			customer_name: string;
-			street: string;
-			city: string;
-			region: string;
-			postal_code: string;
-			iso_country: string;
-		};
-
-		return {
-			sid: a.sid,
-			friendlyName: a.friendly_name,
-			customerName: a.customer_name,
-			street: a.street,
-			city: a.city,
-			region: a.region,
-			postalCode: a.postal_code,
-			isoCountry: a.iso_country,
 		};
 	},
 });
