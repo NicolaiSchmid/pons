@@ -440,3 +440,17 @@ pnpm run check:write  # Biome lint + format (auto-fix)
 pnpm run typecheck    # TypeScript check
 pnpm run build        # Production build
 ```
+
+---
+
+## Gotchas
+
+### Convex runtime is NOT Node.js
+
+Convex functions run in a V8 isolate, not Node.js. Node-specific APIs like `Buffer`, `process` (in queries/mutations), `fs`, `crypto`, etc. are **not available**.
+
+Common pitfalls:
+- **`Buffer.from(...).toString("base64")`** → use **`btoa()`** instead
+- **`Buffer.from(..., "base64")`** → use **`atob()`** instead
+- **`crypto.randomUUID()`** → use Convex's built-in ID generation or `Math.random()`-based alternatives
+- **`process.env`** → only available in **actions**, not in queries or mutations. Use `ctx.env` or environment variable helpers for Convex functions.
