@@ -7,10 +7,17 @@ interface NavbarProps {
 	/** Left-side content after nav links (search toggle, sidebar trigger, etc.) */
 	leftChildren?: React.ReactNode;
 	/** Current active path for highlighting nav links */
-	active?: "docs" | "blog" | "github";
+	active?: "blog" | "github";
+	/** Hide the nav links (Blog, GitHub) — used in the dashboard */
+	hideNav?: boolean;
 }
 
-export function Navbar({ children, leftChildren, active }: NavbarProps) {
+export function Navbar({
+	children,
+	leftChildren,
+	active,
+	hideNav,
+}: NavbarProps) {
 	return (
 		<header className="sticky top-0 z-50 flex h-14 shrink-0 items-center justify-between border-border/60 border-b bg-background/80 px-4 backdrop-blur-xl">
 			<div className="flex items-center gap-5">
@@ -25,40 +32,32 @@ export function Navbar({ children, leftChildren, active }: NavbarProps) {
 				</Link>
 
 				{/* Nav links */}
-				<nav className="hidden items-center gap-1 sm:flex">
-					<Link
-						className={`rounded-md px-2.5 py-1.5 text-xs transition ${
-							active === "docs"
-								? "text-foreground"
-								: "text-muted-foreground hover:text-foreground"
-						}`}
-						href="/docs"
-					>
-						Docs
-					</Link>
-					<Link
-						className={`rounded-md px-2.5 py-1.5 text-xs transition ${
-							active === "blog"
-								? "text-foreground"
-								: "text-muted-foreground hover:text-foreground"
-						}`}
-						href="/blog"
-					>
-						Blog
-					</Link>
-					<a
-						className={`rounded-md px-2.5 py-1.5 text-xs transition ${
-							active === "github"
-								? "text-foreground"
-								: "text-muted-foreground hover:text-foreground"
-						}`}
-						href="https://github.com/NicolaiSchmid/pons"
-						rel="noopener noreferrer"
-						target="_blank"
-					>
-						GitHub
-					</a>
-				</nav>
+				{!hideNav && (
+					<nav className="hidden items-center gap-1 sm:flex">
+						<Link
+							className={`rounded-md px-2.5 py-1.5 text-xs transition ${
+								active === "blog"
+									? "text-foreground"
+									: "text-muted-foreground hover:text-foreground"
+							}`}
+							href="/blog"
+						>
+							Blog
+						</Link>
+						<a
+							className={`rounded-md px-2.5 py-1.5 text-xs transition ${
+								active === "github"
+									? "text-foreground"
+									: "text-muted-foreground hover:text-foreground"
+							}`}
+							href="https://github.com/NicolaiSchmid/pons"
+							rel="noopener noreferrer"
+							target="_blank"
+						>
+							GitHub
+						</a>
+					</nav>
+				)}
 
 				{leftChildren}
 			</div>

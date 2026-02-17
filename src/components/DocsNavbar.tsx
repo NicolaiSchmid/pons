@@ -10,7 +10,6 @@ export function DocsNavbar() {
 
 	return (
 		<Navbar
-			active="docs"
 			leftChildren={
 				<SidebarTrigger className="rounded-md p-1.5 text-muted-foreground transition hover:text-foreground md:hidden">
 					<Menu className="h-4 w-4" />

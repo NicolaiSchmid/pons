@@ -108,7 +108,7 @@ export function Dashboard() {
 		<TooltipProvider delayDuration={300}>
 			<div className="flex h-screen flex-col">
 				{/* Header */}
-				<Navbar>
+				<Navbar hideNav>
 					<AccountSelector
 						onSelectAccount={setSelectedAccountId}
 						selectedAccountId={selectedAccountId}
@@ -178,26 +178,50 @@ export function Dashboard() {
 				{/* Main content */}
 				<div className="flex flex-1 overflow-hidden">
 					{/* Conversation list sidebar */}
-					<div className="w-80 shrink-0 overflow-y-auto border-r">
-						{selectedAccountId && isUsable ? (
-							<ConversationList
-								accountId={selectedAccountId}
-								onSelectConversation={setSelectedConversationId}
-								selectedConversationId={selectedConversationId}
-							/>
-						) : (
-							<EmptyState
-								description={
-									selectedAccountId
-										? "This account isn't ready for messaging yet"
-										: "Choose an account above to view conversations"
-								}
-								icon={selectedAccountId ? AlertCircle : ChevronDown}
-								title={
-									selectedAccountId ? "Account not ready" : "Select an account"
-								}
-							/>
-						)}
+					<div className="flex w-80 shrink-0 flex-col border-r">
+						<div className="flex-1 overflow-y-auto">
+							{selectedAccountId && isUsable ? (
+								<ConversationList
+									accountId={selectedAccountId}
+									onSelectConversation={setSelectedConversationId}
+									selectedConversationId={selectedConversationId}
+								/>
+							) : (
+								<EmptyState
+									description={
+										selectedAccountId
+											? "This account isn't ready for messaging yet"
+											: "Choose an account above to view conversations"
+									}
+									icon={selectedAccountId ? AlertCircle : ChevronDown}
+									title={
+										selectedAccountId
+											? "Account not ready"
+											: "Select an account"
+									}
+								/>
+							)}
+						</div>
+						<div className="flex shrink-0 gap-3 px-4 py-3">
+							<a
+								className="text-[11px] text-muted-foreground underline transition hover:text-foreground"
+								href="/docs"
+							>
+								Docs
+							</a>
+							<a
+								className="text-[11px] text-muted-foreground underline transition hover:text-foreground"
+								href="/imprint"
+							>
+								Imprint
+							</a>
+							<a
+								className="text-[11px] text-muted-foreground underline transition hover:text-foreground"
+								href="/privacy"
+							>
+								Privacy
+							</a>
+						</div>
 					</div>
 
 					{/* Message thread / status banner */}
@@ -413,7 +437,7 @@ function AccountStatusBanner({
 
 function Header({ onSignOut }: { onSignOut: () => void }) {
 	return (
-		<Navbar>
+		<Navbar hideNav>
 			<Button
 				className="h-8 text-muted-foreground text-xs hover:text-foreground"
 				onClick={onSignOut}
