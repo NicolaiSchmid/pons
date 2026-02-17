@@ -70,6 +70,7 @@ type WizardStep =
 
 export function SetupAccount({ onComplete }: SetupAccountProps) {
 	const [mode, setMode] = useState<"loading" | "auto" | "manual">("loading");
+	const existingAccounts = useQuery(api.accounts.list);
 
 	const discoverAllNumbers = useAction(
 		api.whatsappDiscovery.discoverAllNumbers,
@@ -99,6 +100,14 @@ export function SetupAccount({ onComplete }: SetupAccountProps) {
 		};
 	}, [discoverAllNumbers]);
 
+	// Filter out numbers already configured as accounts
+	const configuredPhoneNumberIds = new Set(
+		(existingAccounts ?? []).map((a) => a.phoneNumberId).filter(Boolean),
+	);
+	const availableNumbers = discoveredNumbers.filter(
+		(n) => !configuredPhoneNumberIds.has(n.id),
+	);
+
 	if (mode === "loading") {
 		return (
 			<SetupShell>
@@ -119,10 +128,7 @@ export function SetupAccount({ onComplete }: SetupAccountProps) {
 
 	if (mode === "auto") {
 		return (
-			<AutoSetup
-				discoveredNumbers={discoveredNumbers}
-				onComplete={onComplete}
-			/>
+			<AutoSetup discoveredNumbers={availableNumbers} onComplete={onComplete} />
 		);
 	}
 
