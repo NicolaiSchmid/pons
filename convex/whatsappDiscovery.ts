@@ -142,6 +142,98 @@ export const discoverPhoneNumbers = action({
 });
 
 /**
+ * Discover ALL phone numbers across ALL businesses and WABAs in a single call.
+ * Flattens the hierarchy so the UI can show a flat list with context labels.
+ * Returns: [{ phoneNumber, businessName, wabaId, wabaName }]
+ */
+export const discoverAllNumbers = action({
+	args: {},
+	handler: async (
+		ctx,
+	): Promise<
+		Array<{
+			id: string;
+			display_phone_number: string;
+			verified_name: string;
+			quality_rating: string;
+			businessName: string;
+			businessId: string;
+			wabaId: string;
+			wabaName: string;
+		}>
+	> => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Not authenticated");
+
+		const token = await ctx.runQuery(
+			internal.whatsappDiscovery.getFacebookToken,
+			{ userId },
+		);
+		if (!token)
+			throw new Error("No Facebook token found. Please sign in again.");
+
+		// 1. Get all businesses
+		const bizRes = await fetch(
+			`${META_API_BASE}/me/businesses?fields=id,name&access_token=${token}`,
+		);
+		if (!bizRes.ok) {
+			const error = await bizRes.json();
+			throw new Error(
+				`Failed to fetch businesses: ${error.error?.message ?? bizRes.statusText}`,
+			);
+		}
+		const bizData = await bizRes.json();
+		const businesses = (bizData.data ?? []) as MetaBusiness[];
+
+		const results: Array<{
+			id: string;
+			display_phone_number: string;
+			verified_name: string;
+			quality_rating: string;
+			businessName: string;
+			businessId: string;
+			wabaId: string;
+			wabaName: string;
+		}> = [];
+
+		// 2. For each business, get WABAs
+		for (const biz of businesses) {
+			const wabaRes = await fetch(
+				`${META_API_BASE}/${biz.id}/owned_whatsapp_business_accounts?fields=id,name&access_token=${token}`,
+			);
+			if (!wabaRes.ok) continue;
+			const wabaData = await wabaRes.json();
+			const wabas = (wabaData.data ?? []) as MetaWaba[];
+
+			// 3. For each WABA, get phone numbers
+			for (const waba of wabas) {
+				const phoneRes = await fetch(
+					`${META_API_BASE}/${waba.id}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating&access_token=${token}`,
+				);
+				if (!phoneRes.ok) continue;
+				const phoneData = await phoneRes.json();
+				const phones = (phoneData.data ?? []) as MetaPhoneNumber[];
+
+				for (const phone of phones) {
+					results.push({
+						id: phone.id,
+						display_phone_number: phone.display_phone_number,
+						verified_name: phone.verified_name,
+						quality_rating: phone.quality_rating,
+						businessName: biz.name,
+						businessId: biz.id,
+						wabaId: waba.id,
+						wabaName: waba.name,
+					});
+				}
+			}
+		}
+
+		return results;
+	},
+});
+
+/**
  * Subscribe a WABA to webhooks for receiving messages.
  * This registers the WABA to receive webhooks via the app's webhook endpoint.
  */

@@ -81,7 +81,7 @@ export default defineSchema({
 		countryCode: v.optional(v.string()), // "49", "1" — for request_code API
 
 		// ── Twilio-specific (only when numberProvider = "twilio") ──
-		twilioConnectionId: v.optional(v.id("twilioConnections")),
+		twilioCredentialsId: v.optional(v.id("twilioCredentials")),
 		twilioPhoneNumberSid: v.optional(v.string()), // PN... from Twilio
 
 		// ── Verification (ephemeral, cleared after registration) ──
@@ -104,16 +104,16 @@ export default defineSchema({
 		.index("by_owner", ["ownerId"])
 		.index("by_status", ["status"]),
 
-	// ── Twilio Connect (user-level, not number-level) ──
-	twilioConnections: defineTable({
+	// ── Twilio credentials (user-level — user pastes their own SID+token) ──
+	twilioCredentials: defineTable({
 		userId: v.id("users"),
-		subaccountSid: v.string(), // AC... from Twilio Connect redirect
-		status: v.union(v.literal("active"), v.literal("deauthorized")),
-		connectedAt: v.number(),
-		deauthorizedAt: v.optional(v.number()),
+		accountSid: v.string(), // AC... from Twilio dashboard
+		authToken: v.string(), // Auth token from Twilio dashboard
+		friendlyName: v.optional(v.string()), // Twilio account name (fetched after saving)
+		savedAt: v.number(),
 	})
 		.index("by_user", ["userId"])
-		.index("by_subaccount_sid", ["subaccountSid"]),
+		.index("by_account_sid", ["accountSid"]),
 
 	// Account members (multi-user support)
 	accountMembers: defineTable({

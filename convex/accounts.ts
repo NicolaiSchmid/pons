@@ -300,7 +300,7 @@ export const createTwilio = mutation({
 		displayName: v.string(),
 		countryCode: v.string(),
 		accessToken: v.string(),
-		twilioConnectionId: v.id("twilioConnections"),
+		twilioCredentialsId: v.id("twilioCredentials"),
 		twilioPhoneNumberSid: v.string(),
 	},
 	handler: async (ctx, args) => {
@@ -317,7 +317,7 @@ export const createTwilio = mutation({
 			accessToken: args.accessToken,
 			status: "adding_number",
 			numberProvider: "twilio",
-			twilioConnectionId: args.twilioConnectionId,
+			twilioCredentialsId: args.twilioCredentialsId,
 			twilioPhoneNumberSid: args.twilioPhoneNumberSid,
 		});
 
