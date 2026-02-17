@@ -71,7 +71,8 @@ type WizardStep =
 	| "configure" // Confirm existing number connection
 	| "twilio-search" // Browse/search Twilio numbers
 	| "twilio-confirm" // Confirm purchase + display name
-	| "verify-code" // OTP + two-step PIN (BYON / Twilio)
+	| "twilio-verifying" // Auto-verification: PIN entry + waiting for OTP capture
+	| "verify-code" // OTP + two-step PIN (BYON only)
 	| "complete" // Success
 	| "manual"; // Fallback manual form
 
@@ -225,6 +226,7 @@ function AutoSetup({
 	const addPhoneToWaba = useAction(api.phoneRegistration.addPhoneToWaba);
 	const submitCode = useAction(api.phoneRegistration.submitCode);
 	const resendCode = useAction(api.phoneRegistration.resendCode);
+	const autoVerify = useAction(api.phoneRegistration.autoVerifyAndRegister);
 
 	// Twilio credentials
 	const twilioCredentials = useQuery(api.twilioConnect.getCredentials);
@@ -299,6 +301,67 @@ function AutoSetup({
 
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [autoVerifyStatus, setAutoVerifyStatus] = useState<
+		"waiting-pin" | "waiting-code" | "verifying" | "done"
+	>("waiting-pin");
+
+	// ── Reactive account query for auto-verification ──
+	// Convex reactivity means this updates instantly when the webhook stores the code.
+	const createdAccount = useQuery(
+		api.accounts.get,
+		createdAccountId ? { accountId: createdAccountId } : "skip",
+	);
+
+	// Auto-trigger verification when code is captured + PIN is provided
+	const autoVerifyTriggeredRef = useRef(false);
+	useEffect(() => {
+		if (
+			step !== "twilio-verifying" ||
+			!createdAccountId ||
+			!createdAccount?.hasVerificationCode ||
+			twoStepPin.length !== 6 ||
+			autoVerifyTriggeredRef.current
+		)
+			return;
+
+		autoVerifyTriggeredRef.current = true;
+		setAutoVerifyStatus("verifying");
+
+		autoVerify({ accountId: createdAccountId, twoStepPin })
+			.then((result) => {
+				if (result.success) {
+					setAutoVerifyStatus("done");
+					setStep("complete");
+				} else {
+					setError(result.error ?? "Verification failed");
+					setAutoVerifyStatus("waiting-pin");
+					autoVerifyTriggeredRef.current = false;
+				}
+			})
+			.catch((err) => {
+				setError(err instanceof Error ? err.message : "Verification failed");
+				setAutoVerifyStatus("waiting-pin");
+				autoVerifyTriggeredRef.current = false;
+			});
+	}, [
+		step,
+		createdAccountId,
+		createdAccount?.hasVerificationCode,
+		twoStepPin,
+		autoVerify,
+	]);
+
+	// When PIN is entered and we're still waiting for the code, update status
+	useEffect(() => {
+		if (
+			step === "twilio-verifying" &&
+			twoStepPin.length === 6 &&
+			autoVerifyStatus === "waiting-pin" &&
+			!createdAccount?.hasVerificationCode
+		) {
+			setAutoVerifyStatus("waiting-code");
+		}
+	}, [step, twoStepPin, autoVerifyStatus, createdAccount?.hasVerificationCode]);
 
 	// ── Poll for number purchase in Twilio Console ──
 	// When a regulatory error is shown, poll the user's Twilio account every 5s
@@ -624,7 +687,8 @@ function AutoSetup({
 
 			await addPhoneToWaba({ accountId });
 
-			setStep("verify-code");
+			// Twilio numbers get auto-verified via SMS webhook
+			setStep("twilio-verifying");
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to buy number");
 		} finally {
@@ -1495,7 +1559,73 @@ function AutoSetup({
 				</div>
 			)}
 
-			{/* ── Verify Code (BYON/Twilio) ── */}
+			{/* ── Twilio Auto-Verification ── */}
+			{step === "twilio-verifying" && (
+				<div className="space-y-5">
+					<div>
+						<h3 className="font-display font-medium text-sm">
+							Verifying Number
+						</h3>
+						<p className="mt-1 text-muted-foreground text-sm">
+							We sent a verification code to{" "}
+							<span className="font-medium font-mono text-foreground">
+								{verifyPhoneNumber || "your number"}
+							</span>
+							. It will be captured automatically via Twilio.
+						</p>
+					</div>
+
+					{/* Two-step PIN — always needed */}
+					{autoVerifyStatus === "waiting-pin" && (
+						<div className="space-y-3">
+							<div className="space-y-2">
+								<Label htmlFor="twilio-pin">Two-Step PIN</Label>
+								<Input
+									autoFocus
+									id="twilio-pin"
+									maxLength={6}
+									onChange={(e) =>
+										setTwoStepPin(e.target.value.replace(/\D/g, ""))
+									}
+									placeholder="Choose a 6-digit PIN"
+									value={twoStepPin}
+								/>
+								<p className="text-muted-foreground text-xs">
+									Choose a 6-digit PIN for WhatsApp two-step verification.
+									Remember this — you'll need it if you re-register.
+								</p>
+							</div>
+						</div>
+					)}
+
+					{/* Progress steps */}
+					{autoVerifyStatus !== "waiting-pin" && (
+						<div className="space-y-2.5 rounded-lg border bg-card p-4">
+							<VerifyStep
+								active={autoVerifyStatus === "waiting-code"}
+								done={
+									autoVerifyStatus === "verifying" ||
+									autoVerifyStatus === "done"
+								}
+								label="Waiting for verification code..."
+							/>
+							<VerifyStep
+								active={autoVerifyStatus === "verifying"}
+								done={autoVerifyStatus === "done"}
+								label="Verifying & registering number..."
+							/>
+						</div>
+					)}
+
+					{error && (
+						<div className="rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm">
+							{error}
+						</div>
+					)}
+				</div>
+			)}
+
+			{/* ── Verify Code (BYON only) ── */}
 			{step === "verify-code" && (
 				<div className="space-y-4">
 					<h3 className="font-display font-medium text-sm">
@@ -1606,6 +1736,41 @@ function AutoSetup({
 				</div>
 			)}
 		</SetupShell>
+	);
+}
+
+// ── Verify step indicator ──
+
+function VerifyStep({
+	label,
+	active,
+	done,
+}: {
+	label: string;
+	active: boolean;
+	done: boolean;
+}) {
+	return (
+		<div className="flex items-center gap-2.5">
+			{done ? (
+				<Check className="h-4 w-4 text-pons-green" />
+			) : active ? (
+				<Loader2 className="h-4 w-4 animate-spin text-pons-green" />
+			) : (
+				<div className="h-4 w-4 rounded-full border border-border" />
+			)}
+			<span
+				className={
+					done
+						? "text-foreground text-sm"
+						: active
+							? "text-foreground text-sm"
+							: "text-muted-foreground text-sm"
+				}
+			>
+				{label}
+			</span>
+		</div>
 	);
 }
 

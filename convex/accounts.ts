@@ -30,6 +30,8 @@ type StrippedAccount = {
 	failedAt?: number;
 	// Name review (only when status = "pending_name_review")
 	nameReviewCheckCount?: number;
+	// True when the Twilio SMS webhook has captured the Meta OTP
+	hasVerificationCode?: boolean;
 };
 
 // ── Helpers ──
@@ -53,6 +55,8 @@ function stripSecrets(account: Account): StrippedAccount {
 		failedAt: account.failedAt,
 		// Include name review progress
 		nameReviewCheckCount: account.nameReviewCheckCount,
+		// Let the frontend know the webhook captured the OTP (without leaking the code)
+		hasVerificationCode: !!account.verificationCode,
 	};
 }
 
