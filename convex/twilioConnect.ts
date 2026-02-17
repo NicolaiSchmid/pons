@@ -126,6 +126,7 @@ type AvailableNumber = {
 	region: string;
 	isoCountry: string;
 	capabilities: { sms: boolean; mms: boolean; voice: boolean };
+	numberType: "Local" | "Mobile" | "TollFree";
 };
 
 /**
@@ -268,6 +269,8 @@ export const listExistingNumbers = action({
 
 /**
  * Search for available phone numbers in a country.
+ * Searches Local, Mobile, and TollFree number types in parallel and merges
+ * results — some countries only have certain types (e.g. Germany has only Mobile).
  */
 export const searchNumbers = action({
 	args: {
@@ -288,42 +291,64 @@ export const searchNumbers = action({
 		if (!creds) throw new Error("Twilio credentials not found");
 		if (creds.userId !== userId) throw new Error("Unauthorized");
 
-		const params = new URLSearchParams();
-		if (args.areaCode) params.set("AreaCode", args.areaCode);
-		if (args.smsEnabled !== false) params.set("SmsEnabled", "true");
-		params.set("PageSize", String(args.limit ?? 20));
+		const pageSize = String(args.limit ?? 20);
+		const numberTypes = ["Local", "Mobile", "TollFree"] as const;
 
-		const url = `${TWILIO_API_BASE}/Accounts/${creds.accountSid}/AvailablePhoneNumbers/${args.countryCode}/Local.json?${params}`;
-		const res = await fetch(url, {
-			headers: {
-				Authorization: twilioAuthHeader(creds.accountSid, creds.authToken),
-			},
+		const fetches = numberTypes.map(async (type) => {
+			const params = new URLSearchParams();
+			if (args.areaCode) params.set("AreaCode", args.areaCode);
+			if (args.smsEnabled !== false) params.set("SmsEnabled", "true");
+			params.set("PageSize", pageSize);
+
+			const url = `${TWILIO_API_BASE}/Accounts/${creds.accountSid}/AvailablePhoneNumbers/${args.countryCode}/${type}.json?${params}`;
+			try {
+				const res = await fetch(url, {
+					headers: {
+						Authorization: twilioAuthHeader(creds.accountSid, creds.authToken),
+					},
+				});
+
+				// Some countries don't support certain types — Twilio returns 404
+				if (!res.ok) return [];
+
+				const data = (await res.json()) as {
+					available_phone_numbers: Array<{
+						phone_number: string;
+						friendly_name: string;
+						locality: string;
+						region: string;
+						iso_country: string;
+						capabilities: {
+							sms: boolean;
+							mms: boolean;
+							voice: boolean;
+						};
+					}>;
+				};
+
+				return (data.available_phone_numbers ?? []).map((n) => ({
+					phoneNumber: n.phone_number,
+					friendlyName: n.friendly_name,
+					locality: n.locality,
+					region: n.region,
+					isoCountry: n.iso_country,
+					capabilities: n.capabilities,
+					numberType: type,
+				}));
+			} catch {
+				return [];
+			}
 		});
 
-		if (!res.ok) {
-			const body = await res.text();
-			throw new Error(`Twilio search failed (${res.status}): ${body}`);
-		}
+		const results = (await Promise.all(fetches)).flat();
 
-		const data = (await res.json()) as {
-			available_phone_numbers: Array<{
-				phone_number: string;
-				friendly_name: string;
-				locality: string;
-				region: string;
-				iso_country: string;
-				capabilities: { sms: boolean; mms: boolean; voice: boolean };
-			}>;
-		};
-
-		return (data.available_phone_numbers ?? []).map((n) => ({
-			phoneNumber: n.phone_number,
-			friendlyName: n.friendly_name,
-			locality: n.locality,
-			region: n.region,
-			isoCountry: n.iso_country,
-			capabilities: n.capabilities,
-		}));
+		// Dedupe by phone number (in case a number appears in multiple types)
+		const seen = new Set<string>();
+		return results.filter((n) => {
+			if (seen.has(n.phoneNumber)) return false;
+			seen.add(n.phoneNumber);
+			return true;
+		});
 	},
 });
 

@@ -1,5 +1,25 @@
 # AGENTS.md
 
+## ⚠️ Convex React: Always use `useSuspenseQuery`
+
+**Never use `useQuery` from `convex/react`.** Always use `useSuspenseQuery` instead.
+
+- `useQuery` returns `undefined` while loading, which forces `if (!data) return null` guards everywhere and causes race conditions.
+- `useSuspenseQuery` integrates with React Suspense — data is always defined when the component renders.
+- Wrap components that use `useSuspenseQuery` in a `<Suspense fallback={...}>` boundary.
+
+```tsx
+// ✅ CORRECT
+import { useSuspenseQuery } from "convex/react";
+const { data: accounts } = useSuspenseQuery(api.accounts.list);
+
+// ❌ WRONG — never do this
+import { useQuery } from "convex/react";
+const accounts = useQuery(api.accounts.list);
+```
+
+---
+
 ## Commit Convention
 
 Use [Conventional Commits](https://www.conventionalcommits.org/):

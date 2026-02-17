@@ -62,6 +62,7 @@ type TwilioAvailableNumber = {
 	region: string;
 	isoCountry: string;
 	capabilities: { sms: boolean; mms: boolean; voice: boolean };
+	numberType: "Local" | "Mobile" | "TollFree";
 };
 
 type WizardStep =
@@ -1058,6 +1059,11 @@ function AutoSetup({
 												)}
 											</ItemContent>
 											<ItemActions>
+												{"numberType" in num && (
+													<span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-1.5 py-0.5 text-[10px] text-blue-400">
+														{num.numberType}
+													</span>
+												)}
 												{num.capabilities.sms && (
 													<span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-400">
 														SMS
