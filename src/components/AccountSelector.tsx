@@ -48,12 +48,16 @@ export function AccountSelector({
 
 	const selected = accounts.find((a) => a?._id === selectedAccountId);
 
-	// Single account — just show info
+	// Single account — clickable to navigate to account page
 	if (accounts.length === 1) {
 		const account = accounts[0];
 		if (!account) return null;
 		return (
-			<div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+			<button
+				className="flex cursor-pointer items-center gap-1.5 text-muted-foreground text-xs transition-colors hover:text-foreground"
+				onClick={() => onSelectAccount(account._id)}
+				type="button"
+			>
 				<StatusDot status={account.status} />
 				<span>{account.name}</span>
 				{account.phoneNumber && (
@@ -62,7 +66,7 @@ export function AccountSelector({
 						<span className="font-mono">{account.phoneNumber}</span>
 					</>
 				)}
-			</div>
+			</button>
 		);
 	}
 
