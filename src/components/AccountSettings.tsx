@@ -227,7 +227,11 @@ export function AccountSettings({ accountId, onClose }: AccountSettingsProps) {
 							value={account.phoneNumberId}
 						/>
 					)}
-					<ReadOnlyField label="Phone Number" value={account.phoneNumber} />
+					<ReadOnlyField
+						href={`https://business.facebook.com/latest/whatsapp_manager/phone_numbers?asset_id=${account.wabaId}`}
+						label="Phone Number"
+						value={account.phoneNumber}
+					/>
 					<ReadOnlyField label="Display Name" value={account.displayName} />
 					<ReadOnlyField label="Provider" value={account.numberProvider} />
 				</div>
@@ -465,19 +469,33 @@ function ReadOnlyField({
 	label,
 	value,
 	mono,
+	href,
 }: {
 	label: string;
 	value: string;
 	mono?: boolean;
+	href?: string;
 }) {
 	return (
 		<div className="flex items-center justify-between gap-4">
 			<span className="shrink-0 text-muted-foreground text-xs">{label}</span>
-			<span
-				className={`truncate text-foreground text-xs ${mono ? "font-mono" : ""}`}
-			>
-				{value}
-			</span>
+			{href ? (
+				<a
+					className={`inline-flex items-center gap-1 truncate text-pons-green text-xs underline underline-offset-2 hover:text-pons-green-bright ${mono ? "font-mono" : ""}`}
+					href={href}
+					rel="noopener noreferrer"
+					target="_blank"
+				>
+					{value}
+					<ExternalLink className="h-3 w-3 shrink-0" />
+				</a>
+			) : (
+				<span
+					className={`truncate text-foreground text-xs ${mono ? "font-mono" : ""}`}
+				>
+					{value}
+				</span>
+			)}
 		</div>
 	);
 }
