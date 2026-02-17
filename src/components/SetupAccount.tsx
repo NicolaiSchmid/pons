@@ -15,6 +15,7 @@ import {
 	Sparkles,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -301,7 +302,7 @@ function AutoSetup({
 		}
 	};
 
-	// Validate & save Twilio credentials
+	// Validate & save Twilio credentials, then go straight to browse
 	const handleSaveTwilio = async () => {
 		if (!twilioSid || !twilioToken) return;
 		setTwilioValidating(true);
@@ -318,14 +319,23 @@ function AutoSetup({
 				return;
 			}
 
-			await saveTwilioCreds({
+			const credId = await saveTwilioCreds({
 				accountSid: twilioSid,
 				authToken: twilioToken,
 				friendlyName: result.friendlyName,
 			});
 
+			toast.success(
+				`Connected as ${result.friendlyName ?? twilioSid.slice(0, 12)}`,
+			);
+
 			setTwilioSid("");
 			setTwilioToken("");
+
+			// Immediately browse numbers
+			const owned = await listTwilioNumbers({ credentialsId: credId });
+			setTwilioOwnedNumbers(owned);
+			setStep("twilio-search");
 		} catch (err) {
 			setTwilioSaveError(
 				err instanceof Error ? err.message : "Failed to save credentials",

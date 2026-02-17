@@ -4,6 +4,7 @@ import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Sora } from "next/font/google";
 
+import { Toaster } from "@/components/ui/sonner";
 import { ConvexClientProvider } from "./ConvexClientProvider";
 
 export const metadata: Metadata = {
@@ -60,6 +61,7 @@ export default function RootLayout({
 			>
 				<body>
 					<ConvexClientProvider>{children}</ConvexClientProvider>
+					<Toaster position="top-center" />
 				</body>
 			</html>
 		</ConvexAuthNextjsServerProvider>
