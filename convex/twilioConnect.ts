@@ -18,7 +18,7 @@ const TWILIO_API_BASE = "https://api.twilio.com/2010-04-01";
 // ── Helpers ──
 
 function twilioAuthHeader(accountSid: string, authToken: string): string {
-	const encoded = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+	const encoded = btoa(`${accountSid}:${authToken}`);
 	return `Basic ${encoded}`;
 }
 
