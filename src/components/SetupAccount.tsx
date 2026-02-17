@@ -155,6 +155,43 @@ export function SetupAccount({ onComplete }: SetupAccountProps) {
 // ── Helpers ──
 
 /**
+ * Extract the numeric dial code from an E.164 phone number.
+ * Tries exact match against our countries list (longest match wins).
+ * e.g. "+18302228750" → "1", "+4915888643259" → "49"
+ */
+function extractDialCode(phoneNumber: string): string {
+	const digits = phoneNumber.replace(/^\+/, "");
+	// Try longest dial codes first (e.g. "+1868" Trinidad before "+1" US)
+	const sorted = COUNTRIES.map((c) => c.dial.replace("+", "")).sort(
+		(a, b) => b.length - a.length,
+	);
+	for (const code of sorted) {
+		if (digits.startsWith(code)) return code;
+	}
+	// Fallback: first 1-3 digits (shouldn't happen with a complete list)
+	return digits.match(/^(\d{1,3})/)?.[1] ?? "";
+}
+
+/**
+ * Resolve the dial code for a Twilio number.
+ * For search results we have isoCountry, for owned numbers we parse the phone number.
+ */
+function resolveDialCode(
+	num: TwilioAvailableNumber | TwilioOwnedNumber | null,
+): string {
+	if (!num) return "";
+	// Search results have isoCountry — direct lookup
+	if ("isoCountry" in num && num.isoCountry) {
+		const country = COUNTRIES.find(
+			(c) => c.code.toUpperCase() === num.isoCountry.toUpperCase(),
+		);
+		if (country) return country.dial.replace("+", "");
+	}
+	// Fall back to parsing the phone number
+	return extractDialCode(num.phoneNumber);
+}
+
+/**
  * Build a Twilio Console deep link to buy a specific number.
  * Pre-fills country, number type, SMS capability, and the number itself.
  */
@@ -595,9 +632,8 @@ function AutoSetup({
 				phoneNumber = owned.phoneNumber;
 			}
 
-			// Extract country code from E.164
-			const countryCode =
-				phoneNumber.replace(/^\+/, "").match(/^(\d{1,3})/)?.[1] ?? "";
+			// Resolve dial code (e.g. "1" for US, "49" for DE)
+			const countryCode = resolveDialCode(twilioSelectedNumber);
 
 			await registerAppWebhook();
 			await subscribeWaba({ wabaId: twilioWabaId });
