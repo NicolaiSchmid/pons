@@ -376,13 +376,16 @@ export function ApiKeyManager({ accountId, onClose }: ApiKeyManagerProps) {
 				<Separator />
 
 				{/* MCP Config */}
-				<div className="rounded-lg border bg-card p-4">
-					<h3 className="mb-1 font-medium text-sm">MCP Configuration</h3>
-					<p className="mb-3 text-muted-foreground text-xs">
-						Add this to your Claude Desktop or Cursor config:
-					</p>
-					<pre className="overflow-x-auto rounded-md bg-background p-3 font-mono text-foreground text-xs leading-relaxed">
-						{`{
+				<McpConfigSnippet />
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+function McpConfigSnippet() {
+	const [copied, setCopied] = useState(false);
+
+	const snippet = `{
   "mcpServers": {
     "pons": {
       "url": "${typeof window !== "undefined" ? window.location.origin : "https://your-domain.com"}/api/mcp",
@@ -391,11 +394,38 @@ export function ApiKeyManager({ accountId, onClose }: ApiKeyManagerProps) {
       }
     }
   }
-}`}
-					</pre>
-				</div>
-			</DialogContent>
-		</Dialog>
+}`;
+
+	const handleCopy = async () => {
+		await navigator.clipboard.writeText(snippet);
+		setCopied(true);
+		setTimeout(() => setCopied(false), 2000);
+	};
+
+	return (
+		<div className="rounded-lg border bg-card p-4">
+			<h3 className="mb-1 font-medium text-sm">MCP Configuration</h3>
+			<p className="mb-3 text-muted-foreground text-xs">
+				Add this to your Claude Desktop or Cursor config:
+			</p>
+			<div className="relative">
+				<pre className="overflow-x-auto rounded-md bg-background p-3 pr-10 font-mono text-foreground text-xs leading-relaxed">
+					{snippet}
+				</pre>
+				<Button
+					className="absolute top-2 right-2 h-7 w-7 text-muted-foreground hover:text-foreground"
+					onClick={handleCopy}
+					size="icon"
+					variant="ghost"
+				>
+					{copied ? (
+						<Check className="h-3.5 w-3.5 text-pons-green" />
+					) : (
+						<Copy className="h-3.5 w-3.5" />
+					)}
+				</Button>
+			</div>
+		</div>
 	);
 }
 
