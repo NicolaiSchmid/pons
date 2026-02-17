@@ -13,7 +13,6 @@ import {
 	Phone,
 	Plus,
 	RefreshCw,
-	Settings,
 	Sparkles,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -123,7 +122,6 @@ export function SetupAccount({ onComplete }: SetupAccountProps) {
 			<AutoSetup
 				discoveredNumbers={discoveredNumbers}
 				onComplete={onComplete}
-				onSwitchToManual={() => setMode("manual")}
 			/>
 		);
 	}
@@ -144,11 +142,9 @@ export function SetupAccount({ onComplete }: SetupAccountProps) {
 function AutoSetup({
 	discoveredNumbers,
 	onComplete,
-	onSwitchToManual,
 }: {
 	discoveredNumbers: DiscoveredNumber[];
 	onComplete: () => void;
-	onSwitchToManual: () => void;
 }) {
 	const createExisting = useMutation(api.accounts.createExisting);
 	const createByon = useMutation(api.accounts.createByon);
@@ -484,58 +480,26 @@ function AutoSetup({
 			{/* ── Main screen: pick-number ── */}
 			{step === "pick-number" && (
 				<div className="space-y-6">
-					{/* Existing WABA numbers */}
-					{discoveredNumbers.length > 0 && (
-						<div className="space-y-3">
-							<h3 className="font-display font-medium text-sm">Your numbers</h3>
-							<div className="space-y-2">
-								{discoveredNumbers.map((num) => (
-									<button
-										className="flex w-full items-center gap-3 rounded-lg border border-border/60 bg-card/40 p-4 text-left transition hover:border-pons-green/40 hover:bg-card/70"
-										key={`${num.wabaId}-${num.id}`}
-										onClick={() => {
-											setSelectedNumber(num);
-											setStep("configure");
-										}}
-										type="button"
-									>
-										<Phone className="h-5 w-5 text-pons-green" />
-										<div className="min-w-0 flex-1">
-											<p className="font-medium text-sm">
-												{num.display_phone_number}
-											</p>
-											<p className="text-muted-foreground text-xs">
-												{num.verified_name}
-											</p>
-											<p className="text-[11px] text-muted-foreground/70">
-												{num.businessName} · {num.wabaName}
-											</p>
-										</div>
-										<QualityBadge rating={num.quality_rating} />
-									</button>
-								))}
-							</div>
-						</div>
-					)}
-
-					{/* ── New number divider ── */}
-					<button
-						className="flex w-full items-center gap-2 py-1"
+					{/* ── Set up a new number (primary action) ── */}
+					<Button
+						className="flex w-full items-center gap-3 rounded-lg border border-border/60 bg-card/40 p-4 text-left transition hover:border-pons-green/40 hover:bg-card/70"
 						onClick={() => setNewNumberExpanded(!newNumberExpanded)}
-						type="button"
+						size="lg"
+						variant="ghost"
 					>
-						<div className="h-px flex-1 bg-border" />
-						<span className="flex items-center gap-1.5 text-muted-foreground text-xs transition hover:text-foreground">
-							<Plus className="h-3 w-3" />
-							New number
-							{newNumberExpanded ? (
-								<ChevronUp className="h-3 w-3" />
-							) : (
-								<ChevronDown className="h-3 w-3" />
-							)}
-						</span>
-						<div className="h-px flex-1 bg-border" />
-					</button>
+						<Plus className="h-5 w-5 text-pons-green" />
+						<div className="min-w-0 flex-1">
+							<p className="font-medium text-sm">Set up a new number</p>
+							<p className="text-muted-foreground text-xs">
+								Buy via Twilio or bring your own
+							</p>
+						</div>
+						{newNumberExpanded ? (
+							<ChevronUp className="h-4 w-4 text-muted-foreground" />
+						) : (
+							<ChevronDown className="h-4 w-4 text-muted-foreground" />
+						)}
+					</Button>
 
 					{newNumberExpanded && (
 						<div className="space-y-6">
@@ -752,30 +716,70 @@ function AutoSetup({
 						</div>
 					)}
 
-					{/* Manual setup link */}
-					<div className="text-center">
-						<button
-							className="inline-flex items-center gap-1.5 text-muted-foreground text-xs transition hover:text-foreground"
-							onClick={onSwitchToManual}
-							type="button"
-						>
-							<Settings className="h-3 w-3" />
-							Set up manually instead
-						</button>
-					</div>
+					{/* ── Existing WABA numbers ── */}
+					{discoveredNumbers.length > 0 && (
+						<>
+							<div className="relative">
+								<div className="absolute inset-0 flex items-center">
+									<span className="w-full border-t" />
+								</div>
+								<div className="relative flex justify-center text-xs">
+									<span className="bg-background px-2 text-muted-foreground">
+										or use an existing number
+									</span>
+								</div>
+							</div>
+
+							<div className="space-y-2">
+								{discoveredNumbers.map((num) => (
+									<button
+										className="flex w-full items-center gap-3 rounded-lg border border-border/60 bg-card/40 p-4 text-left transition hover:border-pons-green/40 hover:bg-card/70"
+										key={`${num.wabaId}-${num.id}`}
+										onClick={() => {
+											setSelectedNumber(num);
+											setStep("configure");
+										}}
+										type="button"
+									>
+										<Phone className="h-5 w-5 text-pons-green" />
+										<div className="min-w-0 flex-1">
+											<p className="font-medium text-sm">
+												{num.display_phone_number}
+											</p>
+											<p className="text-muted-foreground text-xs">
+												{num.verified_name}
+											</p>
+											<p className="text-[11px] text-muted-foreground/70">
+												{num.businessName} · {num.wabaName}
+											</p>
+										</div>
+										<QualityBadge rating={num.quality_rating} />
+									</button>
+								))}
+							</div>
+						</>
+					)}
 				</div>
 			)}
 
 			{/* ── Configure (existing number) ── */}
 			{step === "configure" && selectedNumber && (
 				<div className="space-y-5">
-					<BackButton
-						label="Confirm connection"
+					<Button
+						className="gap-1.5 px-0 text-muted-foreground text-xs hover:text-foreground"
 						onClick={() => {
 							setStep("pick-number");
 							setSelectedNumber(null);
 						}}
-					/>
+						size="sm"
+						variant="ghost"
+					>
+						<ArrowLeft className="h-3.5 w-3.5" />
+						Back
+					</Button>
+					<h3 className="font-display font-medium text-sm">
+						Confirm connection
+					</h3>
 
 					<div className="rounded-lg border border-pons-green/20 bg-pons-green/5 p-4">
 						<div className="mb-3 flex items-center gap-2 font-medium text-pons-green text-xs">
@@ -1419,30 +1423,45 @@ function BackButton({
 	label: string;
 }) {
 	return (
-		<div className="flex items-center gap-2">
-			<button
-				className="text-muted-foreground transition hover:text-foreground"
+		<div className="space-y-3">
+			<Button
+				className="gap-1.5 px-0 text-muted-foreground text-xs hover:text-foreground"
 				onClick={onClick}
-				type="button"
+				size="sm"
+				variant="ghost"
 			>
-				<ArrowLeft className="h-4 w-4" />
-			</button>
+				<ArrowLeft className="h-3.5 w-3.5" />
+				Back
+			</Button>
 			<h3 className="font-display font-medium text-sm">{label}</h3>
 		</div>
 	);
 }
 
 function QualityBadge({ rating }: { rating: string }) {
-	const colors: Record<string, string> = {
-		GREEN: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-		YELLOW: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-		RED: "bg-red-500/10 text-red-400 border-red-500/20",
+	const config: Record<string, { label: string; classes: string }> = {
+		GREEN: {
+			label: "High",
+			classes: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+		},
+		YELLOW: {
+			label: "Medium",
+			classes: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+		},
+		RED: {
+			label: "Low",
+			classes: "bg-red-500/10 text-red-400 border-red-500/20",
+		},
+	};
+	const { label, classes } = config[rating] ?? {
+		label: "Not Rated",
+		classes: "border-border bg-muted text-muted-foreground",
 	};
 	return (
 		<span
-			className={`rounded-full border px-2 py-0.5 font-medium text-[10px] ${colors[rating] ?? "border-border bg-muted text-muted-foreground"}`}
+			className={`rounded-full border px-2 py-0.5 font-medium text-[10px] ${classes}`}
 		>
-			{rating}
+			{label}
 		</span>
 	);
 }
