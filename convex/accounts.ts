@@ -142,31 +142,6 @@ export const get = query({
 	},
 });
 
-/** Get account secrets for admin settings page (admin/owner only) */
-export const getSecrets = query({
-	args: { accountId: v.id("accounts") },
-	handler: async (ctx, args) => {
-		const userId = await auth.getUserId(ctx);
-		if (!userId) return null;
-
-		const membership = await ctx.db
-			.query("accountMembers")
-			.withIndex("by_account_user", (q) =>
-				q.eq("accountId", args.accountId).eq("userId", userId),
-			)
-			.first();
-
-		if (!membership || membership.role === "member") return null;
-
-		const account = await ctx.db.get(args.accountId);
-		if (!account) return null;
-
-		return {
-			accessToken: account.accessToken,
-		};
-	},
-});
-
 /** Get full account by ID (internal only — includes secrets for server-side use) */
 export const getInternal = internalQuery({
 	args: { accountId: v.id("accounts") },
@@ -221,7 +196,6 @@ export const createExisting = mutation({
 		phoneNumberId: v.string(),
 		phoneNumber: v.string(),
 		displayName: v.string(),
-		accessToken: v.string(),
 	},
 	handler: async (ctx, args) => {
 		const userId = await auth.getUserId(ctx);
@@ -234,7 +208,6 @@ export const createExisting = mutation({
 			phoneNumberId: args.phoneNumberId,
 			phoneNumber: args.phoneNumber,
 			displayName: args.displayName,
-			accessToken: args.accessToken,
 			status: "active",
 			numberProvider: "existing",
 		});
@@ -260,7 +233,6 @@ export const createByon = mutation({
 		phoneNumber: v.string(), // E.164: "+4917612345678"
 		displayName: v.string(),
 		countryCode: v.string(), // "49", "1", etc.
-		accessToken: v.string(),
 	},
 	handler: async (ctx, args) => {
 		const userId = await auth.getUserId(ctx);
@@ -273,7 +245,6 @@ export const createByon = mutation({
 			phoneNumber: args.phoneNumber,
 			displayName: args.displayName,
 			countryCode: args.countryCode,
-			accessToken: args.accessToken,
 			status: "adding_number",
 			numberProvider: "byon",
 		});
@@ -299,7 +270,6 @@ export const createTwilio = mutation({
 		phoneNumber: v.string(),
 		displayName: v.string(),
 		countryCode: v.string(),
-		accessToken: v.string(),
 		twilioCredentialsId: v.id("twilioCredentials"),
 		twilioPhoneNumberSid: v.string(),
 	},
@@ -314,7 +284,6 @@ export const createTwilio = mutation({
 			phoneNumber: args.phoneNumber,
 			displayName: args.displayName,
 			countryCode: args.countryCode,
-			accessToken: args.accessToken,
 			status: "adding_number",
 			numberProvider: "twilio",
 			twilioCredentialsId: args.twilioCredentialsId,
@@ -556,7 +525,6 @@ export const update = mutation({
 	args: {
 		accountId: v.id("accounts"),
 		name: v.optional(v.string()),
-		accessToken: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
 		const userId = await auth.getUserId(ctx);

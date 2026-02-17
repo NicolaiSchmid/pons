@@ -66,7 +66,7 @@ export const checkNameStatus = internalAction({
 			{ userId: account.ownerId },
 		);
 
-		const token = account.accessToken || fbToken;
+		const token = fbToken;
 		if (!token) {
 			console.error(
 				`Name review: no access token for account ${args.accountId}`,

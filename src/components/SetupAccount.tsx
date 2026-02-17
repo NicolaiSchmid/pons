@@ -249,7 +249,6 @@ function AutoSetup({
 				phoneNumberId: selectedNumber.id,
 				phoneNumber: selectedNumber.display_phone_number,
 				displayName: selectedNumber.verified_name,
-				accessToken: "",
 			});
 			setStep("complete");
 		} catch (err) {
@@ -278,7 +277,6 @@ function AutoSetup({
 				phoneNumber: byonPhone,
 				displayName: byonDisplayName,
 				countryCode: byonCountryCode,
-				accessToken: "",
 			});
 			setCreatedAccountId(accountId);
 			setPhoneSourceForVerify("byon");
@@ -421,7 +419,6 @@ function AutoSetup({
 				phoneNumber,
 				displayName: twilioDisplayName,
 				countryCode,
-				accessToken: "",
 				twilioCredentialsId: twilioCredentials._id,
 				twilioPhoneNumberSid: phoneNumberSid,
 			});
@@ -1254,7 +1251,6 @@ function ManualSetup({
 		phoneNumberId: "",
 		phoneNumber: "",
 		displayName: "",
-		accessToken: "",
 	});
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -1269,7 +1265,6 @@ function ManualSetup({
 				phoneNumberId: formData.phoneNumberId,
 				phoneNumber: formData.phoneNumber,
 				displayName: formData.displayName || formData.name,
-				accessToken: formData.accessToken,
 			});
 			onComplete();
 		} catch (err) {
@@ -1354,16 +1349,6 @@ function ManualSetup({
 					placeholder="My Business"
 					value={formData.displayName}
 				/>
-				<FormField
-					hint="Create a permanent token in System Users or use a temporary test token"
-					id="accessToken"
-					label="Access Token"
-					onChange={(v) => updateField("accessToken", v)}
-					placeholder="EAAG..."
-					type="password"
-					value={formData.accessToken}
-				/>
-
 				<div className="rounded-lg border border-pons-green/20 bg-pons-green/5 px-4 py-3">
 					<p className="text-pons-green text-sm">
 						Webhooks are configured automatically by Pons.

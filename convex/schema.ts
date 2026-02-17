@@ -78,7 +78,6 @@ export default defineSchema({
 
 		// ── Number details (set progressively) ──
 		phoneNumberId: v.optional(v.string()), // Meta's ID — set after adding_number
-		accessToken: v.string(), // System User token (or "" to use FB token)
 		countryCode: v.optional(v.string()), // "49", "1" — for request_code API
 
 		// ── Twilio-specific (only when numberProvider = "twilio") ──

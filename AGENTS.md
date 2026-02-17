@@ -144,7 +144,6 @@ accounts: defineTable({
   wabaId: v.string(),              // WhatsApp Business Account ID
   phoneNumberId: v.string(),        // Meta's phone number ID
   phoneNumber: v.string(),          // Display: +1 555 123 4567
-  accessToken: v.string(),          // Encrypted
   webhookVerifyToken: v.string(),
   appSecret: v.string(),            // Encrypted
   ownerId: v.id("users"),

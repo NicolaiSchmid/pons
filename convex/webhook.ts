@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalAction, internalMutation } from "./_generated/server";
+import { getOwnerAccessToken } from "./helpers";
 
 const META_API_VERSION = "v22.0";
 const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`;
@@ -345,12 +346,13 @@ export const processWebhookLog = internalMutation({
 
 				// Schedule media download if present
 				if (mediaMetaId) {
+					const accessToken = await getOwnerAccessToken(ctx, account.ownerId);
 					await ctx.scheduler.runAfter(
 						0,
 						internal.webhook.downloadAndStoreMedia,
 						{
 							metaMediaId: mediaMetaId,
-							accessToken: account.accessToken,
+							accessToken,
 							messageId,
 						},
 					);

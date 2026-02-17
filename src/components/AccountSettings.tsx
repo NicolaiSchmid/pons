@@ -46,7 +46,6 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 
 export function AccountSettings({ accountId }: AccountSettingsProps) {
 	const account = useQuery(api.accounts.get, { accountId });
-	const secrets = useQuery(api.accounts.getSecrets, { accountId });
 	const members = useQuery(api.accounts.listMembers, { accountId });
 	const updateAccount = useMutation(api.accounts.update);
 	const addMemberByEmail = useMutation(api.accounts.addMemberByEmail);
@@ -64,18 +63,16 @@ export function AccountSettings({ accountId }: AccountSettingsProps) {
 
 	const [formData, setFormData] = useState({
 		name: "",
-		accessToken: "",
 	});
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: Only populate when account data arrives
 	useEffect(() => {
-		if (account && secrets) {
+		if (account) {
 			setFormData({
 				name: account.name,
-				accessToken: secrets.accessToken,
 			});
 		}
-	}, [account?._id, secrets]);
+	}, [account?._id]);
 
 	const handleSave = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -87,7 +84,6 @@ export function AccountSettings({ accountId }: AccountSettingsProps) {
 			await updateAccount({
 				accountId,
 				name: formData.name,
-				accessToken: formData.accessToken,
 			});
 			setSaved(true);
 			setTimeout(() => setSaved(false), 2000);
@@ -236,28 +232,6 @@ export function AccountSettings({ accountId }: AccountSettingsProps) {
 							onChange={(e) => updateField("name", e.target.value)}
 							value={formData.name}
 						/>
-					</div>
-
-					<div className="space-y-2">
-						<Label htmlFor="settings-accessToken">Access Token</Label>
-						<Input
-							id="settings-accessToken"
-							onChange={(e) => updateField("accessToken", e.target.value)}
-							type="password"
-							value={formData.accessToken}
-						/>
-						<p className="text-muted-foreground text-xs">
-							Permanent token from{" "}
-							<a
-								className="inline-flex items-center gap-1 text-pons-green underline underline-offset-2 hover:text-pons-green-bright"
-								href="https://business.facebook.com/settings/system-users"
-								rel="noopener noreferrer"
-								target="_blank"
-							>
-								System Users
-								<ExternalLink className="h-3 w-3" />
-							</a>
-						</p>
 					</div>
 
 					{error && (

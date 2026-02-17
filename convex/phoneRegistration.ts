@@ -29,11 +29,6 @@ async function getFacebookToken(ctx: any, userId: string): Promise<string> {
 	return token;
 }
 
-function getAccessToken(account: { accessToken: string }, fbToken: string) {
-	// Use account's access token if set, otherwise fall back to FB user token
-	return account.accessToken || fbToken;
-}
-
 // ============================================================================
 // STEP 1: Add phone number to WABA
 // ============================================================================
@@ -68,7 +63,7 @@ export const addPhoneToWaba = action({
 		}
 
 		const fbToken = await getFacebookToken(ctx, userId);
-		const token = getAccessToken(account, fbToken);
+		const token = fbToken;
 
 		try {
 			const res = await fetch(
@@ -176,7 +171,7 @@ export const resendCode = action({
 		}
 
 		const fbToken = await getFacebookToken(ctx, userId);
-		const token = getAccessToken(account, fbToken);
+		const token = fbToken;
 
 		const res = await fetch(
 			`${META_API_BASE}/${account.phoneNumberId}/request_code`,
@@ -234,7 +229,7 @@ export const submitCode = action({
 		}
 
 		const fbToken = await getFacebookToken(ctx, userId);
-		const token = getAccessToken(account, fbToken);
+		const token = fbToken;
 
 		// Transition to verifying_code
 		await ctx.runMutation(internal.accounts.transitionToVerifyingCode, {
@@ -365,7 +360,7 @@ export const autoVerifyAndRegister = action({
 			{ userId: account.ownerId },
 		);
 		if (!fbToken) throw new Error("No Facebook token for account owner");
-		const token = getAccessToken(account, fbToken);
+		const token = fbToken;
 
 		// Transition to verifying_code
 		await ctx.runMutation(internal.accounts.transitionToVerifyingCode, {

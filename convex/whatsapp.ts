@@ -7,6 +7,24 @@ import { auth } from "./auth";
 const META_API_VERSION = "v22.0";
 const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`;
 
+/**
+ * Resolve the Facebook OAuth token for an account's owner.
+ * Used in actions that can't access the DB directly.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: Convex action ctx type is complex
+async function resolveAccessToken(ctx: any, ownerId: string): Promise<string> {
+	const token: string | null = await ctx.runQuery(
+		internal.whatsappDiscovery.getFacebookToken,
+		{ userId: ownerId },
+	);
+	if (!token) {
+		throw new Error(
+			"No Facebook access token found for account owner. The owner needs to re-authenticate.",
+		);
+	}
+	return token;
+}
+
 // Send a text message (internal — called from MCP gateway or UI actions)
 export const sendTextMessage = internalAction({
 	args: {
@@ -36,6 +54,8 @@ export const sendTextMessage = internalAction({
 		) {
 			throw new Error(`Account is not active (status: ${account.status})`);
 		}
+
+		const accessToken = await resolveAccessToken(ctx, account.ownerId);
 
 		// Create message record
 		const messageId = await ctx.runMutation(
@@ -68,7 +88,7 @@ export const sendTextMessage = internalAction({
 				{
 					method: "POST",
 					headers: {
-						Authorization: `Bearer ${account.accessToken}`,
+						Authorization: `Bearer ${accessToken}`,
 						"Content-Type": "application/json",
 					},
 					body: JSON.stringify(body),
@@ -151,6 +171,8 @@ export const sendTemplateMessage = internalAction({
 			throw new Error(`Account is not active (status: ${account.status})`);
 		}
 
+		const accessToken = await resolveAccessToken(ctx, account.ownerId);
+
 		const messageId = await ctx.runMutation(
 			internal.messages.createOutboundInternal,
 			{
@@ -183,7 +205,7 @@ export const sendTemplateMessage = internalAction({
 				{
 					method: "POST",
 					headers: {
-						Authorization: `Bearer ${account.accessToken}`,
+						Authorization: `Bearer ${accessToken}`,
 						"Content-Type": "application/json",
 					},
 					body: JSON.stringify(body),
@@ -320,12 +342,14 @@ export const markAsRead = internalAction({
 			throw new Error("Account has no phone number ID");
 		}
 
+		const accessToken = await resolveAccessToken(ctx, account.ownerId);
+
 		const response = await fetch(
 			`${META_API_BASE}/${account.phoneNumberId}/messages`,
 			{
 				method: "POST",
 				headers: {
-					Authorization: `Bearer ${account.accessToken}`,
+					Authorization: `Bearer ${accessToken}`,
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify({
@@ -365,12 +389,14 @@ export const sendReaction = internalAction({
 			throw new Error("Account has no phone number ID");
 		}
 
+		const accessToken = await resolveAccessToken(ctx, account.ownerId);
+
 		const response = await fetch(
 			`${META_API_BASE}/${account.phoneNumberId}/messages`,
 			{
 				method: "POST",
 				headers: {
-					Authorization: `Bearer ${account.accessToken}`,
+					Authorization: `Bearer ${accessToken}`,
 					"Content-Type": "application/json",
 				},
 				body: JSON.stringify({

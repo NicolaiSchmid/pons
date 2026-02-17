@@ -17,3 +17,23 @@ export async function checkAccountAccess(
 		.first();
 	return !!membership;
 }
+
+/**
+ * Resolve the Facebook OAuth access token for an account's owner.
+ * Used in mutations/queries that have direct DB access.
+ */
+export async function getOwnerAccessToken(
+	ctx: QueryCtx | MutationCtx,
+	ownerId: Id<"users">,
+): Promise<string> {
+	const token = await ctx.db
+		.query("facebookTokens")
+		.withIndex("by_user", (q) => q.eq("userId", ownerId))
+		.first();
+	if (!token?.accessToken) {
+		throw new Error(
+			"No Facebook access token found for account owner. The owner needs to re-authenticate.",
+		);
+	}
+	return token.accessToken;
+}
