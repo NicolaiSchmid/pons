@@ -107,6 +107,11 @@ export const saveCredentials = mutation({
 // ACTIONS — Twilio API calls
 // ============================================================================
 
+type TwilioAvailableCountry = {
+	countryCode: string; // ISO 3166-1 alpha-2: "US", "DE"
+	country: string; // "United States", "Germany"
+};
+
 type TwilioOwnedNumber = {
 	sid: string; // PN...
 	phoneNumber: string; // E.164: "+14155552671"
@@ -160,6 +165,54 @@ export const validateCredentials = action({
 
 		const data = (await res.json()) as { friendly_name?: string };
 		return { valid: true, friendlyName: data.friendly_name };
+	},
+});
+
+/**
+ * List countries where Twilio has available phone numbers.
+ */
+export const listAvailableCountries = action({
+	args: {
+		credentialsId: v.id("twilioCredentials"),
+	},
+	handler: async (ctx, args): Promise<TwilioAvailableCountry[]> => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Unauthorized");
+
+		const creds = await ctx.runQuery(
+			internal.twilioConnect.getCredentialsInternal,
+			{ credentialsId: args.credentialsId },
+		);
+		if (!creds) throw new Error("Twilio credentials not found");
+		if (creds.userId !== userId) throw new Error("Unauthorized");
+
+		const res = await fetch(
+			`${TWILIO_API_BASE}/Accounts/${creds.accountSid}/AvailablePhoneNumbers.json?PageSize=300`,
+			{
+				headers: {
+					Authorization: twilioAuthHeader(creds.accountSid, creds.authToken),
+				},
+			},
+		);
+
+		if (!res.ok) {
+			const body = await res.text();
+			throw new Error(
+				`Failed to list Twilio countries (${res.status}): ${body}`,
+			);
+		}
+
+		const data = (await res.json()) as {
+			countries: Array<{
+				country_code: string;
+				country: string;
+			}>;
+		};
+
+		return (data.countries ?? []).map((c) => ({
+			countryCode: c.country_code,
+			country: c.country,
+		}));
 	},
 });
 

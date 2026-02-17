@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { CountryCodeSelector } from "@/components/CountryCodeSelector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -176,6 +177,9 @@ function AutoSetup({
 	const validateTwilio = useAction(api.twilioConnect.validateCredentials);
 	const saveTwilioCreds = useMutation(api.twilioConnect.saveCredentials);
 	const listTwilioNumbers = useAction(api.twilioConnect.listExistingNumbers);
+	const listTwilioCountries = useAction(
+		api.twilioConnect.listAvailableCountries,
+	);
 	const searchTwilioNumbers = useAction(api.twilioConnect.searchNumbers);
 	const buyTwilioNumber = useAction(api.twilioConnect.buyNumber);
 
@@ -206,6 +210,8 @@ function AutoSetup({
 	const [twilioOwnedNumbers, setTwilioOwnedNumbers] = useState<
 		TwilioOwnedNumber[]
 	>([]);
+	const [twilioAvailableCountryCodes, setTwilioAvailableCountryCodes] =
+		useState<string[]>([]);
 	const [twilioCountry, setTwilioCountry] = useState("");
 	const [twilioAreaCode, setTwilioAreaCode] = useState("");
 	const [twilioAvailableNumbers, setTwilioAvailableNumbers] = useState<
@@ -332,9 +338,13 @@ function AutoSetup({
 			setTwilioSid("");
 			setTwilioToken("");
 
-			// Immediately browse numbers
-			const owned = await listTwilioNumbers({ credentialsId: credId });
+			// Immediately browse numbers + fetch countries
+			const [owned, countries] = await Promise.all([
+				listTwilioNumbers({ credentialsId: credId }),
+				listTwilioCountries({ credentialsId: credId }),
+			]);
 			setTwilioOwnedNumbers(owned);
+			setTwilioAvailableCountryCodes(countries.map((c) => c.countryCode));
 			setStep("twilio-search");
 		} catch (err) {
 			setTwilioSaveError(
@@ -345,17 +355,19 @@ function AutoSetup({
 		}
 	};
 
-	// Browse Twilio numbers
+	// Browse Twilio numbers + fetch available countries
 	const handleBrowseTwilio = async () => {
 		if (!twilioCredentials) return;
 		setLoading(true);
 		setError(null);
 
 		try {
-			const owned = await listTwilioNumbers({
-				credentialsId: twilioCredentials._id,
-			});
+			const [owned, countries] = await Promise.all([
+				listTwilioNumbers({ credentialsId: twilioCredentials._id }),
+				listTwilioCountries({ credentialsId: twilioCredentials._id }),
+			]);
 			setTwilioOwnedNumbers(owned);
+			setTwilioAvailableCountryCodes(countries.map((c) => c.countryCode));
 			setStep("twilio-search");
 		} catch (err) {
 			setError(
@@ -900,6 +912,7 @@ function AutoSetup({
 							setStep("pick-number");
 							setTwilioOwnedNumbers([]);
 							setTwilioAvailableNumbers([]);
+							setTwilioAvailableCountryCodes([]);
 							setTwilioCountry("");
 							setTwilioAreaCode("");
 						}}
@@ -963,37 +976,36 @@ function AutoSetup({
 							</div>
 						)}
 
-						<div className="flex gap-2">
-							<div className="flex-1 space-y-1">
-								<Label className="text-xs" htmlFor="twilio-country">
-									Country
-								</Label>
-								<Input
-									id="twilio-country"
-									maxLength={2}
-									onChange={(e) =>
-										setTwilioCountry(e.target.value.toUpperCase())
-									}
-									placeholder="US"
-									value={twilioCountry}
-								/>
-							</div>
-							<div className="flex-1 space-y-1">
-								<Label className="text-xs" htmlFor="twilio-area">
-									Area Code
-								</Label>
-								<Input
-									id="twilio-area"
-									onChange={(e) => setTwilioAreaCode(e.target.value)}
-									placeholder="415"
-									value={twilioAreaCode}
-								/>
-							</div>
+						<div className="space-y-1">
+							<Label className="text-xs">Country</Label>
+							<CountryCodeSelector
+								availableCodes={
+									twilioAvailableCountryCodes.length > 0
+										? twilioAvailableCountryCodes
+										: undefined
+								}
+								onChange={setTwilioCountry}
+								placeholder="Select country..."
+								value={twilioCountry}
+							/>
+						</div>
+
+						<div className="space-y-1">
+							<Label className="text-xs" htmlFor="twilio-area">
+								Area Code{" "}
+								<span className="text-muted-foreground">(optional)</span>
+							</Label>
+							<Input
+								id="twilio-area"
+								onChange={(e) => setTwilioAreaCode(e.target.value)}
+								placeholder="415"
+								value={twilioAreaCode}
+							/>
 						</div>
 
 						<Button
 							className="w-full bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
-							disabled={loading || twilioCountry.length !== 2}
+							disabled={loading || !twilioCountry}
 							onClick={handleTwilioSearch}
 							size="sm"
 						>
