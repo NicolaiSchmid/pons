@@ -16,9 +16,21 @@ import {
 	XCircle,
 } from "lucide-react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -48,13 +60,17 @@ export function AccountSettings({ accountId }: AccountSettingsProps) {
 	const account = useQuery(api.accounts.get, { accountId });
 	const members = useQuery(api.accounts.listMembers, { accountId });
 	const updateAccount = useMutation(api.accounts.update);
+	const deleteAccount = useMutation(api.accounts.remove);
 	const addMemberByEmail = useMutation(api.accounts.addMemberByEmail);
 	const removeMember = useMutation(api.accounts.removeMember);
 	const updateRole = useMutation(api.accounts.updateMemberRole);
+	const router = useRouter();
 
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [saved, setSaved] = useState(false);
+	const [deleting, setDeleting] = useState(false);
+	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [inviteEmail, setInviteEmail] = useState("");
 	const [inviteRole, setInviteRole] = useState<"admin" | "member">("member");
 	const [inviting, setInviting] = useState(false);
@@ -422,6 +438,87 @@ export function AccountSettings({ accountId }: AccountSettingsProps) {
 					<p className="text-muted-foreground text-xs">
 						Users must have signed in at least once before they can be invited.
 					</p>
+				</div>
+
+				<Separator />
+
+				{/* Danger zone */}
+				<div className="space-y-3">
+					<Label className="text-destructive text-sm">Danger Zone</Label>
+					<div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+						<div className="flex items-center justify-between gap-4">
+							<div>
+								<p className="font-medium text-foreground text-sm">
+									Delete account
+								</p>
+								<p className="mt-0.5 text-muted-foreground text-xs">
+									Permanently delete this account, all conversations, messages,
+									and contacts. This cannot be undone.
+								</p>
+							</div>
+							<Dialog
+								onOpenChange={setDeleteDialogOpen}
+								open={deleteDialogOpen}
+							>
+								<DialogTrigger asChild>
+									<Button
+										className="shrink-0 gap-1.5"
+										size="sm"
+										variant="destructive"
+									>
+										<Trash2 className="h-3.5 w-3.5" />
+										Delete
+									</Button>
+								</DialogTrigger>
+								<DialogContent>
+									<DialogHeader>
+										<DialogTitle>Delete account</DialogTitle>
+										<DialogDescription>
+											This will permanently delete{" "}
+											<span className="font-medium text-foreground">
+												{account.name}
+											</span>{" "}
+											({account.phoneNumber}) and all associated data including
+											conversations, messages, contacts, and API keys. This
+											action cannot be undone.
+										</DialogDescription>
+									</DialogHeader>
+									<DialogFooter>
+										<DialogClose asChild>
+											<Button variant="outline">Cancel</Button>
+										</DialogClose>
+										<Button
+											disabled={deleting}
+											onClick={async () => {
+												setDeleting(true);
+												try {
+													await deleteAccount({ accountId });
+													setDeleteDialogOpen(false);
+													toast.success("Account deleted");
+													router.push("/dashboard");
+												} catch (err) {
+													setError(
+														err instanceof Error
+															? err.message
+															: "Failed to delete account",
+													);
+													setDeleting(false);
+												}
+											}}
+											variant="destructive"
+										>
+											{deleting ? (
+												<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+											) : (
+												<Trash2 className="mr-2 h-4 w-4" />
+											)}
+											Delete permanently
+										</Button>
+									</DialogFooter>
+								</DialogContent>
+							</Dialog>
+						</div>
+					</div>
 				</div>
 			</div>
 		</div>
