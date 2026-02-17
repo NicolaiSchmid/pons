@@ -238,6 +238,7 @@ function AutoSetup({
 	);
 	const searchTwilioNumbers = useAction(api.twilioConnect.searchNumbers);
 	const buyTwilioNumber = useAction(api.twilioConnect.buyNumber);
+	const configureSmsWebhook = useAction(api.twilioConnect.configureSmsWebhook);
 
 	// Wizard state
 	const [step, setStep] = useState<WizardStep>("pick-number");
@@ -668,6 +669,12 @@ function AutoSetup({
 
 			// Extract country calling code (e.g. "1" for US, "49" for DE)
 			const countryCode = getCallingCode(phoneNumber);
+
+			// Ensure SMS webhook is configured (for auto-capturing Meta OTP)
+			await configureSmsWebhook({
+				credentialsId: twilioCredentialsId,
+				phoneNumberSid,
+			});
 
 			await registerAppWebhook();
 			await subscribeWaba({ wabaId: twilioWabaId });

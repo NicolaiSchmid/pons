@@ -451,6 +451,58 @@ export const buyNumber = action({
 	},
 });
 
+/**
+ * Configure the SMS webhook URL on an existing Twilio phone number.
+ * Required for auto-capturing Meta verification codes on owned numbers
+ * that weren't bought through Pons (so buyNumber didn't set the URL).
+ */
+export const configureSmsWebhook = action({
+	args: {
+		credentialsId: v.id("twilioCredentials"),
+		phoneNumberSid: v.string(), // e.g. "PNxxxxxxxx"
+	},
+	handler: async (ctx, args) => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Unauthorized");
+
+		const creds = await ctx.runQuery(
+			internal.twilioConnect.getCredentialsInternal,
+			{ credentialsId: args.credentialsId },
+		);
+		if (!creds) throw new Error("Twilio credentials not found");
+		if (creds.userId !== userId) throw new Error("Unauthorized");
+
+		const smsWebhookUrl = process.env.TWILIO_SMS_WEBHOOK_URL;
+		if (!smsWebhookUrl) {
+			console.warn("[configureSmsWebhook] TWILIO_SMS_WEBHOOK_URL not set");
+			return;
+		}
+
+		const params = new URLSearchParams();
+		params.set("SmsUrl", smsWebhookUrl);
+		params.set("SmsMethod", "POST");
+
+		const url = `${TWILIO_API_BASE}/Accounts/${creds.accountSid}/IncomingPhoneNumbers/${args.phoneNumberSid}.json`;
+		const res = await fetch(url, {
+			method: "POST",
+			headers: {
+				Authorization: twilioAuthHeader(creds.accountSid, creds.authToken),
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			body: params.toString(),
+		});
+
+		if (!res.ok) {
+			const body = await res.text();
+			console.error("[configureSmsWebhook] Failed to configure webhook", {
+				status: res.status,
+				body,
+			});
+			throw new Error(`Failed to configure SMS webhook: ${res.status}`);
+		}
+	},
+});
+
 // ============================================================================
 // OTP AUTO-CAPTURE (called from SMS webhook)
 // ============================================================================
