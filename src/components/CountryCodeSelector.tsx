@@ -54,9 +54,7 @@ export function CountryCodeSelector({
 		const locale = navigator.language ?? "";
 		const parts = locale.split("-");
 		const regionCode =
-			parts.length >= 2
-				? (parts[parts.length - 1] ?? "").toUpperCase()
-				: "";
+			parts.length >= 2 ? (parts[parts.length - 1] ?? "").toUpperCase() : "";
 		if (!regionCode || regionCode.length !== 2) return;
 
 		// Only auto-select if it's in the available countries list
