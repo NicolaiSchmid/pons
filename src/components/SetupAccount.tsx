@@ -207,6 +207,8 @@ function AutoSetup({
 	const [twilioSaveError, setTwilioSaveError] = useState<string | null>(null);
 
 	// Twilio number browsing
+	const [twilioCredentialsId, setTwilioCredentialsId] =
+		useState<Id<"twilioCredentials"> | null>(null);
 	const [twilioOwnedNumbers, setTwilioOwnedNumbers] = useState<
 		TwilioOwnedNumber[]
 	>([]);
@@ -337,6 +339,7 @@ function AutoSetup({
 
 			setTwilioSid("");
 			setTwilioToken("");
+			setTwilioCredentialsId(credId);
 
 			// Immediately browse numbers + fetch countries
 			const [owned, countries] = await Promise.all([
@@ -362,9 +365,11 @@ function AutoSetup({
 		setError(null);
 
 		try {
+			const credId = twilioCredentials._id;
+			setTwilioCredentialsId(credId);
 			const [owned, countries] = await Promise.all([
-				listTwilioNumbers({ credentialsId: twilioCredentials._id }),
-				listTwilioCountries({ credentialsId: twilioCredentials._id }),
+				listTwilioNumbers({ credentialsId: credId }),
+				listTwilioCountries({ credentialsId: credId }),
 			]);
 			setTwilioOwnedNumbers(owned);
 			setTwilioAvailableCountryCodes(countries.map((c) => c.countryCode));
@@ -380,13 +385,13 @@ function AutoSetup({
 
 	// Search for available Twilio numbers
 	const handleTwilioSearch = async () => {
-		if (!twilioCredentials || !twilioCountry) return;
+		if (!twilioCredentialsId || !twilioCountry) return;
 		setLoading(true);
 		setError(null);
 
 		try {
 			const numbers = await searchTwilioNumbers({
-				credentialsId: twilioCredentials._id,
+				credentialsId: twilioCredentialsId,
 				countryCode: twilioCountry.toUpperCase(),
 				areaCode: twilioAreaCode || undefined,
 				smsEnabled: true,
@@ -403,7 +408,7 @@ function AutoSetup({
 	// Buy Twilio number and register on WABA
 	const handleTwilioBuy = async () => {
 		if (
-			!twilioCredentials ||
+			!twilioCredentialsId ||
 			!twilioSelectedNumber ||
 			!twilioDisplayName ||
 			!twilioWabaId
@@ -423,7 +428,7 @@ function AutoSetup({
 			if (isNewPurchase) {
 				// Buy the number via Twilio
 				const purchased = await buyTwilioNumber({
-					credentialsId: twilioCredentials._id,
+					credentialsId: twilioCredentialsId,
 					phoneNumber: twilioSelectedNumber.phoneNumber,
 				});
 				phoneNumberSid = purchased.sid;
@@ -448,7 +453,7 @@ function AutoSetup({
 				phoneNumber,
 				displayName: twilioDisplayName,
 				countryCode,
-				twilioCredentialsId: twilioCredentials._id,
+				twilioCredentialsId: twilioCredentialsId,
 				twilioPhoneNumberSid: phoneNumberSid,
 			});
 			setCreatedAccountId(accountId);
@@ -910,6 +915,7 @@ function AutoSetup({
 						label="Browse Twilio numbers"
 						onClick={() => {
 							setStep("pick-number");
+							setTwilioCredentialsId(null);
 							setTwilioOwnedNumbers([]);
 							setTwilioAvailableNumbers([]);
 							setTwilioAvailableCountryCodes([]);
@@ -1005,7 +1011,7 @@ function AutoSetup({
 
 						<Button
 							className="w-full bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
-							disabled={loading || !twilioCountry}
+							disabled={loading || !twilioCountry || !twilioCredentialsId}
 							onClick={handleTwilioSearch}
 							size="sm"
 						>
