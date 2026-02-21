@@ -89,10 +89,10 @@ export function ConversationList({
 							<div className="flex items-center justify-between gap-2">
 								<div className="flex min-w-0 items-center gap-2">
 									<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted font-medium text-muted-foreground text-xs uppercase">
-										{getInitials(conv.contact?.name)}
+										{getInitials(conv.contact?.name, conv.contact?.phone)}
 									</div>
 									<span className="truncate font-medium text-foreground text-sm">
-										{conv.contact?.name ?? "Unknown"}
+										{conv.contact?.name ?? conv.contact?.phone ?? "Unknown"}
 									</span>
 								</div>
 								<div className="flex shrink-0 items-center gap-2">
@@ -124,13 +124,16 @@ export function ConversationList({
 	);
 }
 
-function getInitials(name?: string): string {
-	if (!name) return "?";
-	return name
-		.split(" ")
-		.map((w) => w[0])
-		.join("")
-		.slice(0, 2);
+function getInitials(name?: string, phone?: string): string {
+	if (name) {
+		return name
+			.split(" ")
+			.map((w) => w[0])
+			.join("")
+			.slice(0, 2);
+	}
+	if (phone) return phone.slice(-2);
+	return "?";
 }
 
 function formatRelativeTime(timestamp: number): string {
