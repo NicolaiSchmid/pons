@@ -530,16 +530,33 @@ export const registerExistingNumber = action({
 			},
 		);
 
+		const regBody = await regRes.json();
+		console.log(
+			`registerExistingNumber: POST /${account.phoneNumberId}/register → ${regRes.status}`,
+			JSON.stringify(regBody),
+		);
+
 		if (!regRes.ok) {
-			const error = await regRes.json();
 			const errorMsg =
-				error.error?.message ?? `HTTP ${regRes.status}: ${regRes.statusText}`;
+				regBody.error?.message ?? `HTTP ${regRes.status}: ${regRes.statusText}`;
 			await ctx.runMutation(internal.accounts.transitionToFailed, {
 				accountId: args.accountId,
 				failedAtStep: "registering",
 				failedError: errorMsg,
 			});
 			throw new Error(`Registration failed: ${errorMsg}`);
+		}
+
+		// Query the number's status to confirm registration took effect
+		const statusRes = await fetch(
+			`${META_API_BASE}/${account.phoneNumberId}?fields=id,status,name_status,code_verification_status,platform_type&access_token=${token}`,
+		);
+		if (statusRes.ok) {
+			const statusBody = await statusRes.json();
+			console.log(
+				`registerExistingNumber: phone status after register:`,
+				JSON.stringify(statusBody),
+			);
 		}
 
 		// Registration successful — transition to pending_name_review
@@ -555,5 +572,46 @@ export const registerExistingNumber = action({
 		);
 
 		return { success: true };
+	},
+});
+
+// ============================================================================
+// DIAGNOSTIC: Check phone number status on Meta (no mutations)
+// ============================================================================
+
+/**
+ * Query Meta API for the current status of a phone number.
+ * Useful for debugging registration issues. Read-only — no state changes.
+ */
+export const checkPhoneStatus = action({
+	args: {
+		accountId: v.id("accounts"),
+	},
+	handler: async (ctx, args): Promise<Record<string, unknown>> => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Unauthorized");
+
+		const account = await ctx.runQuery(internal.accounts.getInternal, {
+			accountId: args.accountId,
+		});
+		if (!account) throw new Error("Account not found");
+		if (!account.phoneNumberId) throw new Error("No phoneNumberId on account");
+
+		const token = await getFacebookToken(ctx, userId);
+
+		const res = await fetch(
+			`${META_API_BASE}/${account.phoneNumberId}?fields=id,display_phone_number,verified_name,status,name_status,code_verification_status,platform_type,quality_rating,messaging_limit_tier,is_official_business_account&access_token=${token}`,
+		);
+
+		if (!res.ok) {
+			const errBody = (await res.json()) as { error?: { message?: string } };
+			throw new Error(
+				`Meta API error: ${errBody.error?.message ?? res.statusText}`,
+			);
+		}
+
+		const data = (await res.json()) as Record<string, unknown>;
+		console.log("checkPhoneStatus:", JSON.stringify(data));
+		return data;
 	},
 });
