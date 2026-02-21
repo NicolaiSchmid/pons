@@ -45,6 +45,7 @@ type DiscoveredNumber = {
 	quality_rating: string;
 	code_verification_status?: string;
 	status?: string;
+	platform_type?: string; // "CLOUD_API" | "ON_PREMISE" | "NOT_APPLICABLE"
 	businessName: string;
 	businessId: string;
 	wabaId: string;
@@ -468,8 +469,10 @@ function AutoSetup({
 	const handleConnectExisting = async () => {
 		if (!selectedNumber) return;
 
-		// Check if the number needs Cloud API registration
-		const needsRegistration = selectedNumber.status !== "CONNECTED";
+		// Check if the number needs Cloud API registration.
+		// Meta's `status` field ("CONNECTED") means "on the WABA" — NOT registered
+		// with Cloud API. The real indicator is `platform_type === "CLOUD_API"`.
+		const needsRegistration = selectedNumber.platform_type !== "CLOUD_API";
 
 		// If registration is needed, require a PIN
 		if (needsRegistration && existingPin.length !== 6) {
@@ -1208,11 +1211,14 @@ function AutoSetup({
 						</div>
 					</div>
 
-					{selectedNumber.status !== "CONNECTED" && (
+					{selectedNumber.platform_type !== "CLOUD_API" && (
 						<div className="space-y-3">
 							<div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
 								<p className="text-amber-600 text-sm">
-									This number needs to be registered with the WhatsApp Cloud API.
+									This number needs to be registered with the WhatsApp Cloud API
+									{selectedNumber.platform_type
+										? ` (current: ${selectedNumber.platform_type})`
+										: ""}.
 									Enter a 6-digit PIN to complete registration.
 								</p>
 							</div>
@@ -1237,11 +1243,11 @@ function AutoSetup({
 						</div>
 					)}
 
-					{selectedNumber.status === "CONNECTED" && (
+					{selectedNumber.platform_type === "CLOUD_API" && (
 						<div className="rounded-lg border border-pons-green/20 bg-pons-green/5 px-4 py-3">
 							<p className="text-pons-green text-sm">
-								Webhooks will be configured automatically. No manual setup
-								needed.
+								This number is registered with the Cloud API. Webhooks will be
+								configured automatically.
 							</p>
 						</div>
 					)}
@@ -1250,7 +1256,7 @@ function AutoSetup({
 						className="w-full bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
 						disabled={
 							loading ||
-							(selectedNumber.status !== "CONNECTED" &&
+							(selectedNumber.platform_type !== "CLOUD_API" &&
 								existingPin.length !== 6)
 						}
 						onClick={handleConnectExisting}
