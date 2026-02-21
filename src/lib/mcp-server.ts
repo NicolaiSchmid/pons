@@ -73,18 +73,23 @@ export function createMcpServer(apiKey: string) {
 		"list_conversations",
 		"List recent WhatsApp conversations with contacts",
 		{
+			phoneNumberId: z
+				.string()
+				.describe(
+					"Meta phone number ID for the WhatsApp sender account",
+				),
 			limit: z
 				.number()
 				.optional()
 				.describe("Max conversations to return (default 50)"),
 		},
-		async ({ limit }) => {
+		async ({ phoneNumberId, limit }) => {
 			try {
 				const conversations = (await callTool(
 					convex,
 					apiKey,
 					"list_conversations",
-					{ limit: limit ?? 50 },
+					{ phoneNumberId, limit: limit ?? 50 },
 				)) as Array<{
 					id: Id<"conversations">;
 					contactName: string;
@@ -132,18 +137,24 @@ export function createMcpServer(apiKey: string) {
 		"list_unanswered",
 		"List conversations waiting for a reply — where the last message is from the customer. Use this to quickly see what needs attention.",
 		{
+			phoneNumberId: z
+				.string()
+				.describe(
+					"Meta phone number ID for the WhatsApp sender account",
+				),
 			limit: z
 				.number()
 				.optional()
 				.describe("Max conversations to return (default 20)"),
 		},
-		async ({ limit }) => {
+		async ({ phoneNumberId, limit }) => {
 			try {
 				const conversations = (await callTool(
 					convex,
 					apiKey,
 					"list_unanswered",
 					{
+						phoneNumberId,
 						limit: limit ?? 20,
 					},
 				)) as Array<{
@@ -218,19 +229,25 @@ export function createMcpServer(apiKey: string) {
 		"get_conversation",
 		"Get a conversation with its recent messages",
 		{
+			phoneNumberId: z
+				.string()
+				.describe(
+					"Meta phone number ID for the WhatsApp sender account",
+				),
 			conversationId: z.string().describe("The conversation ID"),
 			messageLimit: z
 				.number()
 				.optional()
 				.describe("Max messages to return (default 50)"),
 		},
-		async ({ conversationId, messageLimit }) => {
+		async ({ phoneNumberId, conversationId, messageLimit }) => {
 			try {
 				const conversation = (await callTool(
 					convex,
 					apiKey,
 					"get_conversation",
 					{
+						phoneNumberId,
 						conversationId,
 						messageLimit: messageLimit ?? 50,
 					},
@@ -299,12 +316,18 @@ ${messagesText || "No messages yet."}`;
 		"search_messages",
 		"Search for messages containing specific text",
 		{
+			phoneNumberId: z
+				.string()
+				.describe(
+					"Meta phone number ID for the WhatsApp sender account",
+				),
 			query: z.string().describe("Text to search for in messages"),
 			limit: z.number().optional().describe("Max results (default 20)"),
 		},
-		async ({ query, limit }) => {
+		async ({ phoneNumberId, query, limit }) => {
 			try {
 				const results = (await callTool(convex, apiKey, "search_messages", {
+					phoneNumberId,
 					query,
 					limit: limit ?? 20,
 				})) as Array<{
@@ -353,6 +376,11 @@ ${messagesText || "No messages yet."}`;
 		"send_text",
 		"Send a text message to a WhatsApp contact. Requires an open 24-hour window or use send_template for first contact.",
 		{
+			phoneNumberId: z
+				.string()
+				.describe(
+					"Meta phone number ID for the WhatsApp sender account",
+				),
 			phone: z
 				.string()
 				.describe("Phone number in E.164 format (e.g., +491234567890)"),
@@ -362,9 +390,10 @@ ${messagesText || "No messages yet."}`;
 				.optional()
 				.describe("WhatsApp message ID to reply to (optional)"),
 		},
-		async ({ phone, text, replyToMessageId }) => {
+		async ({ phoneNumberId, phone, text, replyToMessageId }) => {
 			try {
 				const result = (await callTool(convex, apiKey, "send_text", {
+					phoneNumberId,
 					phone,
 					text,
 					replyToMessageId,
@@ -412,6 +441,11 @@ ${messagesText || "No messages yet."}`;
 		"send_template",
 		"Send a pre-approved template message. Use this for first contact or when the 24-hour window is closed.",
 		{
+			phoneNumberId: z
+				.string()
+				.describe(
+					"Meta phone number ID for the WhatsApp sender account",
+				),
 			phone: z
 				.string()
 				.describe("Phone number in E.164 format (e.g., +491234567890)"),
@@ -426,9 +460,10 @@ ${messagesText || "No messages yet."}`;
 					"Template components (header, body, button variables) as JSON",
 				),
 		},
-		async ({ phone, templateName, templateLanguage, components }) => {
+		async ({ phoneNumberId, phone, templateName, templateLanguage, components }) => {
 			try {
 				const result = (await callTool(convex, apiKey, "send_template", {
+					phoneNumberId,
 					phone,
 					templateName,
 					templateLanguage,
@@ -464,14 +499,20 @@ ${messagesText || "No messages yet."}`;
 	server.tool(
 		"list_templates",
 		"List available message templates for this account",
-		{},
-		async () => {
+		{
+			phoneNumberId: z
+				.string()
+				.describe(
+					"Meta phone number ID for the WhatsApp sender account",
+				),
+		},
+		async ({ phoneNumberId }) => {
 			try {
 				const templates = (await callTool(
 					convex,
 					apiKey,
 					"list_templates",
-					{},
+					{ phoneNumberId },
 				)) as Array<{
 					id: Id<"templates">;
 					name: string;
@@ -520,13 +561,18 @@ ${messagesText || "No messages yet."}`;
 		"mark_as_read",
 		"Mark a message as read (sends read receipt to sender)",
 		{
+			phoneNumberId: z
+				.string()
+				.describe(
+					"Meta phone number ID for the WhatsApp sender account",
+				),
 			waMessageId: z
 				.string()
 				.describe("The WhatsApp message ID (wamid.xxx) to mark as read"),
 		},
-		async ({ waMessageId }) => {
+		async ({ phoneNumberId, waMessageId }) => {
 			try {
-				await callTool(convex, apiKey, "mark_as_read", { waMessageId });
+				await callTool(convex, apiKey, "mark_as_read", { phoneNumberId, waMessageId });
 
 				return {
 					content: [
@@ -558,6 +604,11 @@ ${messagesText || "No messages yet."}`;
 		"send_reaction",
 		"React to a message with an emoji",
 		{
+			phoneNumberId: z
+				.string()
+				.describe(
+					"Meta phone number ID for the WhatsApp sender account",
+				),
 			conversationId: z.string().describe("The conversation ID"),
 			phone: z
 				.string()
@@ -565,9 +616,10 @@ ${messagesText || "No messages yet."}`;
 			waMessageId: z.string().describe("The WhatsApp message ID to react to"),
 			emoji: z.string().describe("Emoji to react with (e.g., 👍, ❤️, 😂)"),
 		},
-		async ({ conversationId, phone, waMessageId, emoji }) => {
+		async ({ phoneNumberId, conversationId, phone, waMessageId, emoji }) => {
 			try {
 				await callTool(convex, apiKey, "send_reaction", {
+					phoneNumberId,
 					conversationId,
 					phone,
 					waMessageId,

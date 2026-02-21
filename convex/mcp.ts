@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import {
 	action,
 	internalMutation,
@@ -182,77 +183,52 @@ export const updateApiKeyLastUsed = internalMutation({
 });
 
 // ============================================
-// Internal: resolve accountId from user's accounts
+// Internal: resolve accountId by phoneNumberId
 // ============================================
 
 /**
- * Resolve accountId for an MCP tool call.
- * - If user has exactly 1 active account → auto-select
- * - If phone is provided → find the account that owns that phone number
- * - Otherwise → error listing available accounts
+ * Resolve accountId from a Meta phoneNumberId.
+ * Validates the account exists, is active, and belongs to the given user.
  */
-export const resolveAccountId = internalQuery({
+export const resolveAccountByPhoneNumberId = internalQuery({
 	args: {
-		userId: v.id("users"),
-		phone: v.optional(v.string()),
+		userId: v.string(),
+		phoneNumberId: v.string(),
 	},
 	handler: async (ctx, args) => {
-		const memberships = await ctx.db
-			.query("accountMembers")
-			.withIndex("by_user", (q) => q.eq("userId", args.userId))
-			.collect();
-
-		const accounts = (
-			await Promise.all(
-				memberships.map(async (m) => {
-					const account = await ctx.db.get(m.accountId);
-					if (!account) return null;
-					if (account.status !== "active" && account.status !== "pending_name_review")
-						return null;
-					return account;
-				}),
+		const account = await ctx.db
+			.query("accounts")
+			.withIndex("by_phone_number_id", (q) =>
+				q.eq("phoneNumberId", args.phoneNumberId),
 			)
-		).filter((a) => a !== null);
+			.first();
 
-		if (accounts.length === 0) {
-			return { error: "No active WhatsApp accounts found for this user." };
+		if (!account) {
+			return {
+				error: `No account found for phoneNumberId "${args.phoneNumberId}". Check your phoneNumberId in the Meta Business Suite.`,
+			};
 		}
 
-		// If only 1 account → auto-select
-		const firstAccount = accounts[0];
-		if (accounts.length === 1 && firstAccount) {
-			return { accountId: firstAccount._id };
+		if (account.status !== "active" && account.status !== "pending_name_review") {
+			return {
+				error: `Account "${account.name}" (${account.phoneNumber}) is not active (status: ${account.status}).`,
+			};
 		}
 
-		// If phone provided → match by phone number
-		if (args.phone) {
-			// Try to find which account has a contact with this phone
-			const waId = args.phone.replace(/^\+/, "");
-			for (const account of accounts) {
-				const contact = await ctx.db
-					.query("contacts")
-					.withIndex("by_account_wa_id", (q) =>
-						q.eq("accountId", account._id).eq("waId", waId),
-					)
-					.first();
-				if (contact) {
-					return { accountId: account._id };
-				}
-			}
+		// Verify the user has access to this account
+		const membership = await ctx.db
+			.query("accountMembers")
+			.withIndex("by_user", (q) => q.eq("userId", args.userId as Id<"users">))
+			.filter((q) => q.eq(q.field("accountId"), account._id))
+			.first();
 
-			// No existing contact — use the first active account as default
-			if (firstAccount) {
-				return { accountId: firstAccount._id };
-			}
+		if (!membership) {
+			return {
+				error: `You do not have access to account "${account.name}" (${account.phoneNumber}).`,
+			};
 		}
 
-		// Multiple accounts, no disambiguation → list them
-		const accountList = accounts
-			.map((a) => `  - ${a.name} (${a.phoneNumber})`)
-			.join("\n");
-		return {
-			error: `Multiple WhatsApp accounts available. Specify which account to use:\n${accountList}`,
-		};
+		return { accountId: account._id };
 	},
 });
 

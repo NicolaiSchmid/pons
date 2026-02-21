@@ -13,13 +13,11 @@ import { action } from "./_generated/server";
 
 /**
  * Single gateway for all MCP tool invocations.
- * Validates the API key (user-scoped), resolves the account, enforces scopes,
- * then dispatches to the right internal function.
+ * Validates the API key (user-scoped), resolves the account by phoneNumberId,
+ * enforces scopes, then dispatches to the right internal function.
  *
- * Account resolution:
- * - If user has 1 active account → auto-select
- * - If phone is provided in toolArgs → find account that owns that contact
- * - Otherwise → error listing available accounts
+ * Every tool call requires a `phoneNumberId` in toolArgs to identify
+ * which WhatsApp sender account to use (Meta's phone number ID).
  */
 export const mcpTool = action({
 	args: {
@@ -75,14 +73,25 @@ export const mcpTool = action({
 			);
 		}
 
-		// 3. Resolve accountId from user's accounts
+		// 3. Resolve accountId by phoneNumberId
 		const toolArgs = args.toolArgs as Record<string, unknown>;
-		const phone = toolArgs.phone as string | undefined;
+		const phoneNumberId = toolArgs.phoneNumberId as string | undefined;
 
-		const resolution = await ctx.runQuery(internal.mcp.resolveAccountId, {
-			userId,
-			phone,
-		});
+		if (!phoneNumberId) {
+			return {
+				error: true,
+				message:
+					"Missing required parameter: phoneNumberId. This is the Meta phone number ID for the WhatsApp sender account.",
+			};
+		}
+
+		const resolution = await ctx.runQuery(
+			internal.mcp.resolveAccountByPhoneNumberId,
+			{
+				userId: userId as string,
+				phoneNumberId,
+			},
+		);
 
 		if ("error" in resolution) {
 			return { error: true, message: resolution.error };
