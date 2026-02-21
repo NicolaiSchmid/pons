@@ -30,7 +30,13 @@ async function callTool(
 	tool: string,
 	toolArgs: Record<string, unknown>,
 ): Promise<unknown> {
-	return convex.action(api.gateway.mcpTool, { apiKey, tool, toolArgs });
+	try {
+		return await convex.action(api.gateway.mcpTool, { apiKey, tool, toolArgs });
+	} catch (error) {
+		const msg = error instanceof Error ? error.message : String(error);
+		console.error(`[pons-mcp] callTool("${tool}") failed:`, msg);
+		throw error;
+	}
 }
 
 // Create a new MCP server instance for each request
@@ -55,40 +61,49 @@ export function createMcpServer(apiKey: string) {
 				.describe("Max conversations to return (default 50)"),
 		},
 		async ({ limit }) => {
-			const conversations = (await callTool(
-				convex,
-				apiKey,
-				"list_conversations",
-				{ limit: limit ?? 50 },
-			)) as Array<{
-				id: Id<"conversations">;
-				contactName: string;
-				contactPhone: string;
-				lastMessageAt?: number;
-				lastMessagePreview?: string;
-				unreadCount: number;
-				windowOpen: boolean;
-			}>;
+			try {
+				const conversations = (await callTool(
+					convex,
+					apiKey,
+					"list_conversations",
+					{ limit: limit ?? 50 },
+				)) as Array<{
+					id: Id<"conversations">;
+					contactName: string;
+					contactPhone: string;
+					lastMessageAt?: number;
+					lastMessagePreview?: string;
+					unreadCount: number;
+					windowOpen: boolean;
+				}>;
 
-			const text = conversations
-				.map((c) => {
-					const time = c.lastMessageAt
-						? new Date(c.lastMessageAt).toISOString()
-						: "Never";
-					const unread = c.unreadCount > 0 ? ` (${c.unreadCount} unread)` : "";
-					const window = c.windowOpen ? " [24h window open]" : "";
-					return `- ${c.contactName} (${c.contactPhone})${unread}${window}\n  Last: ${c.lastMessagePreview ?? "No messages"} at ${time}\n  ID: ${c.id}`;
-				})
-				.join("\n\n");
+				const text = conversations
+					.map((c) => {
+						const time = c.lastMessageAt
+							? new Date(c.lastMessageAt).toISOString()
+							: "Never";
+						const unread =
+							c.unreadCount > 0 ? ` (${c.unreadCount} unread)` : "";
+						const window = c.windowOpen ? " [24h window open]" : "";
+						return `- ${c.contactName} (${c.contactPhone})${unread}${window}\n  Last: ${c.lastMessagePreview ?? "No messages"} at ${time}\n  ID: ${c.id}`;
+					})
+					.join("\n\n");
 
-			return {
-				content: [
-					{
-						type: "text",
-						text: text || "No conversations found.",
-					},
-				],
-			};
+				return {
+					content: [
+						{
+							type: "text",
+							text: text || "No conversations found.",
+						},
+					],
+				};
+			} catch (error) {
+				const msg = error instanceof Error ? error.message : String(error);
+				return {
+					content: [{ type: "text", text: `Error listing conversations: ${msg}` }],
+					isError: true,
+				};
+			}
 		},
 	);
 
@@ -105,58 +120,76 @@ export function createMcpServer(apiKey: string) {
 				.describe("Max conversations to return (default 20)"),
 		},
 		async ({ limit }) => {
-			const conversations = (await callTool(convex, apiKey, "list_unanswered", {
-				limit: limit ?? 20,
-			})) as Array<{
-				id: Id<"conversations">;
-				contactName: string;
-				contactPhone: string;
-				lastMessageAt?: number;
-				lastMessagePreview?: string;
-				unreadCount: number;
-				windowOpen: boolean;
-				lastInboundMessage: {
-					id: Id<"messages">;
-					waMessageId: string;
-					text?: string;
-					type: string;
-					timestamp: number;
-				};
-			}>;
+			try {
+				const conversations = (await callTool(
+					convex,
+					apiKey,
+					"list_unanswered",
+					{
+						limit: limit ?? 20,
+					},
+				)) as Array<{
+					id: Id<"conversations">;
+					contactName: string;
+					contactPhone: string;
+					lastMessageAt?: number;
+					lastMessagePreview?: string;
+					unreadCount: number;
+					windowOpen: boolean;
+					lastInboundMessage: {
+						id: Id<"messages">;
+						waMessageId: string;
+						text?: string;
+						type: string;
+						timestamp: number;
+					};
+				}>;
 
-			if (conversations.length === 0) {
+				if (conversations.length === 0) {
+					return {
+						content: [
+							{
+								type: "text",
+								text: "All caught up — no unanswered conversations.",
+							},
+						],
+					};
+				}
+
+				const text = conversations
+					.map((c) => {
+						const ago = c.lastMessageAt
+							? formatTimeAgo(c.lastMessageAt)
+							: "";
+						const window = c.windowOpen
+							? " [window open]"
+							: " [window closed — template required]";
+						const unread =
+							c.unreadCount > 0 ? ` (${c.unreadCount} unread)` : "";
+						return `- **${c.contactName}** (${c.contactPhone})${unread}${window}
+  Last message (${ago}): "${c.lastInboundMessage.text ?? `[${c.lastInboundMessage.type}]`}"
+  Conversation ID: ${c.id}
+  Message ID: ${c.lastInboundMessage.waMessageId}`;
+					})
+					.join("\n\n");
+
 				return {
 					content: [
 						{
 							type: "text",
-							text: "All caught up — no unanswered conversations.",
+							text: `${conversations.length} conversation(s) waiting for reply:\n\n${text}`,
 						},
 					],
 				};
+			} catch (error) {
+				const msg = error instanceof Error ? error.message : String(error);
+				return {
+					content: [
+						{ type: "text", text: `Error listing unanswered: ${msg}` },
+					],
+					isError: true,
+				};
 			}
-
-			const text = conversations
-				.map((c) => {
-					const ago = c.lastMessageAt ? formatTimeAgo(c.lastMessageAt) : "";
-					const window = c.windowOpen
-						? " [window open]"
-						: " [window closed — template required]";
-					const unread = c.unreadCount > 0 ? ` (${c.unreadCount} unread)` : "";
-					return `- **${c.contactName}** (${c.contactPhone})${unread}${window}
-  Last message (${ago}): "${c.lastInboundMessage.text ?? `[${c.lastInboundMessage.type}]`}"
-  Conversation ID: ${c.id}
-  Message ID: ${c.lastInboundMessage.waMessageId}`;
-				})
-				.join("\n\n");
-
-			return {
-				content: [
-					{
-						type: "text",
-						text: `${conversations.length} conversation(s) waiting for reply:\n\n${text}`,
-					},
-				],
-			};
 		},
 	);
 
@@ -174,54 +207,70 @@ export function createMcpServer(apiKey: string) {
 				.describe("Max messages to return (default 50)"),
 		},
 		async ({ conversationId, messageLimit }) => {
-			const conversation = (await callTool(convex, apiKey, "get_conversation", {
-				conversationId,
-				messageLimit: messageLimit ?? 50,
-			})) as {
-				id: Id<"conversations">;
-				contact: { id?: Id<"contacts">; name: string; phone: string };
-				windowOpen: boolean;
-				windowExpiresAt?: number;
-				messages: Array<{
-					id: Id<"messages">;
-					waMessageId: string;
-					direction: string;
-					type: string;
-					text?: string;
-					timestamp: number;
-					status: string;
-				}>;
-			} | null;
+			try {
+				const conversation = (await callTool(
+					convex,
+					apiKey,
+					"get_conversation",
+					{
+						conversationId,
+						messageLimit: messageLimit ?? 50,
+					},
+				)) as {
+					id: Id<"conversations">;
+					contact: { id?: Id<"contacts">; name: string; phone: string };
+					windowOpen: boolean;
+					windowExpiresAt?: number;
+					messages: Array<{
+						id: Id<"messages">;
+						waMessageId: string;
+						direction: string;
+						type: string;
+						text?: string;
+						timestamp: number;
+						status: string;
+					}>;
+				} | null;
 
-			if (!conversation) {
-				return {
-					content: [{ type: "text", text: "Conversation not found." }],
-				};
-			}
+				if (!conversation) {
+					return {
+						content: [{ type: "text", text: "Conversation not found." }],
+					};
+				}
 
-			const windowStatus =
-				conversation.windowOpen && conversation.windowExpiresAt
-					? `Open until ${new Date(conversation.windowExpiresAt).toISOString()}`
-					: "Closed (template required)";
+				const windowStatus =
+					conversation.windowOpen && conversation.windowExpiresAt
+						? `Open until ${new Date(conversation.windowExpiresAt).toISOString()}`
+						: "Closed (template required)";
 
-			const messagesText = conversation.messages
-				.map((m) => {
-					const dir = m.direction === "inbound" ? "←" : "→";
-					const time = new Date(m.timestamp).toISOString();
-					const status = m.direction === "outbound" ? ` [${m.status}]` : "";
-					return `${dir} [${time}]${status} ${m.text ?? `[${m.type}]`}`;
-				})
-				.join("\n");
+				const messagesText = conversation.messages
+					.map((m) => {
+						const dir = m.direction === "inbound" ? "←" : "→";
+						const time = new Date(m.timestamp).toISOString();
+						const status =
+							m.direction === "outbound" ? ` [${m.status}]` : "";
+						return `${dir} [${time}]${status} ${m.text ?? `[${m.type}]`}`;
+					})
+					.join("\n");
 
-			const text = `Contact: ${conversation.contact.name} (${conversation.contact.phone})
+				const text = `Contact: ${conversation.contact.name} (${conversation.contact.phone})
 24-hour Window: ${windowStatus}
 
 Messages:
 ${messagesText || "No messages yet."}`;
 
-			return {
-				content: [{ type: "text", text }],
-			};
+				return {
+					content: [{ type: "text", text }],
+				};
+			} catch (error) {
+				const msg = error instanceof Error ? error.message : String(error);
+				return {
+					content: [
+						{ type: "text", text: `Error getting conversation: ${msg}` },
+					],
+					isError: true,
+				};
+			}
 		},
 	);
 
@@ -236,36 +285,46 @@ ${messagesText || "No messages yet."}`;
 			limit: z.number().optional().describe("Max results (default 20)"),
 		},
 		async ({ query, limit }) => {
-			const results = (await callTool(convex, apiKey, "search_messages", {
-				query,
-				limit: limit ?? 20,
-			})) as Array<{
-				id: Id<"messages">;
-				conversationId: Id<"conversations">;
-				contactName: string;
-				contactPhone: string;
-				direction: string;
-				type: string;
-				text?: string;
-				timestamp: number;
-			}>;
+			try {
+				const results = (await callTool(convex, apiKey, "search_messages", {
+					query,
+					limit: limit ?? 20,
+				})) as Array<{
+					id: Id<"messages">;
+					conversationId: Id<"conversations">;
+					contactName: string;
+					contactPhone: string;
+					direction: string;
+					type: string;
+					text?: string;
+					timestamp: number;
+				}>;
 
-			const text = results
-				.map((m) => {
-					const dir = m.direction === "inbound" ? "←" : "→";
-					const time = new Date(m.timestamp).toISOString();
-					return `${dir} ${m.contactName} (${m.contactPhone}) at ${time}:\n  "${m.text}"\n  Conversation: ${m.conversationId}`;
-				})
-				.join("\n\n");
+				const text = results
+					.map((m) => {
+						const dir = m.direction === "inbound" ? "←" : "→";
+						const time = new Date(m.timestamp).toISOString();
+						return `${dir} ${m.contactName} (${m.contactPhone}) at ${time}:\n  "${m.text}"\n  Conversation: ${m.conversationId}`;
+					})
+					.join("\n\n");
 
-			return {
-				content: [
-					{
-						type: "text",
-						text: text || `No messages found matching "${query}".`,
-					},
-				],
-			};
+				return {
+					content: [
+						{
+							type: "text",
+							text: text || `No messages found matching "${query}".`,
+						},
+					],
+				};
+			} catch (error) {
+				const msg = error instanceof Error ? error.message : String(error);
+				return {
+					content: [
+						{ type: "text", text: `Error searching messages: ${msg}` },
+					],
+					isError: true,
+				};
+			}
 		},
 	);
 
@@ -389,40 +448,50 @@ ${messagesText || "No messages yet."}`;
 		"List available message templates for this account",
 		{},
 		async () => {
-			const templates = (await callTool(
-				convex,
-				apiKey,
-				"list_templates",
-				{},
-			)) as Array<{
-				id: Id<"templates">;
-				name: string;
-				language: string;
-				category: string;
-				status: string;
-			}>;
+			try {
+				const templates = (await callTool(
+					convex,
+					apiKey,
+					"list_templates",
+					{},
+				)) as Array<{
+					id: Id<"templates">;
+					name: string;
+					language: string;
+					category: string;
+					status: string;
+				}>;
 
-			if (templates.length === 0) {
+				if (templates.length === 0) {
+					return {
+						content: [
+							{
+								type: "text",
+								text: "No templates found. Templates must be created and approved in the Meta Business Suite.",
+							},
+						],
+					};
+				}
+
+				const text = templates
+					.map(
+						(t) =>
+							`- ${t.name} (${t.language}) [${t.status}]\n  Category: ${t.category}\n  ID: ${t.id}`,
+					)
+					.join("\n\n");
+
+				return {
+					content: [{ type: "text", text }],
+				};
+			} catch (error) {
+				const msg = error instanceof Error ? error.message : String(error);
 				return {
 					content: [
-						{
-							type: "text",
-							text: "No templates found. Templates must be created and approved in the Meta Business Suite.",
-						},
+						{ type: "text", text: `Error listing templates: ${msg}` },
 					],
+					isError: true,
 				};
 			}
-
-			const text = templates
-				.map(
-					(t) =>
-						`- ${t.name} (${t.language}) [${t.status}]\n  Category: ${t.category}\n  ID: ${t.id}`,
-				)
-				.join("\n\n");
-
-			return {
-				content: [{ type: "text", text }],
-			};
 		},
 	);
 
