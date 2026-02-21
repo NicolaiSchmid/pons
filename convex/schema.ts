@@ -96,7 +96,7 @@ export default defineSchema({
 		// ── Name review polling (inline, no separate table) ──
 		nameReviewLastCheckedAt: v.optional(v.number()),
 		nameReviewCheckCount: v.optional(v.number()),
-		nameReviewMaxChecks: v.optional(v.number()), // e.g. 72 (3 days hourly)
+		nameReviewMaxChecks: v.optional(v.number()), // e.g. 120 (5 days hourly, covers weekends)
 		nameReviewScheduledJobId: v.optional(v.string()), // Convex scheduler ID
 		nameReviewNotifiedAt: v.optional(v.number()), // When we emailed the user
 	})

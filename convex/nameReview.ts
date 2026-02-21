@@ -47,7 +47,7 @@ export const checkNameStatus = internalAction({
 
 		// Check if we've exceeded max checks
 		const checkCount = (account.nameReviewCheckCount ?? 0) + 1;
-		const maxChecks = account.nameReviewMaxChecks ?? 72;
+		const maxChecks = account.nameReviewMaxChecks ?? 120;
 
 		if (checkCount > maxChecks) {
 			// Stop polling — user can re-trigger manually

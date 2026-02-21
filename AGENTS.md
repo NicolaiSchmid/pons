@@ -401,16 +401,22 @@ ngrok http 3000
 
 ## Deployment
 
-1. **Convex**: Automatically deployed when you push (via `convex dev` or CI)
-2. **Next.js**: Push to GitHub, Vercel auto-deploys
-3. **Environment**: Add `CONVEX_DEPLOYMENT` and `NEXT_PUBLIC_CONVEX_URL` to Vercel
-4. **Vercel Deployment Protection** is disabled for production (webhook needs unauthenticated access)
+Both Convex and Next.js deploy automatically through Vercel on push to `main`.
+
+1. **Push to `main`** → Vercel build triggers
+2. **Vercel runs `npx convex deploy`** as part of the build step → deploys Convex functions to prod
+3. **Vercel deploys Next.js** → serves the web app
+4. **Environment**: `CONVEX_DEPLOYMENT` and `NEXT_PUBLIC_CONVEX_URL` are set in Vercel
+5. **Vercel Deployment Protection** is disabled for production (webhook needs unauthenticated access)
+
+**Do NOT run `npx convex deploy` locally** — it will conflict with the Vercel build. Just push to `main` and let Vercel handle it.
 
 ```bash
-# Deploy Convex to production
-npx convex deploy
+# Local development only — syncs functions to dev deployment
+npx convex dev
 
-# Vercel will pick up the Next.js app automatically
+# Production deploy: just push to main
+git push origin main
 ```
 
 ---

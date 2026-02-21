@@ -381,7 +381,7 @@ export const transitionToPendingNameReview = internalMutation({
 		await ctx.db.patch(args.accountId, {
 			status: "pending_name_review",
 			nameReviewCheckCount: 0,
-			nameReviewMaxChecks: 72, // 3 days at 1 check/hour
+			nameReviewMaxChecks: 120, // 5 days at 1 check/hour (covers weekends)
 		});
 	},
 });
