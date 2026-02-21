@@ -13,7 +13,13 @@ import { action } from "./_generated/server";
 
 /**
  * Single gateway for all MCP tool invocations.
- * Validates the API key, enforces scopes, then dispatches to the right internal function.
+ * Validates the API key (user-scoped), resolves the account, enforces scopes,
+ * then dispatches to the right internal function.
+ *
+ * Account resolution:
+ * - If user has 1 active account → auto-select
+ * - If phone is provided in toolArgs → find account that owns that contact
+ * - Otherwise → error listing available accounts
  */
 export const mcpTool = action({
 	args: {
@@ -33,7 +39,7 @@ export const mcpTool = action({
 			throw new Error("Invalid or expired API key");
 		}
 
-		const { accountId, scopes, keyId } = validation;
+		const { userId, scopes, keyId } = validation;
 
 		// Update last used (fire and forget)
 		void ctx.runMutation(internal.mcp.updateApiKeyLastUsed, { keyId });
@@ -53,9 +59,7 @@ export const mcpTool = action({
 			"send_reaction",
 		];
 
-		// Reject unknown tools before checking scopes — prevents future tools
-		// from bypassing scope enforcement if they're added to the switch but
-		// not to the scope arrays.
+		// Reject unknown tools before checking scopes
 		if (!readTools.includes(args.tool) && !sendTools.includes(args.tool)) {
 			throw new Error(`Unknown tool: ${args.tool}`);
 		}
@@ -71,11 +75,22 @@ export const mcpTool = action({
 			);
 		}
 
-		// 3. Dispatch to internal functions
-		// Wrapped in try/catch so Convex surfaces the real error message
-		// instead of a generic "Server Error" to MCP clients.
+		// 3. Resolve accountId from user's accounts
 		const toolArgs = args.toolArgs as Record<string, unknown>;
+		const phone = toolArgs.phone as string | undefined;
 
+		const resolution = await ctx.runQuery(internal.mcp.resolveAccountId, {
+			userId,
+			phone,
+		});
+
+		if ("error" in resolution) {
+			return { error: true, message: resolution.error };
+		}
+
+		const accountId = resolution.accountId as Id<"accounts">;
+
+		// 4. Dispatch to internal functions
 		try {
 			switch (args.tool) {
 				case "list_conversations": {
@@ -177,9 +192,6 @@ export const mcpTool = action({
 		} catch (error) {
 			const message =
 				error instanceof Error ? error.message : String(error);
-			// Re-throw with a ConvexError-style message that won't be stripped
-			// by Convex's action error handling. We use a structured return
-			// instead of throwing so the MCP client gets the real error.
 			return { error: true, message };
 		}
 	},
@@ -234,9 +246,7 @@ export const webhookIngest = action({
 			throw new Error("Webhook verification failed");
 		}
 
-		// Ingest the webhook payload (signature is not stored — it's
-		// already been verified and storing it would increase data surface
-		// area in case of a database breach)
+		// Ingest the webhook payload
 		await ctx.runMutation(internal.webhook.ingestWebhook, {
 			phoneNumberId: args.phoneNumberId,
 			payload: args.payload,
@@ -259,8 +269,6 @@ export const webhookStatusUpdate = action({
 		errorMessage: v.optional(v.string()),
 	},
 	handler: async (ctx, args): Promise<void> => {
-		// Use a generic error for both "not found" and "invalid signature"
-		// to prevent phone number ID enumeration.
 		const account = await ctx.runQuery(
 			internal.accounts.getByPhoneNumberIdInternal,
 			{ phoneNumberId: args.phoneNumberId },
@@ -270,7 +278,6 @@ export const webhookStatusUpdate = action({
 			throw new Error("Webhook verification failed");
 		}
 
-		// Only process for active accounts
 		if (
 			account.status !== "active" &&
 			account.status !== "pending_name_review"
@@ -278,7 +285,6 @@ export const webhookStatusUpdate = action({
 			return;
 		}
 
-		// Verify signature
 		const isValid = await ctx.runAction(
 			internal.mcpNode.verifyWebhookSignature,
 			{

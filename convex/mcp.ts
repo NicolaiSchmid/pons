@@ -11,11 +11,12 @@ import { auth } from "./auth";
 
 // ============================================
 // API Key Management (requires user auth)
+// Keys are scoped to users, not accounts.
+// A single key grants access to ALL accounts the user is a member of.
 // ============================================
 
 export const createApiKey = action({
 	args: {
-		accountId: v.id("accounts"),
 		name: v.string(),
 		scopes: v.array(v.string()),
 		expiresInDays: v.optional(v.number()),
@@ -36,7 +37,6 @@ export const createApiKey = action({
 
 		// Store the key using mutation
 		await ctx.runMutation(internal.mcp.createApiKeyInternal, {
-			accountId: args.accountId,
 			name: args.name,
 			keyHash,
 			keyPrefix,
@@ -52,7 +52,6 @@ export const createApiKey = action({
 // Internal mutation to create API key (called from action)
 export const createApiKeyInternal = internalMutation({
 	args: {
-		accountId: v.id("accounts"),
 		name: v.string(),
 		keyHash: v.string(),
 		keyPrefix: v.string(),
@@ -63,24 +62,11 @@ export const createApiKeyInternal = internalMutation({
 		const userId = await auth.getUserId(ctx);
 		if (!userId) throw new Error("Unauthorized");
 
-		// Check user has access to account
-		const membership = await ctx.db
-			.query("accountMembers")
-			.withIndex("by_account_user", (q) =>
-				q.eq("accountId", args.accountId).eq("userId", userId),
-			)
-			.first();
-
-		if (!membership || membership.role === "member") {
-			throw new Error("Only admins and owners can create API keys");
-		}
-
 		await ctx.db.insert("apiKeys", {
-			accountId: args.accountId,
+			userId,
 			name: args.name,
 			keyHash: args.keyHash,
 			keyPrefix: args.keyPrefix,
-			createdBy: userId,
 			scopes: args.scopes,
 			expiresAt: args.expiresInDays
 				? Date.now() + args.expiresInDays * 24 * 60 * 60 * 1000
@@ -90,23 +76,14 @@ export const createApiKeyInternal = internalMutation({
 });
 
 export const listApiKeys = query({
-	args: { accountId: v.id("accounts") },
-	handler: async (ctx, args) => {
+	args: {},
+	handler: async (ctx) => {
 		const userId = await auth.getUserId(ctx);
 		if (!userId) return [];
 
-		const membership = await ctx.db
-			.query("accountMembers")
-			.withIndex("by_account_user", (q) =>
-				q.eq("accountId", args.accountId).eq("userId", userId),
-			)
-			.first();
-
-		if (!membership) return [];
-
 		const keys = await ctx.db
 			.query("apiKeys")
-			.withIndex("by_account", (q) => q.eq("accountId", args.accountId))
+			.withIndex("by_user", (q) => q.eq("userId", userId))
 			.collect();
 
 		// Don't return the hash, just metadata
@@ -131,15 +108,9 @@ export const revokeApiKey = mutation({
 		const key = await ctx.db.get(args.keyId);
 		if (!key) throw new Error("API key not found");
 
-		const membership = await ctx.db
-			.query("accountMembers")
-			.withIndex("by_account_user", (q) =>
-				q.eq("accountId", key.accountId).eq("userId", userId),
-			)
-			.first();
-
-		if (!membership || membership.role === "member") {
-			throw new Error("Only admins and owners can revoke API keys");
+		// Users can only revoke their own keys
+		if (key.userId !== userId) {
+			throw new Error("Unauthorized");
 		}
 
 		await ctx.db.delete(args.keyId);
@@ -150,7 +121,7 @@ export const revokeApiKey = mutation({
 // Internal queries for MCP (API key auth)
 // ============================================
 
-// Internal query to validate by hash
+// Internal query to validate by hash — returns userId and user's accounts
 export const validateApiKeyInternal = internalQuery({
 	args: { keyHash: v.string() },
 	handler: async (ctx, args) => {
@@ -166,18 +137,38 @@ export const validateApiKeyInternal = internalQuery({
 			return null;
 		}
 
-		const account = await ctx.db.get(key.accountId);
-		if (!account) return null;
+		// Support old keys that have createdBy but no userId (migration compat)
+		const keyUserId = key.userId ?? key.createdBy;
+		if (!keyUserId) return null;
+
+		// Get all accounts the user has access to
+		const memberships = await ctx.db
+			.query("accountMembers")
+			.withIndex("by_user", (q) => q.eq("userId", keyUserId))
+			.collect();
+
+		const accounts = await Promise.all(
+			memberships.map(async (m) => {
+				const account = await ctx.db.get(m.accountId);
+				if (!account) return null;
+				return {
+					_id: account._id,
+					name: account.name,
+					phoneNumber: account.phoneNumber,
+					status: account.status,
+				};
+			}),
+		);
+
+		const activeAccounts = accounts.filter(
+			(a) => a !== null && (a.status === "active" || a.status === "pending_name_review"),
+		);
 
 		return {
 			keyId: key._id,
-			accountId: key.accountId,
+			userId: keyUserId,
 			scopes: key.scopes,
-			account: {
-				_id: account._id,
-				name: account.name,
-				phoneNumber: account.phoneNumber,
-			},
+			accounts: activeAccounts,
 		};
 	},
 });
@@ -187,6 +178,81 @@ export const updateApiKeyLastUsed = internalMutation({
 	args: { keyId: v.id("apiKeys") },
 	handler: async (ctx, args) => {
 		await ctx.db.patch(args.keyId, { lastUsedAt: Date.now() });
+	},
+});
+
+// ============================================
+// Internal: resolve accountId from user's accounts
+// ============================================
+
+/**
+ * Resolve accountId for an MCP tool call.
+ * - If user has exactly 1 active account → auto-select
+ * - If phone is provided → find the account that owns that phone number
+ * - Otherwise → error listing available accounts
+ */
+export const resolveAccountId = internalQuery({
+	args: {
+		userId: v.id("users"),
+		phone: v.optional(v.string()),
+	},
+	handler: async (ctx, args) => {
+		const memberships = await ctx.db
+			.query("accountMembers")
+			.withIndex("by_user", (q) => q.eq("userId", args.userId))
+			.collect();
+
+		const accounts = (
+			await Promise.all(
+				memberships.map(async (m) => {
+					const account = await ctx.db.get(m.accountId);
+					if (!account) return null;
+					if (account.status !== "active" && account.status !== "pending_name_review")
+						return null;
+					return account;
+				}),
+			)
+		).filter((a) => a !== null);
+
+		if (accounts.length === 0) {
+			return { error: "No active WhatsApp accounts found for this user." };
+		}
+
+		// If only 1 account → auto-select
+		const firstAccount = accounts[0];
+		if (accounts.length === 1 && firstAccount) {
+			return { accountId: firstAccount._id };
+		}
+
+		// If phone provided → match by phone number
+		if (args.phone) {
+			// Try to find which account has a contact with this phone
+			const waId = args.phone.replace(/^\+/, "");
+			for (const account of accounts) {
+				const contact = await ctx.db
+					.query("contacts")
+					.withIndex("by_account_wa_id", (q) =>
+						q.eq("accountId", account._id).eq("waId", waId),
+					)
+					.first();
+				if (contact) {
+					return { accountId: account._id };
+				}
+			}
+
+			// No existing contact — use the first active account as default
+			if (firstAccount) {
+				return { accountId: firstAccount._id };
+			}
+		}
+
+		// Multiple accounts, no disambiguation → list them
+		const accountList = accounts
+			.map((a) => `  - ${a.name} (${a.phoneNumber})`)
+			.join("\n");
+		return {
+			error: `Multiple WhatsApp accounts available. Specify which account to use:\n${accountList}`,
+		};
 	},
 });
 

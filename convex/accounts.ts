@@ -578,7 +578,7 @@ export const remove = mutation({
 			throw new Error("Only owners can delete accounts");
 		}
 
-		// Delete all related data
+		// Delete all related data (apiKeys are user-scoped, not deleted with account)
 		const tables = [
 			"messages",
 			"conversations",
@@ -586,7 +586,6 @@ export const remove = mutation({
 			"templates",
 			"accountMembers",
 			"webhookLogs",
-			"apiKeys",
 		] as const;
 
 		for (const table of tables) {

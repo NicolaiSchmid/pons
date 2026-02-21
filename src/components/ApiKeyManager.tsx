@@ -28,10 +28,6 @@ import { Separator } from "@/components/ui/separator";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
-interface ApiKeyManagerProps {
-	accountId: Id<"accounts">;
-}
-
 const AVAILABLE_SCOPES = [
 	{
 		id: "read",
@@ -50,8 +46,8 @@ const AVAILABLE_SCOPES = [
 	},
 ];
 
-export function ApiKeyManager({ accountId }: ApiKeyManagerProps) {
-	const apiKeys = useQuery(api.mcp.listApiKeys, { accountId });
+export function ApiKeyManager() {
+	const apiKeys = useQuery(api.mcp.listApiKeys, {});
 	const createApiKey = useAction(api.mcp.createApiKey);
 	const revokeApiKey = useMutation(api.mcp.revokeApiKey);
 
@@ -83,7 +79,6 @@ export function ApiKeyManager({ accountId }: ApiKeyManagerProps) {
 
 		try {
 			const { apiKey } = await createApiKey({
-				accountId,
 				name: newKeyName.trim(),
 				scopes: newKeyScopes,
 				expiresInDays: expiresInDays ? Number(expiresInDays) : undefined,

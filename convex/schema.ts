@@ -265,17 +265,21 @@ export default defineSchema({
 		.index("by_account", ["accountId"])
 		.index("by_processed", ["processed"]),
 
-	// API keys for MCP authentication
+	// API keys for MCP authentication — scoped to user, not account.
+	// A single key grants access to ALL accounts the user is a member of.
 	apiKeys: defineTable({
-		accountId: v.id("accounts"),
+		// New field: user who owns this key (all accounts accessible)
+		userId: v.optional(v.id("users")), // TODO: make required after migration
 		name: v.string(), // e.g., "Claude Desktop", "Cursor"
 		keyHash: v.string(), // SHA-256 hash of the API key
 		keyPrefix: v.string(), // First 8 chars for identification (e.g., "pons_abc1")
-		createdBy: v.id("users"),
 		lastUsedAt: v.optional(v.number()),
 		expiresAt: v.optional(v.number()),
 		scopes: v.array(v.string()), // e.g., ["read", "write", "send"]
+		// Deprecated — kept for backward compat during migration
+		accountId: v.optional(v.id("accounts")),
+		createdBy: v.optional(v.id("users")),
 	})
-		.index("by_account", ["accountId"])
+		.index("by_user", ["userId"])
 		.index("by_key_hash", ["keyHash"]),
 });

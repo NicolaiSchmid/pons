@@ -213,6 +213,10 @@ export const sendTemplateMessage = internalAction({
 
 		const accessToken = await resolveAccessToken(ctx, account.ownerId);
 
+		console.log(
+			`sendTemplateMessage: accountId=${args.accountId}, phoneNumberId=${account.phoneNumberId}, ownerId=${account.ownerId}, status=${account.status}, to=${args.to}, template=${args.templateName}, tokenPrefix=${accessToken.substring(0, 20)}...`,
+		);
+
 		const messageId = await ctx.runMutation(
 			internal.messages.createOutboundInternal,
 			{
