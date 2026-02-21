@@ -31,7 +31,24 @@ async function callTool(
 	toolArgs: Record<string, unknown>,
 ): Promise<unknown> {
 	try {
-		return await convex.action(api.gateway.mcpTool, { apiKey, tool, toolArgs });
+		const result = await convex.action(api.gateway.mcpTool, {
+			apiKey,
+			tool,
+			toolArgs,
+		});
+
+		// Gateway returns { error: true, message } instead of throwing
+		// so Convex doesn't strip the error message.
+		if (
+			result &&
+			typeof result === "object" &&
+			"error" in result &&
+			(result as { error: boolean }).error
+		) {
+			throw new Error((result as { message: string }).message);
+		}
+
+		return result;
 	} catch (error) {
 		const msg = error instanceof Error ? error.message : String(error);
 		console.error(`[pons-mcp] callTool("${tool}") failed:`, msg);

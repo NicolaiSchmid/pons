@@ -72,90 +72,115 @@ export const mcpTool = action({
 		}
 
 		// 3. Dispatch to internal functions
+		// Wrapped in try/catch so Convex surfaces the real error message
+		// instead of a generic "Server Error" to MCP clients.
 		const toolArgs = args.toolArgs as Record<string, unknown>;
 
-		switch (args.tool) {
-			case "list_conversations": {
-				return ctx.runQuery(internal.mcp.listConversationsInternal, {
-					accountId,
-					limit: (toolArgs.limit as number | undefined) ?? 50,
-				});
-			}
-			case "list_unanswered": {
-				return ctx.runQuery(internal.mcp.listUnansweredInternal, {
-					accountId,
-					limit: (toolArgs.limit as number | undefined) ?? 20,
-				});
-			}
-			case "get_conversation": {
-				return ctx.runQuery(internal.mcp.getConversationInternal, {
-					accountId,
-					conversationId: toolArgs.conversationId as Id<"conversations">,
-					messageLimit: (toolArgs.messageLimit as number | undefined) ?? 50,
-				});
-			}
-			case "search_messages": {
-				return ctx.runQuery(internal.mcp.searchMessagesInternal, {
-					accountId,
-					query: toolArgs.query as string,
-					limit: (toolArgs.limit as number | undefined) ?? 20,
-				});
-			}
-			case "list_templates": {
-				return ctx.runQuery(internal.mcp.listTemplatesInternal, {
-					accountId,
-				});
-			}
-			case "send_text": {
-				const contact = await ctx.runMutation(internal.mcp.getOrCreateContact, {
-					accountId,
-					phone: toolArgs.phone as string,
-					name: toolArgs.name as string | undefined,
-				});
-
-				return ctx.runAction(internal.whatsapp.sendTextMessage, {
-					accountId,
-					conversationId: contact.conversationId,
-					to: toolArgs.phone as string,
-					text: toolArgs.text as string,
-					replyToMessageId: toolArgs.replyToMessageId as string | undefined,
-				});
-			}
-			case "send_template": {
-				const templateContact = await ctx.runMutation(
-					internal.mcp.getOrCreateContact,
-					{
+		try {
+			switch (args.tool) {
+				case "list_conversations": {
+					return await ctx.runQuery(
+						internal.mcp.listConversationsInternal,
+						{
+							accountId,
+							limit: (toolArgs.limit as number | undefined) ?? 50,
+						},
+					);
+				}
+				case "list_unanswered": {
+					return await ctx.runQuery(internal.mcp.listUnansweredInternal, {
 						accountId,
-						phone: toolArgs.phone as string,
-					},
-				);
+						limit: (toolArgs.limit as number | undefined) ?? 20,
+					});
+				}
+				case "get_conversation": {
+					return await ctx.runQuery(internal.mcp.getConversationInternal, {
+						accountId,
+						conversationId:
+							toolArgs.conversationId as Id<"conversations">,
+						messageLimit:
+							(toolArgs.messageLimit as number | undefined) ?? 50,
+					});
+				}
+				case "search_messages": {
+					return await ctx.runQuery(internal.mcp.searchMessagesInternal, {
+						accountId,
+						query: toolArgs.query as string,
+						limit: (toolArgs.limit as number | undefined) ?? 20,
+					});
+				}
+				case "list_templates": {
+					return await ctx.runQuery(internal.mcp.listTemplatesInternal, {
+						accountId,
+					});
+				}
+				case "send_text": {
+					const contact = await ctx.runMutation(
+						internal.mcp.getOrCreateContact,
+						{
+							accountId,
+							phone: toolArgs.phone as string,
+							name: toolArgs.name as string | undefined,
+						},
+					);
 
-				return ctx.runAction(internal.whatsapp.sendTemplateMessage, {
-					accountId,
-					conversationId: templateContact.conversationId,
-					to: toolArgs.phone as string,
-					templateName: toolArgs.templateName as string,
-					templateLanguage: toolArgs.templateLanguage as string,
-					components: toolArgs.components,
-				});
+					return await ctx.runAction(internal.whatsapp.sendTextMessage, {
+						accountId,
+						conversationId: contact.conversationId,
+						to: toolArgs.phone as string,
+						text: toolArgs.text as string,
+						replyToMessageId: toolArgs.replyToMessageId as
+							| string
+							| undefined,
+					});
+				}
+				case "send_template": {
+					const templateContact = await ctx.runMutation(
+						internal.mcp.getOrCreateContact,
+						{
+							accountId,
+							phone: toolArgs.phone as string,
+						},
+					);
+
+					return await ctx.runAction(
+						internal.whatsapp.sendTemplateMessage,
+						{
+							accountId,
+							conversationId: templateContact.conversationId,
+							to: toolArgs.phone as string,
+							templateName: toolArgs.templateName as string,
+							templateLanguage: toolArgs.templateLanguage as string,
+							components: toolArgs.components,
+						},
+					);
+				}
+				case "mark_as_read": {
+					return await ctx.runAction(internal.whatsapp.markAsRead, {
+						accountId,
+						waMessageId: toolArgs.waMessageId as string,
+					});
+				}
+				case "send_reaction": {
+					return await ctx.runAction(internal.whatsapp.sendReaction, {
+						accountId,
+						conversationId:
+							toolArgs.conversationId as Id<"conversations">,
+						to: toolArgs.phone as string,
+						messageId: toolArgs.waMessageId as string,
+						emoji: toolArgs.emoji as string,
+					});
+				}
+				default:
+					throw new Error(`Unknown tool: ${args.tool}`);
 			}
-			case "mark_as_read": {
-				return ctx.runAction(internal.whatsapp.markAsRead, {
-					accountId,
-					waMessageId: toolArgs.waMessageId as string,
-				});
-			}
-			case "send_reaction": {
-				return ctx.runAction(internal.whatsapp.sendReaction, {
-					accountId,
-					conversationId: toolArgs.conversationId as Id<"conversations">,
-					to: toolArgs.phone as string,
-					messageId: toolArgs.waMessageId as string,
-					emoji: toolArgs.emoji as string,
-				});
-			}
-			default:
-				throw new Error(`Unknown tool: ${args.tool}`);
+		} catch (error) {
+			const message =
+				error instanceof Error ? error.message : String(error);
+			// Re-throw with a ConvexError-style message that won't be stripped
+			// by Convex's action error handling. We use a structured return
+			// instead of throwing so the MCP client gets the real error.
+			return { error: true, message };
 		}
 	},
 });
