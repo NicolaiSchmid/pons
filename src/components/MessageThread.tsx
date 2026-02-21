@@ -201,23 +201,30 @@ export function MessageThread({
 											: "bg-muted text-foreground",
 									)}
 								>
-									{msg.type === "text" ? (
-										<p className="whitespace-pre-wrap text-sm leading-relaxed">
-											{msg.text}
-										</p>
-									) : (
-										<div className="flex items-center gap-1.5 text-muted-foreground text-sm italic">
-											{msg.type === "image" ? (
-												<Image className="h-3.5 w-3.5" />
-											) : (
-												<Paperclip className="h-3.5 w-3.5" />
-											)}
-											<span>
-												{msg.type}
-												{msg.caption ? `: ${msg.caption}` : ""}
-											</span>
-										</div>
-									)}
+								{msg.type === "text" ? (
+									<p className="whitespace-pre-wrap text-sm leading-relaxed">
+										{msg.text}
+									</p>
+								) : msg.type === "template" ? (
+									<div className="flex items-center gap-1.5 text-sm">
+										<FileText className="h-3.5 w-3.5 shrink-0 text-pons-green" />
+										<span className="italic text-muted-foreground">
+											Template: {msg.templateName ?? "unknown"}
+										</span>
+									</div>
+								) : (
+									<div className="flex items-center gap-1.5 text-muted-foreground text-sm italic">
+										{msg.type === "image" ? (
+											<Image className="h-3.5 w-3.5" />
+										) : (
+											<Paperclip className="h-3.5 w-3.5" />
+										)}
+										<span>
+											{msg.type}
+											{msg.caption ? `: ${msg.caption}` : ""}
+										</span>
+									</div>
+								)}
 									<div
 										className={cn(
 											"mt-1 flex items-center gap-1 text-[11px]",
