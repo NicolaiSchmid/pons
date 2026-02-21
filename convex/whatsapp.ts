@@ -7,6 +7,48 @@ import { auth } from "./auth";
 const META_API_VERSION = "v22.0";
 const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`;
 
+/** Structured Meta Graph API error response. */
+type MetaApiError = {
+	message: string;
+	type?: string;
+	code: number;
+	error_subcode?: number;
+	error_data?: { details?: string };
+	fbtrace_id?: string;
+};
+
+type MetaMessagesResponse = {
+	messages?: Array<{ id: string }>;
+	error?: MetaApiError;
+};
+
+/**
+ * Build an actionable error message from a Meta API error.
+ * Detects well-known error codes and appends remediation hints.
+ */
+const formatMetaError = (error: MetaApiError | undefined): string => {
+	if (!error) return "Unknown Meta API error";
+
+	const base = `Meta API error #${error.code}${error.error_subcode ? ` (subcode ${error.error_subcode})` : ""}: ${error.message}`;
+
+	// #133010 — Phone number not registered with Cloud API
+	if (error.error_subcode === 133010 || error.message.includes("not registered")) {
+		return `${base}\n\nThe WhatsApp phone number is not registered with the Cloud API. Register it first:\n1. Go to pons.chat and complete the phone registration flow, OR\n2. Call POST /{phone_number_id}/register with messaging_product=whatsapp and a 6-digit pin.`;
+	}
+
+	// #131030 — Recipient phone number not on WhatsApp
+	if (error.error_subcode === 131030) {
+		return `${base}\n\nThe recipient phone number is not a valid WhatsApp user.`;
+	}
+
+	// #132000 — Template not found / not approved
+	if (error.code === 132000 || error.error_subcode === 2388093) {
+		return `${base}\n\nThe template was not found or is not approved. Check the template name and language code.`;
+	}
+
+	return base;
+};
+
 /**
  * Resolve the Facebook OAuth token for an account's owner.
  * Used in actions that can't access the DB directly.
@@ -95,20 +137,18 @@ export const sendTextMessage = internalAction({
 				},
 			);
 
-			const data = (await response.json()) as {
-				messages?: Array<{ id: string }>;
-				error?: { code: number; message: string };
-			};
+			const data = (await response.json()) as MetaMessagesResponse;
 
 			if (!response.ok) {
+				const errorMsg = formatMetaError(data.error);
 				await ctx.runMutation(internal.messages.updateAfterSend, {
 					messageId,
 					waMessageId: `failed_${Date.now()}`,
 					status: "failed",
 					errorCode: data.error?.code?.toString(),
-					errorMessage: data.error?.message,
+					errorMessage: errorMsg,
 				});
-				throw new Error(data.error?.message ?? "Failed to send message");
+				throw new Error(errorMsg);
 			}
 
 			const waMessageId = data.messages?.[0]?.id ?? `unknown_${Date.now()}`;
@@ -212,20 +252,18 @@ export const sendTemplateMessage = internalAction({
 				},
 			);
 
-			const data = (await response.json()) as {
-				messages?: Array<{ id: string }>;
-				error?: { code: number; message: string };
-			};
+			const data = (await response.json()) as MetaMessagesResponse;
 
 			if (!response.ok) {
+				const errorMsg = formatMetaError(data.error);
 				await ctx.runMutation(internal.messages.updateAfterSend, {
 					messageId,
 					waMessageId: `failed_${Date.now()}`,
 					status: "failed",
 					errorCode: data.error?.code?.toString(),
-					errorMessage: data.error?.message,
+					errorMessage: errorMsg,
 				});
-				throw new Error(data.error?.message ?? "Failed to send template");
+				throw new Error(errorMsg);
 			}
 
 			const waMessageId = data.messages?.[0]?.id ?? `unknown_${Date.now()}`;

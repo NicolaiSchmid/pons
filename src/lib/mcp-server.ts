@@ -43,9 +43,10 @@ async function callTool(
 			result &&
 			typeof result === "object" &&
 			"error" in result &&
-			(result as { error: boolean }).error
+			(result as Record<string, unknown>).error === true
 		) {
-			throw new Error((result as { message: string }).message);
+			const msg = (result as Record<string, unknown>).message;
+			throw new Error(typeof msg === "string" ? msg : "Unknown gateway error");
 		}
 
 		return result;
