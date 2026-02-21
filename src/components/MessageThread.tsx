@@ -151,15 +151,17 @@ export function MessageThread({
 			<div className="flex shrink-0 items-center justify-between border-b px-4 py-3">
 				<div className="flex items-center gap-3">
 					<div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted font-medium text-muted-foreground text-xs uppercase">
-						{getInitials(conversation.contact?.name)}
+						{getInitials(conversation.contact?.name, conversation.contact?.phone)}
 					</div>
 					<div>
 						<p className="font-medium text-foreground text-sm leading-none">
-							{conversation.contact?.name ?? "Unknown"}
+							{conversation.contact?.name ?? conversation.contact?.phone ?? "Unknown"}
 						</p>
-						<p className="mt-1 text-muted-foreground text-xs">
-							{conversation.contact?.phone ?? ""}
-						</p>
+						{conversation.contact?.name && conversation.contact?.phone && (
+							<p className="mt-1 text-muted-foreground text-xs">
+								{conversation.contact.phone}
+							</p>
+						)}
 					</div>
 				</div>
 				{!windowOpen && (
@@ -359,13 +361,16 @@ function StatusIcon({ status }: { status?: string }) {
 	}
 }
 
-function getInitials(name?: string): string {
-	if (!name) return "?";
-	return name
-		.split(" ")
-		.map((w) => w[0])
-		.join("")
-		.slice(0, 2);
+function getInitials(name?: string, phone?: string): string {
+	if (name) {
+		return name
+			.split(" ")
+			.map((w) => w[0])
+			.join("")
+			.slice(0, 2);
+	}
+	if (phone) return phone.slice(-2);
+	return "?";
 }
 
 function formatTime(timestamp: number): string {
