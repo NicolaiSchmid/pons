@@ -465,3 +465,95 @@ export const autoVerifyAndRegister = action({
 		}
 	},
 });
+
+// ============================================================================
+// REGISTER EXISTING NUMBER (already on WABA, not registered with Cloud API)
+// ============================================================================
+
+/**
+ * Register a phone number that already exists on the WABA but hasn't been
+ * registered with the Cloud API yet. This is the missing step when a user
+ * picks an "existing" number during setup.
+ *
+ * Transitions: registering → pending_name_review
+ *
+ * Meta API: POST /{phone_number_id}/register
+ */
+export const registerExistingNumber = action({
+	args: {
+		accountId: v.id("accounts"),
+		twoStepPin: v.string(), // 6-digit 2FA pin
+	},
+	handler: async (ctx, args) => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Unauthorized");
+
+		const account = await ctx.runQuery(internal.accounts.getInternal, {
+			accountId: args.accountId,
+		});
+		if (!account) throw new Error("Account not found");
+
+		const isMember = await ctx.runQuery(internal.accounts.checkMembership, {
+			accountId: args.accountId,
+			userId,
+		});
+		if (!isMember) throw new Error("Unauthorized");
+
+		if (account.status !== "registering") {
+			throw new Error(
+				`Cannot register in status: ${account.status}. Expected "registering".`,
+			);
+		}
+		if (!account.phoneNumberId) {
+			throw new Error("Phone number ID not set");
+		}
+
+		const token = await getFacebookToken(ctx, userId);
+
+		// Store the PIN
+		await ctx.runMutation(internal.accounts.transitionToRegistering, {
+			accountId: args.accountId,
+			twoStepPin: args.twoStepPin,
+		});
+
+		// Call Meta's /register endpoint
+		const regRes = await fetch(
+			`${META_API_BASE}/${account.phoneNumberId}/register`,
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					messaging_product: "whatsapp",
+					pin: args.twoStepPin,
+					access_token: token,
+				}),
+			},
+		);
+
+		if (!regRes.ok) {
+			const error = await regRes.json();
+			const errorMsg =
+				error.error?.message ?? `HTTP ${regRes.status}: ${regRes.statusText}`;
+			await ctx.runMutation(internal.accounts.transitionToFailed, {
+				accountId: args.accountId,
+				failedAtStep: "registering",
+				failedError: errorMsg,
+			});
+			throw new Error(`Registration failed: ${errorMsg}`);
+		}
+
+		// Registration successful — transition to pending_name_review
+		await ctx.runMutation(internal.accounts.transitionToPendingNameReview, {
+			accountId: args.accountId,
+		});
+
+		// Start name review polling
+		await ctx.scheduler.runAfter(
+			60 * 60 * 1000, // 1 hour
+			internal.nameReview.checkNameStatus,
+			{ accountId: args.accountId },
+		);
+
+		return { success: true };
+	},
+});

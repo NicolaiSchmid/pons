@@ -156,6 +156,8 @@ export const discoverAllNumbers = action({
 			display_phone_number: string;
 			verified_name: string;
 			quality_rating: string;
+			code_verification_status?: string;
+			status?: string;
 			businessName: string;
 			businessId: string;
 			wabaId: string;
@@ -190,6 +192,8 @@ export const discoverAllNumbers = action({
 			display_phone_number: string;
 			verified_name: string;
 			quality_rating: string;
+			code_verification_status?: string;
+			status?: string;
 			businessName: string;
 			businessId: string;
 			wabaId: string;
@@ -208,7 +212,7 @@ export const discoverAllNumbers = action({
 			// 3. For each WABA, get phone numbers
 			for (const waba of wabas) {
 				const phoneRes = await fetch(
-					`${META_API_BASE}/${waba.id}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating&access_token=${token}`,
+					`${META_API_BASE}/${waba.id}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,status&access_token=${token}`,
 				);
 				if (!phoneRes.ok) continue;
 				const phoneData = await phoneRes.json();
@@ -220,6 +224,8 @@ export const discoverAllNumbers = action({
 						display_phone_number: phone.display_phone_number,
 						verified_name: phone.verified_name,
 						quality_rating: phone.quality_rating,
+						code_verification_status: phone.code_verification_status,
+						status: phone.status,
 						businessName: biz.name,
 						businessId: biz.id,
 						wabaId: waba.id,

@@ -68,7 +68,7 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 	adding_number: ["code_requested"],
 	code_requested: ["verifying_code"],
 	verifying_code: ["registering"],
-	registering: ["pending_name_review"],
+	registering: ["registering", "pending_name_review"], // self-transition to store PIN
 	pending_name_review: ["active", "name_declined"],
 	// Terminal states — no transitions out (except retry from failed)
 	active: [],
@@ -189,9 +189,11 @@ export const checkMembership = internalQuery({
 // ============================================================================
 
 /**
- * Create an account for an existing (pre-registered) phone number.
- * The number is already on the WABA, so we skip straight to "active"
- * (or "pending_name_review" if we want to track that).
+ * Create an account for an existing phone number on the WABA.
+ *
+ * If the number is already registered with the Cloud API, sets status
+ * to "active". If not, sets status to "registering" so the UI can
+ * prompt for a 2FA PIN and call registerExistingNumber.
  */
 export const createExisting = mutation({
 	args: {
@@ -200,10 +202,13 @@ export const createExisting = mutation({
 		phoneNumberId: v.string(),
 		phoneNumber: v.string(),
 		displayName: v.string(),
+		isRegistered: v.optional(v.boolean()), // true if Meta says CONNECTED
 	},
 	handler: async (ctx, args) => {
 		const userId = await auth.getUserId(ctx);
 		if (!userId) throw new Error("Unauthorized");
+
+		const needsRegistration = args.isRegistered === false;
 
 		const accountId = await ctx.db.insert("accounts", {
 			ownerId: userId,
@@ -212,7 +217,7 @@ export const createExisting = mutation({
 			phoneNumberId: args.phoneNumberId,
 			phoneNumber: args.phoneNumber,
 			displayName: args.displayName,
-			status: "active",
+			status: needsRegistration ? "registering" : "active",
 			numberProvider: "existing",
 		});
 

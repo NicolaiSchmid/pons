@@ -43,6 +43,8 @@ type DiscoveredNumber = {
 	display_phone_number: string;
 	verified_name: string;
 	quality_rating: string;
+	code_verification_status?: string;
+	status?: string;
 	businessName: string;
 	businessId: string;
 	wabaId: string;
@@ -227,6 +229,9 @@ function AutoSetup({
 	const submitCode = useAction(api.phoneRegistration.submitCode);
 	const resendCode = useAction(api.phoneRegistration.resendCode);
 	const autoVerify = useAction(api.phoneRegistration.autoVerifyAndRegister);
+	const registerExisting = useAction(
+		api.phoneRegistration.registerExistingNumber,
+	);
 
 	// Twilio credentials
 	const twilioCredentials = useQuery(api.twilioConnect.getCredentials);
@@ -250,6 +255,9 @@ function AutoSetup({
 	const [selectedNumber, setSelectedNumber] = useState<DiscoveredNumber | null>(
 		null,
 	);
+
+	// PIN for existing numbers that need Cloud API registration
+	const [existingPin, setExistingPin] = useState("");
 
 	// BYON form state
 	const [byonPhone, setByonPhone] = useState("");
@@ -459,19 +467,39 @@ function AutoSetup({
 	// Connect existing number
 	const handleConnectExisting = async () => {
 		if (!selectedNumber) return;
+
+		// Check if the number needs Cloud API registration
+		const needsRegistration = selectedNumber.status !== "CONNECTED";
+
+		// If registration is needed, require a PIN
+		if (needsRegistration && existingPin.length !== 6) {
+			setError("Please enter a 6-digit PIN for WhatsApp two-step verification.");
+			return;
+		}
+
 		setLoading(true);
 		setError(null);
 
 		try {
 			await registerAppWebhook();
 			await subscribeWaba({ wabaId: selectedNumber.wabaId });
-			await createExisting({
+			const accountId = await createExisting({
 				name: selectedNumber.verified_name || selectedNumber.wabaName,
 				wabaId: selectedNumber.wabaId,
 				phoneNumberId: selectedNumber.id,
 				phoneNumber: selectedNumber.display_phone_number,
 				displayName: selectedNumber.verified_name,
+				isRegistered: !needsRegistration,
 			});
+
+			// If the number isn't registered with Cloud API, register it now
+			if (needsRegistration) {
+				await registerExisting({
+					accountId,
+					twoStepPin: existingPin,
+				});
+			}
+
 			setStep("complete");
 		} catch (err) {
 			setError(
@@ -1180,15 +1208,51 @@ function AutoSetup({
 						</div>
 					</div>
 
-					<div className="rounded-lg border border-pons-green/20 bg-pons-green/5 px-4 py-3">
-						<p className="text-pons-green text-sm">
-							Webhooks will be configured automatically. No manual setup needed.
-						</p>
-					</div>
+					{selectedNumber.status !== "CONNECTED" && (
+						<div className="space-y-3">
+							<div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
+								<p className="text-amber-600 text-sm">
+									This number needs to be registered with the WhatsApp Cloud API.
+									Enter a 6-digit PIN to complete registration.
+								</p>
+							</div>
+							<div>
+								<Label htmlFor="existing-pin">Two-Step Verification PIN</Label>
+								<Input
+									id="existing-pin"
+									type="text"
+									inputMode="numeric"
+									pattern="[0-9]*"
+									maxLength={6}
+									placeholder="000000"
+									value={existingPin}
+									onChange={(e) =>
+										setExistingPin(e.target.value.replace(/\D/g, ""))
+									}
+								/>
+								<p className="mt-1 text-muted-foreground text-xs">
+									Choose a 6-digit PIN for WhatsApp two-step verification.
+								</p>
+							</div>
+						</div>
+					)}
+
+					{selectedNumber.status === "CONNECTED" && (
+						<div className="rounded-lg border border-pons-green/20 bg-pons-green/5 px-4 py-3">
+							<p className="text-pons-green text-sm">
+								Webhooks will be configured automatically. No manual setup
+								needed.
+							</p>
+						</div>
+					)}
 
 					<Button
 						className="w-full bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
-						disabled={loading}
+						disabled={
+							loading ||
+							(selectedNumber.status !== "CONNECTED" &&
+								existingPin.length !== 6)
+						}
 						onClick={handleConnectExisting}
 						size="lg"
 					>
