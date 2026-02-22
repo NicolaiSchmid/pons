@@ -264,7 +264,7 @@ const HybridLayout: FC<{
 					</SidebarInset>
 				</div>
 			) : (
-				<div className="relative flex h-full justify-center overflow-hidden">
+				<div className="relative flex h-full justify-center overflow-hidden bg-sidebar">
 					{/* Curved corner SVG — connects the left border + top border */}
 					<AnimatePresence initial={false}>
 						{open && (
@@ -341,7 +341,7 @@ const HybridLayout: FC<{
 							width: open ? `calc(100vw - ${SIDEBAR_WIDTH}px)` : "100vw",
 							marginLeft: open ? `${SIDEBAR_WIDTH}px` : "0px",
 						}}
-						className="relative h-full shrink-0"
+						className="relative h-full shrink-0 bg-sidebar"
 						style={{
 							width: open ? `calc(100vw - ${SIDEBAR_WIDTH}px)` : "100vw",
 							marginLeft: open ? `${SIDEBAR_WIDTH}px` : "0px",
