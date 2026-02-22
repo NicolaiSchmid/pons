@@ -4,7 +4,17 @@ import { useQuery } from "convex/react";
 import { AlertCircle, FileText, MessageSquare } from "lucide-react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { ConversationList } from "@/components/ConversationList";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import {
+	Sidebar,
+	SidebarContent,
+	SidebarFooter,
+	SidebarHeader,
+	SidebarInset,
+	SidebarProvider,
+	SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
@@ -64,47 +74,50 @@ export default function AccountLayout({
 	};
 
 	return (
-		<div className="flex flex-1 overflow-hidden">
-			{/* Sidebar */}
-			<div className="flex w-80 shrink-0 flex-col border-r">
-				<Tabs
-					className="flex flex-1 flex-col gap-0 overflow-hidden"
-					onValueChange={handleTabChange}
-					value={activeTab}
-				>
-					<TabsList className="shrink-0 rounded-none border-b px-2 py-1.5">
-						<TabsTrigger className="text-xs" value="conversations">
-							<MessageSquare className="h-3.5 w-3.5" />
-							<span className="hidden lg:inline">Conversations</span>
-						</TabsTrigger>
-						<TabsTrigger className="text-xs" value="templates">
-							<FileText className="h-3.5 w-3.5" />
-							<span className="hidden lg:inline">Templates</span>
-						</TabsTrigger>
-					</TabsList>
+		<SidebarProvider
+			className="flex-1 overflow-hidden"
+			style={
+				{
+					"--sidebar-width": "20rem",
+				} as React.CSSProperties
+			}
+		>
+			<Sidebar collapsible="offcanvas">
+				<SidebarHeader className="p-0">
+					<Tabs
+						className="flex flex-col gap-0"
+						onValueChange={handleTabChange}
+						value={activeTab}
+					>
+						<TabsList className="shrink-0 rounded-none border-b px-2 py-1.5">
+							<TabsTrigger className="text-xs" value="conversations">
+								<MessageSquare className="h-3.5 w-3.5" />
+								Conversations
+							</TabsTrigger>
+							<TabsTrigger className="text-xs" value="templates">
+								<FileText className="h-3.5 w-3.5" />
+								Templates
+							</TabsTrigger>
+						</TabsList>
+					</Tabs>
+				</SidebarHeader>
 
-					<TabsContent className="flex-1 overflow-hidden" value="conversations">
-						{isUsable ? (
-							<ConversationList
-								accountId={accountId}
-								selectedConversationId={conversationId}
-							/>
-						) : (
-							<EmptyState
-								description="This account isn't ready for messaging yet"
-								icon={AlertCircle}
-								title="Account not ready"
-							/>
-						)}
-					</TabsContent>
+				<SidebarContent className="overflow-hidden">
+					{isTemplatesView ? null : isUsable ? (
+						<ConversationList
+							accountId={accountId}
+							selectedConversationId={conversationId}
+						/>
+					) : (
+						<EmptyState
+							description="This account isn't ready for messaging yet"
+							icon={AlertCircle}
+							title="Account not ready"
+						/>
+					)}
+				</SidebarContent>
 
-					<TabsContent className="flex-1 overflow-hidden" value="templates">
-						{/* Templates content renders in the right pane via route */}
-					</TabsContent>
-				</Tabs>
-
-				{/* Footer links */}
-				<div className="flex shrink-0 gap-3 px-4 py-3">
+				<SidebarFooter className="flex-row gap-3 px-4 py-3">
 					<a
 						className="text-[11px] text-muted-foreground underline transition hover:text-foreground"
 						href="/docs"
@@ -123,11 +136,19 @@ export default function AccountLayout({
 					>
 						Privacy
 					</a>
-				</div>
-			</div>
+				</SidebarFooter>
+			</Sidebar>
 
-			{/* Right pane */}
-			<div className="flex-1 overflow-hidden">{children}</div>
-		</div>
+			<SidebarInset className="overflow-hidden">
+				<header className="flex h-10 shrink-0 items-center gap-2 border-b px-3">
+					<SidebarTrigger className="-ml-1" />
+					<Separator className="!h-4" orientation="vertical" />
+					<span className="truncate text-muted-foreground text-xs">
+						{selectedAccount?.displayName ?? "WhatsApp"}
+					</span>
+				</header>
+				<div className="flex-1 overflow-hidden">{children}</div>
+			</SidebarInset>
+		</SidebarProvider>
 	);
 }
