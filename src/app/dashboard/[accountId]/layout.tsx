@@ -2,20 +2,14 @@
 
 import { useQuery } from "convex/react";
 import { AlertCircle, FileText, MessageSquare } from "lucide-react";
-import Link from "next/link";
-import { useParams, usePathname } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { ConversationList } from "@/components/ConversationList";
-import { cn } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 /** Statuses that allow normal messaging */
 const USABLE_STATUSES = new Set(["active", "pending_name_review"]);
-
-const NAV_ITEMS = [
-	{ href: "", icon: MessageSquare, label: "Conversations" },
-	{ href: "/templates", icon: FileText, label: "Templates" },
-] as const;
 
 function EmptyState({
 	icon: Icon,
@@ -46,6 +40,7 @@ export default function AccountLayout({
 }) {
 	const params = useParams();
 	const pathname = usePathname();
+	const router = useRouter();
 	const accountId = params.accountId as Id<"accounts">;
 	const conversationId = params.conversationId as
 		| Id<"conversations">
@@ -57,44 +52,39 @@ export default function AccountLayout({
 		: false;
 
 	const basePath = `/dashboard/${accountId}`;
-	const SUB_PAGES = ["/templates"];
-	const isConversationsView = !SUB_PAGES.some((p) =>
-		pathname.startsWith(`${basePath}${p}`),
-	);
+	const isTemplatesView = pathname.startsWith(`${basePath}/templates`);
+	const activeTab = isTemplatesView ? "templates" : "conversations";
+
+	const handleTabChange = (value: string) => {
+		if (value === "templates") {
+			router.push(`${basePath}/templates`);
+		} else {
+			router.push(basePath);
+		}
+	};
 
 	return (
 		<div className="flex flex-1 overflow-hidden">
 			{/* Sidebar */}
 			<div className="flex w-80 shrink-0 flex-col border-r">
-				{/* Nav tabs */}
-				<nav className="flex shrink-0 gap-1 border-b px-3 py-2">
-					{NAV_ITEMS.map(({ href, icon: Icon, label }) => {
-						const fullHref = `${basePath}${href}`;
-						const isActive =
-							href === "" ? isConversationsView : pathname.startsWith(fullHref);
+				<Tabs
+					className="flex flex-1 flex-col gap-0 overflow-hidden"
+					onValueChange={handleTabChange}
+					value={activeTab}
+				>
+					<TabsList className="shrink-0 rounded-none border-b px-2 py-1.5">
+						<TabsTrigger className="text-xs" value="conversations">
+							<MessageSquare className="h-3.5 w-3.5" />
+							<span className="hidden lg:inline">Conversations</span>
+						</TabsTrigger>
+						<TabsTrigger className="text-xs" value="templates">
+							<FileText className="h-3.5 w-3.5" />
+							<span className="hidden lg:inline">Templates</span>
+						</TabsTrigger>
+					</TabsList>
 
-						return (
-							<Link
-								className={cn(
-									"flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs transition",
-									isActive
-										? "bg-muted font-medium text-foreground"
-										: "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-								)}
-								href={fullHref}
-								key={href}
-							>
-								<Icon className="h-3.5 w-3.5" />
-								<span className="hidden lg:inline">{label}</span>
-							</Link>
-						);
-					})}
-				</nav>
-
-				{/* Conversation list (only when on conversations view) */}
-				<div className="flex-1 overflow-y-auto">
-					{isConversationsView ? (
-						isUsable ? (
+					<TabsContent className="flex-1 overflow-hidden" value="conversations">
+						{isUsable ? (
 							<ConversationList
 								accountId={accountId}
 								selectedConversationId={conversationId}
@@ -105,9 +95,13 @@ export default function AccountLayout({
 								icon={AlertCircle}
 								title="Account not ready"
 							/>
-						)
-					) : null}
-				</div>
+						)}
+					</TabsContent>
+
+					<TabsContent className="flex-1 overflow-hidden" value="templates">
+						{/* Templates content renders in the right pane via route */}
+					</TabsContent>
+				</Tabs>
 
 				{/* Footer links */}
 				<div className="flex shrink-0 gap-3 px-4 py-3">
