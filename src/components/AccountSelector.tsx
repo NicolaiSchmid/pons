@@ -18,17 +18,17 @@ interface AccountSelectorProps {
 
 function StatusDot({ status }: { status: string }) {
 	if (status === "active") {
-		return <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />;
+		return <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />;
 	}
 	if (status === "pending_name_review") {
-		return <Clock className="h-3 w-3 text-yellow-400" />;
+		return <Clock className="h-3 w-3 text-yellow-600" />;
 	}
 	if (status === "failed" || status === "name_declined") {
 		return <AlertCircle className="h-3 w-3 text-red-400" />;
 	}
 	// In-progress states
 	return (
-		<span className="h-1.5 w-1.5 animate-pulse rounded-full bg-yellow-400" />
+		<span className="h-1.5 w-1.5 animate-pulse rounded-full bg-yellow-500" />
 	);
 }
 
@@ -103,7 +103,7 @@ export function AccountSelector({
 								)}
 							</div>
 							{selectedAccountId === account._id && (
-								<Check className="h-3.5 w-3.5 text-pons-green" />
+								<Check className="h-3.5 w-3.5 text-pons-accent" />
 							)}
 						</DropdownMenuItem>
 					) : null,

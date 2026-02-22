@@ -24,11 +24,11 @@ export default function ReAuth() {
 	return (
 		<main className="flex min-h-screen items-center justify-center">
 			<div className="flex flex-col items-center gap-4">
-				<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-pons-green/10 ring-1 ring-pons-green/20">
-					<MessageSquare className="h-5 w-5 text-pons-green" />
+				<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-pons-accent/10 ring-1 ring-pons-accent/20">
+					<MessageSquare className="h-5 w-5 text-pons-accent" />
 				</div>
 				<div className="flex flex-col items-center gap-1.5">
-					<div className="h-5 w-5 animate-spin rounded-full border-2 border-pons-green border-t-transparent" />
+					<div className="h-5 w-5 animate-spin rounded-full border-2 border-pons-accent border-t-transparent" />
 					<p className="text-muted-foreground text-sm">
 						Redirecting to Facebook...
 					</p>

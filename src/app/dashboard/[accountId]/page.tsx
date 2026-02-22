@@ -31,7 +31,7 @@ export default function AccountPage() {
 		return (
 			<div className="flex h-full items-center justify-center">
 				<div className="flex flex-col items-center gap-3">
-					<div className="h-5 w-5 animate-spin rounded-full border-2 border-pons-green border-t-transparent" />
+					<div className="h-5 w-5 animate-spin rounded-full border-2 border-pons-accent border-t-transparent" />
 					<p className="text-muted-foreground text-sm">Loading...</p>
 				</div>
 			</div>
@@ -42,7 +42,7 @@ export default function AccountPage() {
 		return (
 			<div className="flex h-full flex-col items-center justify-center gap-3 p-8">
 				<p className="font-medium text-foreground text-sm">Account not found</p>
-				<Link className="text-pons-green text-sm underline" href="/dashboard">
+				<Link className="text-pons-accent text-sm underline" href="/dashboard">
 					Go back
 				</Link>
 			</div>
@@ -106,7 +106,7 @@ export default function AccountPage() {
 				</div>
 				<div className="flex items-center gap-2">
 					<Button
-						className="gap-1.5 bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
+						className="gap-1.5 bg-pons-accent text-primary-foreground hover:bg-pons-accent-bright"
 						disabled={retrying}
 						onClick={handleRetry}
 						size="sm"
@@ -146,7 +146,7 @@ export default function AccountPage() {
 						</span>
 						. You&apos;ll need to submit a new name via{" "}
 						<a
-							className="text-pons-green underline underline-offset-2 hover:text-pons-green-bright"
+							className="text-pons-accent underline underline-offset-2 hover:text-pons-accent-bright"
 							href="https://business.facebook.com/settings/whatsapp-business-accounts"
 							rel="noopener noreferrer"
 							target="_blank"
@@ -180,7 +180,7 @@ export default function AccountPage() {
 	return (
 		<div className="flex h-full flex-col items-center justify-center gap-4 p-8">
 			<div className="flex h-12 w-12 items-center justify-center rounded-full bg-yellow-500/10">
-				<Clock className="h-6 w-6 animate-pulse text-yellow-400" />
+				<Clock className="h-6 w-6 animate-pulse text-yellow-600" />
 			</div>
 			<div className="text-center">
 				<p className="font-display font-semibold text-foreground">

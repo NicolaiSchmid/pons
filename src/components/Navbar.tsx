@@ -23,8 +23,8 @@ export function Navbar({
 			<div className="flex items-center gap-5">
 				{/* Brand */}
 				<Link className="flex items-center gap-2" href="/">
-					<div className="flex h-7 w-7 items-center justify-center rounded-md bg-pons-green/10 ring-1 ring-pons-green/20">
-						<MessageSquare className="h-3.5 w-3.5 text-pons-green" />
+					<div className="flex h-7 w-7 items-center justify-center rounded-md bg-pons-accent/10 ring-1 ring-pons-accent/20">
+						<MessageSquare className="h-3.5 w-3.5 text-pons-accent" />
 					</div>
 					<span className="font-display font-semibold text-sm tracking-tight">
 						Pons

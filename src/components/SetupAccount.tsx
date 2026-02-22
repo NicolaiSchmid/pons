@@ -127,7 +127,7 @@ export function SetupAccount({ onComplete }: SetupAccountProps) {
 		return (
 			<SetupShell>
 				<div className="flex flex-col items-center gap-4 py-12">
-					<Loader2 className="h-6 w-6 animate-spin text-pons-green" />
+					<Loader2 className="h-6 w-6 animate-spin text-pons-accent" />
 					<div className="text-center">
 						<p className="font-medium text-sm">
 							Scanning your WhatsApp Business accounts...
@@ -792,12 +792,12 @@ function AutoSetup({
 						{/* Bring your own number */}
 						{newNumberPanel !== "byon" ? (
 							<Item
-								className="cursor-pointer hover:border-pons-green/40 hover:bg-card/70"
+								className="cursor-pointer hover:border-pons-accent/40 hover:bg-card/70"
 								onClick={() => setNewNumberPanel("byon")}
 								variant="outline"
 							>
 								<ItemMedia>
-									<Phone className="size-5 text-pons-green" />
+									<Phone className="size-5 text-pons-accent" />
 								</ItemMedia>
 								<ItemContent>
 									<ItemTitle>Bring your own number</ItemTitle>
@@ -810,10 +810,10 @@ function AutoSetup({
 								</ItemActions>
 							</Item>
 						) : (
-							<div className="space-y-4 rounded-md border border-pons-green/40 p-4">
+							<div className="space-y-4 rounded-md border border-pons-accent/40 p-4">
 								<div className="flex items-center justify-between">
 									<div className="flex items-center gap-2">
-										<Phone className="size-4 text-pons-green" />
+										<Phone className="size-4 text-pons-accent" />
 										<span className="font-medium text-sm">
 											Bring your own number
 										</span>
@@ -903,7 +903,7 @@ function AutoSetup({
 								</div>
 
 								<Button
-									className="w-full bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
+									className="w-full bg-pons-accent text-primary-foreground hover:bg-pons-accent-bright"
 									disabled={
 										loading ||
 										!byonPhone ||
@@ -929,12 +929,12 @@ function AutoSetup({
 						{/* Buy via Twilio */}
 						{newNumberPanel !== "twilio" ? (
 							<Item
-								className="cursor-pointer hover:border-pons-green/40 hover:bg-card/70"
+								className="cursor-pointer hover:border-pons-accent/40 hover:bg-card/70"
 								onClick={() => setNewNumberPanel("twilio")}
 								variant="outline"
 							>
 								<ItemMedia>
-									<ShoppingCart className="size-5 text-pons-green" />
+									<ShoppingCart className="size-5 text-pons-accent" />
 								</ItemMedia>
 								<ItemContent>
 									<ItemTitle>Buy a number via Twilio</ItemTitle>
@@ -947,10 +947,10 @@ function AutoSetup({
 								</ItemActions>
 							</Item>
 						) : (
-							<div className="space-y-4 rounded-md border border-pons-green/40 p-4">
+							<div className="space-y-4 rounded-md border border-pons-accent/40 p-4">
 								<div className="flex items-center justify-between">
 									<div className="flex items-center gap-2">
-										<ShoppingCart className="size-4 text-pons-green" />
+										<ShoppingCart className="size-4 text-pons-accent" />
 										<span className="font-medium text-sm">Buy via Twilio</span>
 										<span className="text-muted-foreground text-xs">
 											~$1/mo
@@ -968,7 +968,7 @@ function AutoSetup({
 								{twilioCredentials ? (
 									<div className="space-y-3">
 										<div className="flex items-center gap-2 text-muted-foreground text-xs">
-											<Check className="h-3.5 w-3.5 text-pons-green" />
+											<Check className="h-3.5 w-3.5 text-pons-accent" />
 											Connected as{" "}
 											<span className="font-medium text-foreground">
 												{twilioCredentials.friendlyName ??
@@ -988,7 +988,7 @@ function AutoSetup({
 											<div className="space-y-1.5">
 												{twilioOwnedNumbers.map((num) => (
 													<Item
-														className="cursor-pointer hover:border-pons-green/40 hover:bg-card/70"
+														className="cursor-pointer hover:border-pons-accent/40 hover:bg-card/70"
 														key={num.sid}
 														onClick={() => {
 															setTwilioSelectedNumber(num);
@@ -999,7 +999,7 @@ function AutoSetup({
 														variant="outline"
 													>
 														<ItemMedia>
-															<Phone className="size-4 text-pons-green" />
+															<Phone className="size-4 text-pons-accent" />
 														</ItemMedia>
 														<ItemContent>
 															<ItemTitle className="font-mono text-sm">
@@ -1011,7 +1011,7 @@ function AutoSetup({
 														</ItemContent>
 														<ItemActions>
 															{num.capabilities.sms && (
-																<span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-400">
+																<span className="rounded-full border border-emerald-500/15 bg-emerald-500/8 px-1.5 py-0.5 text-[10px] text-emerald-600">
 																	SMS
 																</span>
 															)}
@@ -1061,7 +1061,7 @@ function AutoSetup({
 										<p className="text-muted-foreground text-xs">
 											Paste your Account SID and Auth Token from the{" "}
 											<a
-												className="inline-flex items-center gap-1 text-pons-green underline underline-offset-2 hover:text-pons-green-bright"
+												className="inline-flex items-center gap-1 text-pons-accent underline underline-offset-2 hover:text-pons-accent-bright"
 												href="https://console.twilio.com/"
 												rel="noopener noreferrer"
 												target="_blank"
@@ -1089,7 +1089,7 @@ function AutoSetup({
 											</p>
 										)}
 										<Button
-											className="w-full bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
+											className="w-full bg-pons-accent text-primary-foreground hover:bg-pons-accent-bright"
 											disabled={
 												twilioValidating ||
 												!twilioSid.startsWith("AC") ||
@@ -1134,7 +1134,7 @@ function AutoSetup({
 							<div className="space-y-2">
 								{discoveredNumbers.map((num) => (
 									<Item
-										className="cursor-pointer hover:border-pons-green/40 hover:bg-card/70"
+										className="cursor-pointer hover:border-pons-accent/40 hover:bg-card/70"
 										key={`${num.wabaId}-${num.id}`}
 										onClick={() => {
 											setSelectedNumber(num);
@@ -1143,7 +1143,7 @@ function AutoSetup({
 										variant="outline"
 									>
 										<ItemMedia>
-											<Phone className="size-5 text-pons-green" />
+											<Phone className="size-5 text-pons-accent" />
 										</ItemMedia>
 										<ItemContent>
 											<ItemTitle>{num.display_phone_number}</ItemTitle>
@@ -1182,8 +1182,8 @@ function AutoSetup({
 						Confirm connection
 					</h3>
 
-					<div className="rounded-lg border border-pons-green/20 bg-pons-green/5 p-4">
-						<div className="mb-3 flex items-center gap-2 font-medium text-pons-green text-xs">
+					<div className="rounded-lg border border-pons-accent/20 bg-pons-accent/5 p-4">
+						<div className="mb-3 flex items-center gap-2 font-medium text-pons-accent text-xs">
 							<Sparkles className="h-3.5 w-3.5" />
 							Auto-detected
 						</div>
@@ -1246,8 +1246,8 @@ function AutoSetup({
 					)}
 
 					{selectedNumber.platform_type === "CLOUD_API" && (
-						<div className="rounded-lg border border-pons-green/20 bg-pons-green/5 px-4 py-3">
-							<p className="text-pons-green text-sm">
+						<div className="rounded-lg border border-pons-accent/20 bg-pons-accent/5 px-4 py-3">
+							<p className="text-pons-accent text-sm">
 								This number is registered with the Cloud API. Webhooks will be
 								configured automatically.
 							</p>
@@ -1255,7 +1255,7 @@ function AutoSetup({
 					)}
 
 					<Button
-						className="w-full bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
+						className="w-full bg-pons-accent text-primary-foreground hover:bg-pons-accent-bright"
 						disabled={
 							loading ||
 							(selectedNumber.platform_type !== "CLOUD_API" &&
@@ -1321,14 +1321,14 @@ function AutoSetup({
 							<div className="space-y-1.5">
 								{twilioOwnedNumbers.map((num) => (
 									<Item
-										className="cursor-pointer hover:border-pons-green/40 hover:bg-card/70"
+										className="cursor-pointer hover:border-pons-accent/40 hover:bg-card/70"
 										key={num.sid}
 										onClick={() => handleSelectTwilioNumber(num)}
 										size="sm"
 										variant="outline"
 									>
 										<ItemMedia>
-											<Phone className="size-4 text-pons-green" />
+											<Phone className="size-4 text-pons-accent" />
 										</ItemMedia>
 										<ItemContent>
 											<ItemTitle className="font-mono">
@@ -1340,7 +1340,7 @@ function AutoSetup({
 										</ItemContent>
 										<ItemActions>
 											{num.capabilities.sms && (
-												<span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-400">
+												<span className="rounded-full border border-emerald-500/15 bg-emerald-500/8 px-1.5 py-0.5 text-[10px] text-emerald-600">
 													SMS
 												</span>
 											)}
@@ -1395,7 +1395,7 @@ function AutoSetup({
 						</div>
 
 						<Button
-							className="w-full bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
+							className="w-full bg-pons-accent text-primary-foreground hover:bg-pons-accent-bright"
 							disabled={loading || !twilioCountry || !twilioCredentialsId}
 							onClick={handleTwilioSearch}
 							size="sm"
@@ -1419,14 +1419,14 @@ function AutoSetup({
 								<div className="max-h-64 space-y-1.5 overflow-y-auto">
 									{twilioAvailableNumbers.map((num) => (
 										<Item
-											className="cursor-pointer hover:border-pons-green/40 hover:bg-card/70"
+											className="cursor-pointer hover:border-pons-accent/40 hover:bg-card/70"
 											key={num.phoneNumber}
 											onClick={() => handleSelectTwilioNumber(num)}
 											size="sm"
 											variant="outline"
 										>
 											<ItemMedia>
-												<Phone className="size-4 text-pons-green" />
+												<Phone className="size-4 text-pons-accent" />
 											</ItemMedia>
 											<ItemContent>
 												<ItemTitle className="font-mono">
@@ -1446,7 +1446,7 @@ function AutoSetup({
 													</span>
 												)}
 												{num.capabilities.sms && (
-													<span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-400">
+													<span className="rounded-full border border-emerald-500/15 bg-emerald-500/8 px-1.5 py-0.5 text-[10px] text-emerald-600">
 														SMS
 													</span>
 												)}
@@ -1474,8 +1474,8 @@ function AutoSetup({
 						}}
 					/>
 
-					<div className="rounded-lg border border-pons-green/20 bg-pons-green/5 p-4">
-						<div className="mb-3 flex items-center gap-2 font-medium text-pons-green text-xs">
+					<div className="rounded-lg border border-pons-accent/20 bg-pons-accent/5 p-4">
+						<div className="mb-3 flex items-center gap-2 font-medium text-pons-accent text-xs">
 							<Phone className="h-3.5 w-3.5" />
 							{"isoCountry" in twilioSelectedNumber &&
 							twilioSelectedNumber.isoCountry
@@ -1550,7 +1550,7 @@ function AutoSetup({
 					{twilioRegulatoryError && (
 						<div className="space-y-3 rounded-md border border-amber-500/30 bg-amber-500/5 p-3">
 							<div className="flex items-start gap-2">
-								<AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+								<AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
 								<div className="space-y-1">
 									<p className="font-medium text-amber-200 text-sm">
 										Regulatory compliance required
@@ -1603,7 +1603,7 @@ function AutoSetup({
 					{!twilioRegulatoryError && (
 						<>
 							<Button
-								className="w-full bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
+								className="w-full bg-pons-accent text-primary-foreground hover:bg-pons-accent-bright"
 								disabled={loading || !twilioDisplayName || !twilioWabaId}
 								onClick={handleTwilioBuy}
 								size="lg"
@@ -1749,7 +1749,7 @@ function AutoSetup({
 					</div>
 
 					<Button
-						className="w-full bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
+						className="w-full bg-pons-accent text-primary-foreground hover:bg-pons-accent-bright"
 						disabled={
 							loading || otpCode.length !== 6 || twoStepPin.length !== 6
 						}
@@ -1784,8 +1784,8 @@ function AutoSetup({
 			{/* ── Complete ── */}
 			{step === "complete" && (
 				<div className="space-y-5 py-4 text-center">
-					<div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-pons-green/10 ring-1 ring-pons-green/20">
-						<Check className="h-7 w-7 text-pons-green" />
+					<div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-pons-accent/10 ring-1 ring-pons-accent/20">
+						<Check className="h-7 w-7 text-pons-accent" />
 					</div>
 					<div>
 						<h3 className="font-display font-semibold text-lg">
@@ -1806,7 +1806,7 @@ function AutoSetup({
 						)}
 					</div>
 					<Button
-						className="bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
+						className="bg-pons-accent text-primary-foreground hover:bg-pons-accent-bright"
 						onClick={onComplete}
 						size="lg"
 					>
@@ -1832,9 +1832,9 @@ function VerifyStep({
 	return (
 		<div className="flex items-center gap-2.5">
 			{done ? (
-				<Check className="h-4 w-4 text-pons-green" />
+				<Check className="h-4 w-4 text-pons-accent" />
 			) : active ? (
-				<Loader2 className="h-4 w-4 animate-spin text-pons-green" />
+				<Loader2 className="h-4 w-4 animate-spin text-pons-accent" />
 			) : (
 				<div className="h-4 w-4 rounded-full border border-border" />
 			)}
@@ -1912,7 +1912,7 @@ function ManualSetup({
 						<div>
 							<p>Auto-discovery unavailable. Set up manually below.</p>
 							<button
-								className="mt-1 inline-flex items-center gap-1 text-pons-green hover:underline"
+								className="mt-1 inline-flex items-center gap-1 text-pons-accent hover:underline"
 								onClick={onRetryDiscovery}
 								type="button"
 							>
@@ -1937,7 +1937,7 @@ function ManualSetup({
 						<>
 							Find this in{" "}
 							<a
-								className="inline-flex items-center gap-1 text-pons-green underline underline-offset-2 hover:text-pons-green-bright"
+								className="inline-flex items-center gap-1 text-pons-accent underline underline-offset-2 hover:text-pons-accent-bright"
 								href="https://business.facebook.com/settings/whatsapp-business-accounts"
 								rel="noopener noreferrer"
 								target="_blank"
@@ -1974,8 +1974,8 @@ function ManualSetup({
 					placeholder="My Business"
 					value={formData.displayName}
 				/>
-				<div className="rounded-lg border border-pons-green/20 bg-pons-green/5 px-4 py-3">
-					<p className="text-pons-green text-sm">
+				<div className="rounded-lg border border-pons-accent/20 bg-pons-accent/5 px-4 py-3">
+					<p className="text-pons-accent text-sm">
 						Webhooks are configured automatically by Pons.
 					</p>
 				</div>
@@ -1987,7 +1987,7 @@ function ManualSetup({
 				)}
 
 				<Button
-					className="w-full bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
+					className="w-full bg-pons-accent text-primary-foreground hover:bg-pons-accent-bright"
 					disabled={loading}
 					size="lg"
 					type="submit"
@@ -2014,8 +2014,8 @@ function SetupShell({ children }: { children: React.ReactNode }) {
 	return (
 		<div className="mx-auto w-full max-w-lg px-6 py-12">
 			<div className="mb-8 flex flex-col items-center gap-4 text-center">
-				<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-pons-green/10 ring-1 ring-pons-green/20">
-					<MessageSquare className="h-6 w-6 text-pons-green" />
+				<div className="flex h-12 w-12 items-center justify-center rounded-xl bg-pons-accent/10 ring-1 ring-pons-accent/20">
+					<MessageSquare className="h-6 w-6 text-pons-accent" />
 				</div>
 				<div>
 					<h2 className="font-display font-semibold text-xl tracking-tight">
@@ -2058,11 +2058,11 @@ function QualityBadge({ rating }: { rating: string }) {
 	const config: Record<string, { label: string; classes: string }> = {
 		GREEN: {
 			label: "High",
-			classes: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+			classes: "bg-emerald-500/8 text-emerald-600 border-emerald-500/15",
 		},
 		YELLOW: {
 			label: "Medium",
-			classes: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+			classes: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
 		},
 		RED: {
 			label: "Low",

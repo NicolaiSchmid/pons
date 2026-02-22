@@ -129,7 +129,7 @@ function CopyButton({ text }: { text: string }) {
 			type="button"
 		>
 			{copied ? (
-				<Check className="h-3.5 w-3.5 text-pons-green" />
+				<Check className="h-3.5 w-3.5 text-pons-accent" />
 			) : (
 				<Copy className="h-3.5 w-3.5" />
 			)}
@@ -141,7 +141,7 @@ function ScopeTag({ scope }: { scope: string }) {
 	const colors: Record<string, string> = {
 		read: "text-blue-400 bg-blue-400/10 border-blue-400/20",
 		write: "text-pons-amber bg-pons-amber/10 border-pons-amber/20",
-		send: "text-pons-green bg-pons-green/10 border-pons-green/20",
+		send: "text-pons-accent bg-pons-accent/10 border-pons-accent/20",
 	};
 	return (
 		<span
@@ -185,7 +185,7 @@ export default function Home() {
 		return (
 			<main className="flex min-h-screen items-center justify-center">
 				<div className="flex flex-col items-center gap-3">
-					<div className="h-5 w-5 animate-spin rounded-full border-2 border-pons-green border-t-transparent" />
+					<div className="h-5 w-5 animate-spin rounded-full border-2 border-pons-accent border-t-transparent" />
 					<p className="text-muted-foreground text-sm">Loading...</p>
 				</div>
 			</main>
@@ -196,7 +196,7 @@ export default function Home() {
 		<main className="relative min-h-screen overflow-hidden bg-noise">
 			<Navbar>
 				<Button
-					className="h-8 gap-2 rounded-md bg-pons-green px-4 font-medium text-white text-xs hover:bg-pons-green-bright"
+					className="h-8 gap-2 rounded-md bg-pons-accent px-4 font-medium text-white text-xs hover:bg-pons-accent-bright"
 					onClick={handleSignIn}
 					size="sm"
 				>
@@ -208,11 +208,11 @@ export default function Home() {
 			{/* ── Hero ── */}
 			<section className="relative flex flex-col items-center px-6 pt-20 pb-20">
 				{/* Gradient orb */}
-				<div className="pointer-events-none absolute top-0 left-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/4 rounded-full bg-pons-green/6 blur-[150px]" />
+				<div className="pointer-events-none absolute top-0 left-1/2 h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/4 rounded-full bg-pons-accent/6 blur-[150px]" />
 
 				<div className="relative z-10 flex flex-col items-center gap-8">
 					{/* ASCII Logo */}
-					<pre className="hidden select-none font-mono text-pons-green text-xs leading-tight sm:block sm:text-sm">
+					<pre className="hidden select-none font-mono text-pons-accent text-xs leading-tight sm:block sm:text-sm">
 						{`██████╗  ██████╗ ███╗   ██╗███████╗
 ██╔══██╗██╔═══██╗████╗  ██║██╔════╝
 ██████╔╝██║   ██║██╔██╗ ██║███████╗
@@ -222,8 +222,8 @@ export default function Home() {
 					</pre>
 					{/* Mobile fallback */}
 					<div className="flex items-center gap-3 sm:hidden">
-						<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-pons-green/10 ring-1 ring-pons-green/20">
-							<MessageSquare className="h-5 w-5 text-pons-green" />
+						<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-pons-accent/10 ring-1 ring-pons-accent/20">
+							<MessageSquare className="h-5 w-5 text-pons-accent" />
 						</div>
 						<span className="font-display font-semibold text-2xl tracking-tight">
 							Pons
@@ -235,7 +235,7 @@ export default function Home() {
 						<h1 className="font-display font-semibold text-4xl leading-[1.1] tracking-tight sm:text-5xl md:text-6xl">
 							WhatsApp in your terminal.
 							<br />
-							<span className="text-pons-green">Messages in your AI.</span>
+							<span className="text-pons-accent">Messages in your AI.</span>
 						</h1>
 						<p className="max-w-lg text-base text-muted-foreground leading-relaxed sm:text-lg">
 							Bridge the WhatsApp Business Cloud API to any MCP-compatible
@@ -247,7 +247,7 @@ export default function Home() {
 					{/* CTA */}
 					<div className="flex flex-col items-center gap-3">
 						<Button
-							className="h-12 gap-2.5 rounded-lg bg-pons-green px-7 font-medium text-sm text-white hover:bg-pons-green-bright"
+							className="h-12 gap-2.5 rounded-lg bg-pons-accent px-7 font-medium text-sm text-white hover:bg-pons-accent-bright"
 							onClick={handleSignIn}
 							size="lg"
 						>
@@ -276,7 +276,7 @@ export default function Home() {
 					</span>{" "}
 					connects WhatsApp to the{" "}
 					<a
-						className="text-pons-green underline decoration-pons-green/30 underline-offset-4 transition hover:decoration-pons-green/60"
+						className="text-pons-accent underline decoration-pons-accent/30 underline-offset-4 transition hover:decoration-pons-accent/60"
 						href="https://modelcontextprotocol.io/"
 						rel="noopener noreferrer"
 						target="_blank"
@@ -302,8 +302,8 @@ export default function Home() {
 							className="group rounded-lg border border-border/50 bg-card/40 p-5 transition hover:border-border hover:bg-card/70"
 							key={title}
 						>
-							<div className="mb-3 flex h-8 w-8 items-center justify-center rounded-md bg-pons-green/8 ring-1 ring-pons-green/15">
-								<Icon className="h-4 w-4 text-pons-green" />
+							<div className="mb-3 flex h-8 w-8 items-center justify-center rounded-md bg-pons-accent/8 ring-1 ring-pons-accent/15">
+								<Icon className="h-4 w-4 text-pons-accent" />
 							</div>
 							<h3 className="mb-1 font-display font-medium text-sm">{title}</h3>
 							<p className="text-muted-foreground text-xs leading-relaxed">
@@ -468,7 +468,7 @@ export default function Home() {
 
 			{/* ── Bottom CTA ── */}
 			<section className="relative flex flex-col items-center px-6 py-24">
-				<div className="pointer-events-none absolute bottom-0 left-1/2 h-[400px] w-[400px] -translate-x-1/2 translate-y-1/2 rounded-full bg-pons-green/4 blur-[120px]" />
+				<div className="pointer-events-none absolute bottom-0 left-1/2 h-[400px] w-[400px] -translate-x-1/2 translate-y-1/2 rounded-full bg-pons-accent/4 blur-[120px]" />
 				<div className="relative z-10 flex flex-col items-center gap-6 text-center">
 					<h2 className="font-display font-semibold text-2xl tracking-tight sm:text-3xl">
 						Ready to bridge?
@@ -479,7 +479,7 @@ export default function Home() {
 					</p>
 					<div className="flex items-center gap-3">
 						<Button
-							className="h-11 gap-2.5 rounded-lg bg-pons-green px-6 font-medium text-sm text-white hover:bg-pons-green-bright"
+							className="h-11 gap-2.5 rounded-lg bg-pons-accent px-6 font-medium text-sm text-white hover:bg-pons-accent-bright"
 							onClick={handleSignIn}
 							size="lg"
 						>

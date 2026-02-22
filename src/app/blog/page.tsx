@@ -25,7 +25,7 @@ export default function BlogIndex() {
 			<div className="mt-12 grid gap-6 sm:grid-cols-2">
 				{posts.map((post) => (
 					<Link
-						className="group overflow-hidden rounded-xl border border-border/60 bg-card transition hover:border-pons-green/30 hover:bg-card/80"
+						className="group overflow-hidden rounded-xl border border-border/60 bg-card transition hover:border-pons-accent/30 hover:bg-card/80"
 						href={`/blog/${post.slug}`}
 						key={post.slug}
 					>
@@ -41,7 +41,7 @@ export default function BlogIndex() {
 								/>
 							</div>
 						) : (
-							<div className="aspect-[1200/630] bg-gradient-to-br from-pons-green/10 to-accent/10" />
+							<div className="aspect-[1200/630] bg-gradient-to-br from-pons-accent/10 to-accent/10" />
 						)}
 
 						{/* Content */}
@@ -56,7 +56,7 @@ export default function BlogIndex() {
 									day: "numeric",
 								})}
 							</time>
-							<h2 className="mt-1.5 font-display font-medium text-foreground leading-snug tracking-tight transition group-hover:text-pons-green">
+							<h2 className="mt-1.5 font-display font-medium text-foreground leading-snug tracking-tight transition group-hover:text-pons-accent">
 								{post.title}
 							</h2>
 							<p className="mt-1.5 line-clamp-2 text-muted-foreground text-sm">

@@ -128,7 +128,7 @@ export function ApiKeyManager() {
 		<div className="mx-auto h-full max-w-2xl overflow-y-auto p-6">
 			<div className="mb-6">
 				<h1 className="flex items-center gap-2 font-display font-semibold text-lg">
-					<KeyRound className="h-4 w-4 text-pons-green" />
+					<KeyRound className="h-4 w-4 text-pons-accent" />
 					API Keys
 				</h1>
 				<p className="mt-1 text-muted-foreground text-sm">
@@ -139,8 +139,8 @@ export function ApiKeyManager() {
 			<div className="space-y-6">
 				{/* Newly created key alert */}
 				{newlyCreatedKey && (
-					<div className="rounded-lg border border-pons-green/30 bg-pons-green-surface p-4">
-						<div className="mb-2 flex items-center gap-2 font-medium text-pons-green text-sm">
+					<div className="rounded-lg border border-pons-accent/30 bg-pons-accent-surface p-4">
+						<div className="mb-2 flex items-center gap-2 font-medium text-pons-accent text-sm">
 							<CheckCircle2 className="h-4 w-4" />
 							API Key Created
 						</div>
@@ -148,7 +148,7 @@ export function ApiKeyManager() {
 							Copy this key now. You won&apos;t be able to see it again.
 						</p>
 						<div className="flex items-center gap-2">
-							<code className="flex-1 overflow-x-auto rounded-md bg-background px-3 py-2 font-mono text-pons-green text-xs">
+							<code className="flex-1 overflow-x-auto rounded-md bg-background px-3 py-2 font-mono text-pons-accent text-xs">
 								{newlyCreatedKey}
 							</code>
 							<Button
@@ -241,7 +241,7 @@ export function ApiKeyManager() {
 
 							<div className="flex gap-2 pt-1">
 								<Button
-									className="bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
+									className="bg-pons-accent text-primary-foreground hover:bg-pons-accent-bright"
 									disabled={creating}
 									onClick={handleCreate}
 									size="sm"
@@ -407,7 +407,7 @@ function McpConfigSnippet() {
 					variant="ghost"
 				>
 					{copied ? (
-						<Check className="h-3.5 w-3.5 text-pons-green" />
+						<Check className="h-3.5 w-3.5 text-pons-accent" />
 					) : (
 						<Copy className="h-3.5 w-3.5" />
 					)}

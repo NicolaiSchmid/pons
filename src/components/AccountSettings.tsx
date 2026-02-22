@@ -43,15 +43,15 @@ interface AccountSettingsProps {
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-	adding_number: { label: "Adding number", color: "text-yellow-400" },
-	code_requested: { label: "Awaiting code", color: "text-yellow-400" },
-	verifying_code: { label: "Verifying", color: "text-yellow-400" },
-	registering: { label: "Registering", color: "text-yellow-400" },
+	adding_number: { label: "Adding number", color: "text-yellow-600" },
+	code_requested: { label: "Awaiting code", color: "text-yellow-600" },
+	verifying_code: { label: "Verifying", color: "text-yellow-600" },
+	registering: { label: "Registering", color: "text-yellow-600" },
 	pending_name_review: {
 		label: "Name under review",
-		color: "text-yellow-400",
+		color: "text-yellow-600",
 	},
-	active: { label: "Active", color: "text-emerald-400" },
+	active: { label: "Active", color: "text-emerald-600" },
 	name_declined: { label: "Name declined", color: "text-red-400" },
 	failed: { label: "Failed", color: "text-red-400" },
 };
@@ -174,7 +174,7 @@ export function AccountSettings({ accountId }: AccountSettingsProps) {
 		<div className="mx-auto h-full max-w-lg overflow-y-auto p-6">
 			<div className="mb-6">
 				<h1 className="flex items-center gap-2 font-display font-semibold text-lg">
-					<Settings className="h-4 w-4 text-pons-green" />
+					<Settings className="h-4 w-4 text-pons-accent" />
 					Account Settings
 				</h1>
 				<p className="mt-1 text-muted-foreground text-sm">
@@ -206,7 +206,7 @@ export function AccountSettings({ accountId }: AccountSettingsProps) {
 
 				{/* Name review progress */}
 				{account.status === "pending_name_review" && (
-					<div className="flex items-start gap-2 rounded-md bg-yellow-500/10 px-3 py-2 text-sm text-yellow-400">
+					<div className="flex items-start gap-2 rounded-md bg-yellow-500/10 px-3 py-2 text-sm text-yellow-600">
 						<Clock className="mt-0.5 h-4 w-4 shrink-0" />
 						<div>
 							<p className="font-medium">Display name under review</p>
@@ -257,7 +257,7 @@ export function AccountSettings({ accountId }: AccountSettingsProps) {
 					)}
 
 					<Button
-						className="w-full bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
+						className="w-full bg-pons-accent text-primary-foreground hover:bg-pons-accent-bright"
 						disabled={saving}
 						size="default"
 						type="submit"
@@ -315,7 +315,7 @@ export function AccountSettings({ accountId }: AccountSettingsProps) {
 								</div>
 
 								{member.role === "owner" ? (
-									<span className="flex shrink-0 items-center gap-1 rounded-md bg-pons-green-surface px-2 py-1 text-pons-green text-xs">
+									<span className="flex shrink-0 items-center gap-1 rounded-md bg-pons-accent-surface px-2 py-1 text-pons-accent text-xs">
 										<Crown className="h-3 w-3" />
 										Owner
 									</span>
@@ -541,7 +541,7 @@ function ReadOnlyField({
 			<span className="shrink-0 text-muted-foreground text-xs">{label}</span>
 			{href ? (
 				<a
-					className={`inline-flex items-center gap-1 truncate text-pons-green text-xs underline underline-offset-2 hover:text-pons-green-bright ${mono ? "font-mono" : ""}`}
+					className={`inline-flex items-center gap-1 truncate text-pons-accent text-xs underline underline-offset-2 hover:text-pons-accent-bright ${mono ? "font-mono" : ""}`}
 					href={href}
 					rel="noopener noreferrer"
 					target="_blank"

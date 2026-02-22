@@ -189,7 +189,7 @@ export function TemplatePicker({
 	if (templatesLoading) {
 		return (
 			<div className="flex items-center gap-2 py-3">
-				<Loader2 className="h-4 w-4 animate-spin text-pons-green" />
+				<Loader2 className="h-4 w-4 animate-spin text-pons-accent" />
 				<span className="text-muted-foreground text-sm">
 					Loading templates...
 				</span>
@@ -219,7 +219,7 @@ export function TemplatePicker({
 			<p className="py-3 text-muted-foreground text-sm">
 				No approved templates.{" "}
 				<a
-					className="text-pons-green underline hover:text-pons-green-bright"
+					className="text-pons-accent underline hover:text-pons-accent-bright"
 					href="https://business.facebook.com/latest/whatsapp_manager/message_templates"
 					rel="noopener noreferrer"
 					target="_blank"
@@ -251,7 +251,7 @@ export function TemplatePicker({
 								className={cn(
 									"flex w-full items-start gap-2.5 rounded-md px-3 py-2 text-left transition",
 									isSelected
-										? "bg-pons-green/10 ring-1 ring-pons-green/30"
+										? "bg-pons-accent/10 ring-1 ring-pons-accent/30"
 										: "hover:bg-muted/50",
 								)}
 								key={t.id}
@@ -260,7 +260,7 @@ export function TemplatePicker({
 							>
 								<div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-muted">
 									{isSelected ? (
-										<CheckCircle2 className="h-3.5 w-3.5 text-pons-green" />
+										<CheckCircle2 className="h-3.5 w-3.5 text-pons-accent" />
 									) : (
 										<FileText className="h-3 w-3 text-muted-foreground" />
 									)}
@@ -329,7 +329,7 @@ export function TemplatePicker({
 
 			{/* Send button */}
 			<Button
-				className="gap-2 bg-pons-green text-pons-green-foreground hover:bg-pons-green-bright"
+				className="gap-2 bg-pons-accent text-pons-accent-foreground hover:bg-pons-accent-bright"
 				disabled={!isValid || sending}
 				onClick={handleSend}
 				size={compact ? "sm" : "default"}

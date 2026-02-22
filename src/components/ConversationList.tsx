@@ -26,7 +26,7 @@ export function ConversationList({
 		return (
 			<div className="flex h-full items-center justify-center">
 				<div className="flex flex-col items-center gap-3">
-					<div className="h-4 w-4 animate-spin rounded-full border-2 border-pons-green border-t-transparent" />
+					<div className="h-4 w-4 animate-spin rounded-full border-2 border-pons-accent border-t-transparent" />
 					<p className="text-muted-foreground text-xs">
 						Loading conversations...
 					</p>
@@ -112,7 +112,7 @@ export function ConversationList({
 									)}
 									{hasUnread && (
 										<Badge
-											className="h-4 min-w-4 justify-center rounded-full bg-pons-green px-1 font-medium text-[9px] text-pons-green-foreground hover:bg-pons-green"
+											className="h-4 min-w-4 justify-center rounded-full bg-pons-accent px-1 font-medium text-[9px] text-pons-accent-foreground hover:bg-pons-accent"
 											variant="default"
 										>
 											{conv.unreadCount}

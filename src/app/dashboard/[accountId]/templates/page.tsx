@@ -34,7 +34,7 @@ const FALLBACK_STATUS: StatusInfo = {
 const STATUS_CONFIG: Record<string, StatusInfo> = {
 	approved: {
 		icon: CheckCircle2,
-		color: "text-pons-green",
+		color: "text-pons-accent",
 		label: "Approved",
 	},
 	pending: FALLBACK_STATUS,
@@ -69,8 +69,8 @@ function TemplateCard({ template }: { template: Template }) {
 			{/* Header row */}
 			<div className="flex items-start justify-between gap-3">
 				<div className="flex min-w-0 items-center gap-2.5">
-					<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-pons-green/10">
-						<FileText className="h-4 w-4 text-pons-green" />
+					<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-pons-accent/10">
+						<FileText className="h-4 w-4 text-pons-accent" />
 					</div>
 					<div className="min-w-0">
 						<p className="truncate font-medium text-foreground text-sm">
@@ -85,7 +85,7 @@ function TemplateCard({ template }: { template: Template }) {
 					className={cn(
 						"shrink-0 gap-1 border-none text-[11px]",
 						template.status === "approved"
-							? "bg-pons-green/10 text-pons-green"
+							? "bg-pons-accent/10 text-pons-accent"
 							: template.status === "rejected"
 								? "bg-destructive/10 text-destructive"
 								: "bg-muted text-muted-foreground",
@@ -167,7 +167,7 @@ export default function TemplatesPage() {
 		return (
 			<div className="flex h-full items-center justify-center">
 				<div className="flex flex-col items-center gap-3">
-					<Loader2 className="h-5 w-5 animate-spin text-pons-green" />
+					<Loader2 className="h-5 w-5 animate-spin text-pons-accent" />
 					<p className="text-muted-foreground text-sm">
 						Fetching templates from Meta...
 					</p>
@@ -225,7 +225,7 @@ export default function TemplatesPage() {
 							<p className="mt-1 text-muted-foreground text-xs">
 								Create templates in{" "}
 								<a
-									className="text-pons-green underline hover:text-pons-green-bright"
+									className="text-pons-accent underline hover:text-pons-accent-bright"
 									href="https://business.facebook.com/latest/whatsapp_manager/message_templates"
 									rel="noopener noreferrer"
 									target="_blank"

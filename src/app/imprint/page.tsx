@@ -11,7 +11,7 @@ export default function ImprintPage() {
 		<>
 			<Navbar />
 			<main className="mx-auto max-w-3xl px-4 py-16">
-				<article className="prose prose-invert max-w-none prose-headings:font-display prose-a:text-pons-green prose-headings:tracking-tight prose-a:no-underline hover:prose-a:underline">
+				<article className="prose max-w-none prose-headings:font-display prose-a:text-pons-accent prose-headings:tracking-tight prose-a:no-underline hover:prose-a:underline">
 					<h1>Imprint</h1>
 
 					<p>

@@ -15,7 +15,7 @@ export default function DashboardLayout({
 		return (
 			<div className="flex h-screen items-center justify-center">
 				<div className="flex flex-col items-center gap-3">
-					<div className="h-5 w-5 animate-spin rounded-full border-2 border-pons-green border-t-transparent" />
+					<div className="h-5 w-5 animate-spin rounded-full border-2 border-pons-accent border-t-transparent" />
 					<p className="text-muted-foreground text-sm">Loading...</p>
 				</div>
 			</div>

@@ -102,7 +102,7 @@ export function ComposeDialog({ accountId, trigger }: ComposeDialogProps) {
 			<DialogTrigger asChild>
 				{trigger ?? (
 					<Button
-						className="h-8 gap-1.5 bg-pons-green text-pons-green-foreground hover:bg-pons-green-bright"
+						className="h-8 gap-1.5 bg-pons-accent text-pons-accent-foreground hover:bg-pons-accent-bright"
 						size="sm"
 					>
 						<Plus className="h-3.5 w-3.5" />

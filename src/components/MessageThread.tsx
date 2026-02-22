@@ -114,7 +114,7 @@ export function MessageThread({
 		return (
 			<div className="flex h-full items-center justify-center">
 				<div className="flex flex-col items-center gap-3">
-					<div className="h-4 w-4 animate-spin rounded-full border-2 border-pons-green border-t-transparent" />
+					<div className="h-4 w-4 animate-spin rounded-full border-2 border-pons-accent border-t-transparent" />
 					<p className="text-muted-foreground text-xs">Loading messages...</p>
 				</div>
 			</div>
@@ -183,7 +183,7 @@ export function MessageThread({
 									className={cn(
 										"max-w-[75%] rounded-lg px-3 py-2",
 										isOutbound
-											? "bg-pons-green-surface text-foreground"
+											? "bg-pons-accent-surface text-foreground"
 											: "bg-muted text-foreground",
 									)}
 								>
@@ -193,7 +193,7 @@ export function MessageThread({
 										</p>
 									) : msg.type === "template" ? (
 										<div className="flex items-center gap-1.5 text-sm">
-											<FileText className="h-3.5 w-3.5 shrink-0 text-pons-green" />
+											<FileText className="h-3.5 w-3.5 shrink-0 text-pons-accent" />
 											<span className="text-muted-foreground italic">
 												Template: {msg.templateName ?? "unknown"}
 											</span>
@@ -215,7 +215,7 @@ export function MessageThread({
 										className={cn(
 											"mt-1 flex items-center gap-1 text-[11px]",
 											isOutbound
-												? "justify-end text-pons-green-dim"
+												? "justify-end text-pons-accent-dim"
 												: "text-muted-foreground",
 										)}
 									>
@@ -253,7 +253,7 @@ export function MessageThread({
 							value={messageText}
 						/>
 						<Button
-							className="h-10 w-10 shrink-0 bg-pons-green text-primary-foreground hover:bg-pons-green-bright"
+							className="h-10 w-10 shrink-0 bg-pons-accent text-primary-foreground hover:bg-pons-accent-bright"
 							disabled={sending || !messageText.trim()}
 							size="icon"
 							type="submit"
@@ -280,7 +280,7 @@ export function MessageThread({
 function StatusIcon({ status }: { status?: string }) {
 	switch (status) {
 		case "read":
-			return <CheckCheck className="h-3 w-3 text-pons-green" />;
+			return <CheckCheck className="h-3 w-3 text-pons-accent" />;
 		case "delivered":
 			return <CheckCheck className="h-3 w-3" />;
 		case "sent":
