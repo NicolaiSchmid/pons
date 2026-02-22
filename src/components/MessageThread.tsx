@@ -19,6 +19,7 @@ import {
 	Send,
 	X,
 } from "lucide-react";
+import NextImage from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -252,7 +253,23 @@ function MessageThreadContent({
 												{msg.mediaMimeType ?? msg.type}
 												{msg.caption ? ` - ${msg.caption}` : ""}
 											</p>
-											{msg.mediaId ? (
+											{msg.type === "image" && msg.mediaId ? (
+												<a
+													className="mt-1 block w-full max-w-[22rem]"
+													href={`/api/media/${msg._id}`}
+													rel="noopener noreferrer"
+													target="_blank"
+												>
+													<NextImage
+														alt={msg.mediaFilename ?? "Image attachment"}
+														className="h-auto max-h-72 w-full rounded-md border object-contain"
+														height={1024}
+														sizes="(max-width: 768px) 80vw, 22rem"
+														src={`/api/media/${msg._id}`}
+														width={1024}
+													/>
+												</a>
+											) : msg.mediaId ? (
 												<a
 													className="inline-flex text-pons-accent text-xs underline-offset-2 hover:underline"
 													href={`/api/media/${msg._id}`}
