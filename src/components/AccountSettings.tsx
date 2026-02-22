@@ -1,6 +1,7 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
+import { type Preloaded, useMutation, usePreloadedQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import {
 	Check,
 	ChevronDown,
@@ -38,8 +39,10 @@ import { cn } from "@/lib/utils";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
-interface AccountSettingsProps {
+interface AccountSettingsPreloadedProps {
 	accountId: Id<"accounts">;
+	preloadedAccount: Preloaded<typeof api.accounts.get>;
+	preloadedMembers: Preloaded<typeof api.accounts.listMembers>;
 }
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -56,9 +59,42 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 	failed: { label: "Failed", color: "text-red-400" },
 };
 
-export function AccountSettings({ accountId }: AccountSettingsProps) {
-	const account = useQuery(api.accounts.get, { accountId });
-	const members = useQuery(api.accounts.listMembers, { accountId });
+/** SSR version: uses usePreloadedQuery for instant render with real-time takeover */
+export function AccountSettingsPreloaded({
+	accountId,
+	preloadedAccount,
+	preloadedMembers,
+}: AccountSettingsPreloadedProps) {
+	const account = usePreloadedQuery(preloadedAccount);
+	const members = usePreloadedQuery(preloadedMembers);
+
+	if (!account) {
+		return (
+			<div className="flex h-full items-center justify-center">
+				<p className="text-muted-foreground text-sm">Account not found</p>
+			</div>
+		);
+	}
+
+	return (
+		<AccountSettingsContent
+			account={account}
+			accountId={accountId}
+			members={members ?? []}
+		/>
+	);
+}
+
+/** Shared rendering logic */
+function AccountSettingsContent({
+	accountId,
+	account,
+	members,
+}: {
+	accountId: Id<"accounts">;
+	account: NonNullable<FunctionReturnType<typeof api.accounts.get>>;
+	members: FunctionReturnType<typeof api.accounts.listMembers>;
+}) {
 	const updateAccount = useMutation(api.accounts.update);
 	const deleteAccount = useMutation(api.accounts.remove);
 	const addMemberByEmail = useMutation(api.accounts.addMemberByEmail);
@@ -156,14 +192,6 @@ export function AccountSettings({ accountId }: AccountSettingsProps) {
 	const updateField = (field: string, value: string) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));
 	};
-
-	if (!account) {
-		return (
-			<div className="flex h-full items-center justify-center">
-				<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-			</div>
-		);
-	}
 
 	const statusInfo = STATUS_LABELS[account.status] ?? {
 		label: account.status,

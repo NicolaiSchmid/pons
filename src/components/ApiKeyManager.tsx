@@ -1,6 +1,12 @@
 "use client";
 
-import { useAction, useMutation, useQuery } from "convex/react";
+import {
+	type Preloaded,
+	useAction,
+	useMutation,
+	usePreloadedQuery,
+} from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import {
 	Check,
 	CheckCircle2,
@@ -46,8 +52,23 @@ const AVAILABLE_SCOPES = [
 	},
 ];
 
-export function ApiKeyManager() {
-	const apiKeys = useQuery(api.mcp.listApiKeys, {});
+/** SSR version: uses usePreloadedQuery for instant render with real-time takeover */
+export function ApiKeyManagerPreloaded({
+	preloadedApiKeys,
+}: {
+	preloadedApiKeys: Preloaded<typeof api.mcp.listApiKeys>;
+}) {
+	const apiKeys = usePreloadedQuery(preloadedApiKeys);
+
+	return <ApiKeyManagerContent apiKeys={apiKeys} />;
+}
+
+/** Shared rendering logic */
+function ApiKeyManagerContent({
+	apiKeys,
+}: {
+	apiKeys: FunctionReturnType<typeof api.mcp.listApiKeys>;
+}) {
 	const createApiKey = useAction(api.mcp.createApiKey);
 	const revokeApiKey = useMutation(api.mcp.revokeApiKey);
 
@@ -280,12 +301,7 @@ export function ApiKeyManager() {
 					<h3 className="mb-3 font-medium text-muted-foreground text-xs uppercase tracking-wider">
 						Existing Keys
 					</h3>
-					{!apiKeys ? (
-						<div className="flex items-center gap-2 text-muted-foreground text-sm">
-							<Loader2 className="h-3.5 w-3.5 animate-spin" />
-							Loading...
-						</div>
-					) : apiKeys.length === 0 ? (
+					{apiKeys.length === 0 ? (
 						<div className="rounded-lg border border-dashed p-6 text-center">
 							<KeyRound className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
 							<p className="text-muted-foreground text-sm">No API keys yet</p>

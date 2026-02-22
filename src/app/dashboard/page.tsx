@@ -1,44 +1,35 @@
-"use client";
-
-import { useQuery } from "convex/react";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
+import { fetchQuery } from "convex/nextjs";
+import { redirect } from "next/navigation";
 import { api } from "../../../convex/_generated/api";
 
 /** Statuses that allow normal messaging */
 const USABLE_STATUSES = new Set(["active", "pending_name_review"]);
 
 /**
- * /dashboard — Redirect hub.
- * - If the user has accounts, redirect to the first active one.
- * - If no accounts, redirect to /dashboard/setup.
+ * /dashboard — Server-side redirect hub.
+ *
+ * Fetches accounts on the server and redirects immediately:
+ * - Has accounts → redirect to the first active one
+ * - No accounts  → redirect to /dashboard/setup
+ *
+ * No spinner needed — the redirect happens before any HTML is sent.
  */
-export default function DashboardIndex() {
-	const accounts = useQuery(api.accounts.list);
-	const router = useRouter();
+export default async function DashboardIndex() {
+	const token = await convexAuthNextjsToken();
+	const accounts = await fetchQuery(api.accounts.list, {}, { token });
 
-	useEffect(() => {
-		if (accounts === undefined) return; // still loading
+	if (accounts.length === 0) {
+		redirect("/dashboard/setup");
+	}
 
-		if (accounts.length === 0) {
-			router.replace("/dashboard/setup");
-			return;
-		}
+	// Prefer active accounts, fall back to first
+	const active = accounts.find((a) => a && USABLE_STATUSES.has(a.status));
+	const first = active ?? accounts[0];
+	if (first) {
+		redirect(`/dashboard/${first._id}`);
+	}
 
-		// Prefer active accounts, fall back to first
-		const active = accounts.find((a) => a && USABLE_STATUSES.has(a.status));
-		const first = active ?? accounts[0];
-		if (first) {
-			router.replace(`/dashboard/${first._id}`);
-		}
-	}, [accounts, router]);
-
-	return (
-		<div className="flex flex-1 items-center justify-center">
-			<div className="flex flex-col items-center gap-3">
-				<div className="h-5 w-5 animate-spin rounded-full border-2 border-pons-accent border-t-transparent" />
-				<p className="text-muted-foreground text-sm">Loading...</p>
-			</div>
-		</div>
-	);
+	// Fallback (shouldn't happen if accounts.length > 0)
+	redirect("/dashboard/setup");
 }

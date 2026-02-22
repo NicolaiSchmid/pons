@@ -1,6 +1,12 @@
 "use client";
 
-import { useAction, useMutation, useQuery } from "convex/react";
+import {
+	type Preloaded,
+	useAction,
+	useMutation,
+	usePreloadedQuery,
+} from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import {
 	AlertTriangle,
 	Check,
@@ -26,17 +32,56 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { TemplatePicker, type TemplatePickerResult } from "./TemplatePicker";
 
-interface MessageThreadProps {
+interface MessageThreadPreloadedProps {
 	conversationId: Id<"conversations">;
 	accountId: Id<"accounts">;
+	preloadedConversation: Preloaded<typeof api.conversations.get>;
+	preloadedMessages: Preloaded<typeof api.messages.list>;
 }
 
-export function MessageThread({
+/**
+ * MessageThreadPreloaded — uses server-preloaded conversation + messages data.
+ * Data is immediately available on first render (no loading spinner).
+ */
+export function MessageThreadPreloaded({
 	conversationId,
 	accountId,
-}: MessageThreadProps) {
-	const conversation = useQuery(api.conversations.get, { conversationId });
-	const messagesResult = useQuery(api.messages.list, { conversationId });
+	preloadedConversation,
+	preloadedMessages,
+}: MessageThreadPreloadedProps) {
+	const conversation = usePreloadedQuery(preloadedConversation);
+	const messagesResult = usePreloadedQuery(preloadedMessages);
+
+	if (!conversation) {
+		return (
+			<div className="flex h-full items-center justify-center">
+				<p className="text-muted-foreground text-sm">Conversation not found</p>
+			</div>
+		);
+	}
+
+	return (
+		<MessageThreadContent
+			accountId={accountId}
+			conversation={conversation}
+			conversationId={conversationId}
+			messagesResult={messagesResult}
+		/>
+	);
+}
+
+/** Shared rendering logic for message thread */
+function MessageThreadContent({
+	conversationId,
+	accountId,
+	conversation,
+	messagesResult,
+}: {
+	conversationId: Id<"conversations">;
+	accountId: Id<"accounts">;
+	conversation: NonNullable<FunctionReturnType<typeof api.conversations.get>>;
+	messagesResult: FunctionReturnType<typeof api.messages.list>;
+}) {
 	const markAsRead = useMutation(api.conversations.markAsRead);
 	const sendTextMessage = useAction(api.whatsapp.sendTextMessageUI);
 	const sendTemplateMessage = useAction(api.whatsapp.sendTemplateMessageUI);
@@ -115,17 +160,6 @@ export function MessageThread({
 			setSending(false);
 		}
 	};
-
-	if (!conversation || !messagesResult) {
-		return (
-			<div className="flex h-full items-center justify-center">
-				<div className="flex flex-col items-center gap-3">
-					<div className="h-4 w-4 animate-spin rounded-full border-2 border-pons-accent border-t-transparent" />
-					<p className="text-muted-foreground text-xs">Loading messages...</p>
-				</div>
-			</div>
-		);
-	}
 
 	const messages = messagesResult.messages;
 	const windowOpen = conversation.windowExpiresAt

@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { type Preloaded, usePreloadedQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { AlertCircle, Check, ChevronDown, Clock, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,11 +10,12 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { api } from "../../convex/_generated/api";
+import type { api } from "../../convex/_generated/api";
 
-interface AccountSelectorProps {
+interface AccountSelectorPreloadedProps {
 	selectedAccountId?: string;
 	onSelectAccount: (accountId: string) => void;
+	preloadedAccounts: Preloaded<typeof api.accounts.list>;
 }
 
 function StatusDot({ status }: { status: string }) {
@@ -32,16 +34,16 @@ function StatusDot({ status }: { status: string }) {
 	);
 }
 
-export function AccountSelector({
+/** Shared rendering logic for account selector */
+function AccountSelectorContent({
+	accounts,
 	selectedAccountId,
 	onSelectAccount,
-}: AccountSelectorProps) {
-	const accounts = useQuery(api.accounts.list);
-
-	if (!accounts) {
-		return <span className="text-muted-foreground text-xs">Loading...</span>;
-	}
-
+}: {
+	accounts: FunctionReturnType<typeof api.accounts.list>;
+	selectedAccountId?: string;
+	onSelectAccount: (accountId: string) => void;
+}) {
 	if (accounts.length === 0) {
 		return null;
 	}
@@ -111,5 +113,25 @@ export function AccountSelector({
 				)}
 			</DropdownMenuContent>
 		</DropdownMenu>
+	);
+}
+
+/**
+ * AccountSelectorPreloaded — uses server-preloaded accounts data.
+ * Data is immediately available on first render (no loading state).
+ */
+export function AccountSelectorPreloaded({
+	selectedAccountId,
+	onSelectAccount,
+	preloadedAccounts,
+}: AccountSelectorPreloadedProps) {
+	const accounts = usePreloadedQuery(preloadedAccounts);
+
+	return (
+		<AccountSelectorContent
+			accounts={accounts}
+			onSelectAccount={onSelectAccount}
+			selectedAccountId={selectedAccountId}
+		/>
 	);
 }

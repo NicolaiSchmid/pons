@@ -1,7 +1,20 @@
-"use client";
+import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
+import { preloadQuery } from "convex/nextjs";
+import { api } from "../../../../../convex/_generated/api";
+import { KeysPageClient } from "./page-client";
 
-import { ApiKeyManager } from "@/components/ApiKeyManager";
+/**
+ * Server Component: preloads API keys data and passes to client.
+ * Eliminates the keys loading spinner on first render.
+ */
+export default async function KeysPage() {
+	const token = await convexAuthNextjsToken();
 
-export default function KeysPage() {
-	return <ApiKeyManager />;
+	const preloadedApiKeys = await preloadQuery(
+		api.mcp.listApiKeys,
+		{},
+		{ token },
+	);
+
+	return <KeysPageClient preloadedApiKeys={preloadedApiKeys} />;
 }

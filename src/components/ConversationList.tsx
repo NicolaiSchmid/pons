@@ -1,38 +1,52 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { type Preloaded, usePreloadedQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { MessageSquare, Plus, Search } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { ComposeDialog } from "@/components/ComposeDialog";
 import { cn } from "@/lib/utils";
-import { api } from "../../convex/_generated/api";
+import type { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 
-interface ConversationListProps {
+interface ConversationListPreloadedProps {
 	accountId: Id<"accounts">;
 	selectedConversationId?: Id<"conversations">;
+	preloadedConversations: Preloaded<typeof api.conversations.list>;
 }
 
-export function ConversationList({
+/**
+ * ConversationListPreloaded — uses server-preloaded conversations data.
+ * Data is immediately available on first render (no loading spinner).
+ */
+export function ConversationListPreloaded({
 	accountId,
 	selectedConversationId,
-}: ConversationListProps) {
-	const conversations = useQuery(api.conversations.list, { accountId });
-	const [search, setSearch] = useState("");
+	preloadedConversations,
+}: ConversationListPreloadedProps) {
+	const conversations = usePreloadedQuery(preloadedConversations);
 
-	if (!conversations) {
-		return (
-			<div className="flex h-full items-center justify-center">
-				<div className="flex flex-col items-center gap-3">
-					<div className="h-4 w-4 animate-spin rounded-full border-2 border-pons-accent border-t-transparent" />
-					<p className="text-muted-foreground text-xs">
-						Loading conversations...
-					</p>
-				</div>
-			</div>
-		);
-	}
+	return (
+		<ConversationListContent
+			accountId={accountId}
+			conversations={conversations}
+			selectedConversationId={selectedConversationId}
+		/>
+	);
+}
+
+/** Shared rendering logic for conversation list */
+function ConversationListContent({
+	accountId,
+	selectedConversationId,
+	conversations,
+}: {
+	accountId: Id<"accounts">;
+	selectedConversationId?: Id<"conversations">;
+	conversations: FunctionReturnType<typeof api.conversations.list>;
+}) {
+	const [search, setSearch] = useState("");
 
 	const filtered = search.trim()
 		? conversations.filter(
