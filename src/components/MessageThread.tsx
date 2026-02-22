@@ -5,7 +5,6 @@ import {
 	AlertTriangle,
 	Check,
 	CheckCheck,
-	ChevronDown,
 	Circle,
 	Clock,
 	FileText,
@@ -19,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import type { Template } from "../../convex/whatsapp";
+import { TemplatePicker, type TemplatePickerResult } from "./TemplatePicker";
 
 interface MessageThreadProps {
 	conversationId: Id<"conversations">;
@@ -35,18 +34,14 @@ export function MessageThread({
 	const markAsRead = useMutation(api.conversations.markAsRead);
 	const sendTextMessage = useAction(api.whatsapp.sendTextMessageUI);
 	const sendTemplateMessage = useAction(api.whatsapp.sendTemplateMessageUI);
-	const fetchTemplatesAction = useAction(api.whatsapp.fetchTemplatesUI);
 
 	const [messageText, setMessageText] = useState("");
 	const [sending, setSending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [showTemplates, setShowTemplates] = useState(false);
 	const [sendingTemplate, setSendingTemplate] = useState(false);
-	const [templates, setTemplates] = useState<Template[] | null>(null);
-	const [loadingTemplates, setLoadingTemplates] = useState(false);
+	const [templateError, setTemplateError] = useState<string | null>(null);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
-	const templateRef = useRef<HTMLDivElement>(null);
 
 	// Mark conversation as read when opened
 	useEffect(() => {
@@ -68,53 +63,25 @@ export function MessageThread({
 		inputRef.current?.focus();
 	}, [conversationId]);
 
-	// Close template picker on click outside
-	useEffect(() => {
-		const handleClickOutside = (e: MouseEvent) => {
-			if (
-				templateRef.current &&
-				!templateRef.current.contains(e.target as Node)
-			) {
-				setShowTemplates(false);
-			}
-		};
-		if (showTemplates) {
-			document.addEventListener("mousedown", handleClickOutside);
-		}
-		return () => document.removeEventListener("mousedown", handleClickOutside);
-	}, [showTemplates]);
-
-	// Fetch templates from Meta when the picker is opened
-	// biome-ignore lint/correctness/useExhaustiveDependencies: Only fetch when picker opens
-	useEffect(() => {
-		if (!showTemplates || templates !== null) return;
-		setLoadingTemplates(true);
-		fetchTemplatesAction({ accountId })
-			.then(setTemplates)
-			.catch(() => setTemplates([]))
-			.finally(() => setLoadingTemplates(false));
-	}, [showTemplates]);
-
-	const handleSendTemplate = async (
-		templateName: string,
-		templateLanguage: string,
-	) => {
+	const handleSendTemplate = async (result: TemplatePickerResult) => {
 		if (!conversation?.contact?.phone) return;
 
 		setSendingTemplate(true);
-		setError(null);
-		setShowTemplates(false);
+		setTemplateError(null);
 
 		try {
 			await sendTemplateMessage({
 				accountId,
 				conversationId,
 				to: conversation.contact.phone,
-				templateName,
-				templateLanguage,
+				templateName: result.template.name,
+				templateLanguage: result.template.language,
+				components: result.components,
 			});
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to send template");
+			setTemplateError(
+				err instanceof Error ? err.message : "Failed to send template",
+			);
 		} finally {
 			setSendingTemplate(false);
 		}
@@ -296,80 +263,13 @@ export function MessageThread({
 					</form>
 				) : (
 					<div className="mx-auto max-w-2xl">
-						<div className="relative" ref={templateRef}>
-							<button
-								className="flex h-10 w-full items-center justify-between rounded-md border bg-muted px-3 text-sm transition hover:bg-muted/80 disabled:cursor-not-allowed disabled:opacity-50"
-								disabled={sendingTemplate}
-								onClick={() => setShowTemplates(!showTemplates)}
-								type="button"
-							>
-								<span className="flex items-center gap-2 text-muted-foreground">
-									<FileText className="h-3.5 w-3.5" />
-									{sendingTemplate
-										? "Sending template..."
-										: "Window closed — send a template"}
-								</span>
-								<ChevronDown
-									className={cn(
-										"h-3.5 w-3.5 text-muted-foreground transition",
-										showTemplates && "rotate-180",
-									)}
-								/>
-							</button>
-
-							{showTemplates && (
-								<div className="absolute bottom-12 left-0 z-50 w-full rounded-md border bg-card shadow-lg">
-									{loadingTemplates ? (
-										<div className="flex items-center justify-center px-3 py-4">
-											<div className="h-4 w-4 animate-spin rounded-full border-2 border-pons-green border-t-transparent" />
-											<span className="ml-2 text-muted-foreground text-sm">
-												Loading templates...
-											</span>
-										</div>
-									) : !templates || templates.length === 0 ? (
-										<div className="px-3 py-4 text-center text-muted-foreground text-sm">
-											No templates found.
-											<br />
-											<span className="text-xs">
-												Create templates in Meta Business Suite.
-											</span>
-										</div>
-									) : (
-										<div className="max-h-48 overflow-y-auto py-1">
-											{templates
-												.filter((t) => t.status === "approved")
-												.map((t) => (
-													<button
-														className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition hover:bg-muted"
-														key={t.id}
-														onClick={() =>
-															handleSendTemplate(t.name, t.language)
-														}
-														type="button"
-													>
-														<FileText className="h-3.5 w-3.5 shrink-0 text-pons-green" />
-														<div className="min-w-0 flex-1">
-															<p className="truncate font-medium text-foreground">
-																{t.name}
-															</p>
-															<p className="text-muted-foreground text-xs">
-																{t.language} · {t.category}
-															</p>
-														</div>
-														<Send className="h-3 w-3 shrink-0 text-muted-foreground" />
-													</button>
-												))}
-											{templates.filter((t) => t.status === "approved")
-												.length === 0 && (
-												<div className="px-3 py-3 text-center text-muted-foreground text-sm">
-													No approved templates.
-												</div>
-											)}
-										</div>
-									)}
-								</div>
-							)}
-						</div>
+						<TemplatePicker
+							accountId={accountId}
+							compact
+							error={templateError}
+							onSend={handleSendTemplate}
+							sending={sendingTemplate}
+						/>
 					</div>
 				)}
 			</div>
