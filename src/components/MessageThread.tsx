@@ -289,7 +289,6 @@ function MessageThreadContent({
 													msg.type === "video" ||
 													msg.type === "audio" ||
 													msg.type === "voice" ||
-													msg.type === "document" ||
 													msg.type === "sticker") && (
 													<span className="text-muted-foreground text-xs">
 														File is still processing...
