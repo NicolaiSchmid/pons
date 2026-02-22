@@ -4,6 +4,7 @@ import { useQuery } from "convex/react";
 import { MessageSquare, Search } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { ComposeDialog } from "@/components/ComposeDialog";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { api } from "../../convex/_generated/api";
@@ -44,9 +45,9 @@ export function ConversationList({
 
 	return (
 		<div className="flex h-full flex-col">
-			{/* Search */}
-			<div className="shrink-0 p-3">
-				<div className="relative">
+			{/* Search + New button */}
+			<div className="flex shrink-0 items-center gap-2 p-3">
+				<div className="relative flex-1">
 					<Search className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
 					<input
 						className="h-8 w-full rounded-md bg-muted pr-3 pl-9 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
@@ -56,6 +57,7 @@ export function ConversationList({
 						value={search}
 					/>
 				</div>
+				<ComposeDialog accountId={accountId} />
 			</div>
 
 			{/* List */}
