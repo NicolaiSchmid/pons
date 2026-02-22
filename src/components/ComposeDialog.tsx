@@ -30,20 +30,25 @@ import type { Template } from "../../convex/whatsapp";
 
 // ── Helpers ──
 
-/** Extract `{{1}}`, `{{2}}`, etc. from a template body text. */
+/** Match `{{1}}`, `{{name}}`, `{{city}}`, etc. */
+const VAR_PATTERN = /\{\{(\w+)\}\}/g;
+
+/** Extract variable keys from all text components of a template. */
 const extractVariables = (template: Template): string[] => {
-	const body = template.components.find(
-		(c) => c.type === "BODY" || c.type === "body",
-	);
-	if (!body?.text) return [];
-	const matches = body.text.match(/\{\{(\d+)\}\}/g);
-	return matches ? [...new Set(matches)] : [];
+	const keys = new Set<string>();
+	for (const c of template.components) {
+		if (!c.text) continue;
+		for (const m of c.text.matchAll(VAR_PATTERN)) {
+			if (m[1]) keys.add(m[1]);
+		}
+	}
+	return [...keys];
 };
 
-/** Replace `{{1}}`, `{{2}}` etc. with provided values for preview. */
+/** Replace `{{key}}` placeholders with provided values for preview. */
 const renderPreview = (text: string, values: Record<string, string>): string =>
-	text.replace(/\{\{(\d+)\}\}/g, (match, index: string) => {
-		const val = values[index]?.trim();
+	text.replace(VAR_PATTERN, (match, key: string) => {
+		const val = values[key]?.trim();
 		return val || match;
 	});
 
@@ -111,10 +116,7 @@ export function ComposeDialog({ accountId }: ComposeDialogProps) {
 		if (!phone.trim()) return false;
 		if (!selectedTemplate) return false;
 		// All variables must be filled
-		return variables.every((v) => {
-			const idx = v.replace(/[{}]/g, "");
-			return variableValues[idx]?.trim();
-		});
+		return variables.every((key) => variableValues[key]?.trim());
 	}, [phone, selectedTemplate, variables, variableValues]);
 
 	// Load templates when dialog opens
@@ -179,12 +181,13 @@ export function ComposeDialog({ accountId }: ComposeDialogProps) {
 			});
 
 			// 3. Build components array for Meta API
+			// Meta expects positional parameters in order of appearance
 			const components: Array<Record<string, unknown>> = [];
 			if (variables.length > 0) {
-				const parameters = variables.map((v) => {
-					const idx = v.replace(/[{}]/g, "");
-					return { type: "text", text: variableValues[idx] ?? "" };
-				});
+				const parameters = variables.map((key) => ({
+					type: "text",
+					text: variableValues[key] ?? "",
+				}));
 				components.push({ type: "body", parameters });
 			}
 
@@ -328,30 +331,27 @@ export function ComposeDialog({ accountId }: ComposeDialogProps) {
 					{selectedTemplate && variables.length > 0 && (
 						<div className="space-y-3">
 							<Label>Template variables</Label>
-							{variables.map((v) => {
-								const idx = v.replace(/[{}]/g, "");
-								return (
-									<div className="space-y-1" key={v}>
-										<Label
-											className="text-muted-foreground text-xs"
-											htmlFor={`var-${idx}`}
-										>
-											{v}
-										</Label>
-										<Input
-											id={`var-${idx}`}
-											onChange={(e) =>
-												setVariableValues((prev) => ({
-													...prev,
-													[idx]: e.target.value,
-												}))
-											}
-											placeholder={`Value for ${v}`}
-											value={variableValues[idx] ?? ""}
-										/>
-									</div>
-								);
-							})}
+							{variables.map((key) => (
+								<div className="space-y-1" key={key}>
+									<Label
+										className="text-muted-foreground text-xs"
+										htmlFor={`var-${key}`}
+									>
+										{`{{${key}}}`}
+									</Label>
+									<Input
+										id={`var-${key}`}
+										onChange={(e) =>
+											setVariableValues((prev) => ({
+												...prev,
+												[key]: e.target.value,
+											}))
+										}
+										placeholder={`Value for {{${key}}}`}
+										value={variableValues[key] ?? ""}
+									/>
+								</div>
+							))}
 						</div>
 					)}
 
