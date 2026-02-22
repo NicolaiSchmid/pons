@@ -101,6 +101,7 @@ export default defineSchema({
 		nameReviewNotifiedAt: v.optional(v.number()), // When we emailed the user
 	})
 		.index("by_phone_number_id", ["phoneNumberId"])
+		.index("by_phone_number", ["phoneNumber"])
 		.index("by_owner", ["ownerId"])
 		.index("by_status", ["status"]),
 
