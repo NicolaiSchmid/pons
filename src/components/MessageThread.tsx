@@ -246,11 +246,12 @@ function MessageThreadContent({
 												) : (
 													<Paperclip className="h-3.5 w-3.5" />
 												)}
-												<span>
-													{msg.type}
-													{msg.caption ? `: ${msg.caption}` : ""}
-												</span>
+												<span>{msg.mediaFilename ?? msg.type}</span>
 											</div>
+											<p className="text-muted-foreground text-xs">
+												{msg.mediaMimeType ?? msg.type}
+												{msg.caption ? ` - ${msg.caption}` : ""}
+											</p>
 											{msg.mediaId ? (
 												<a
 													className="inline-flex text-pons-accent text-xs underline-offset-2 hover:underline"
