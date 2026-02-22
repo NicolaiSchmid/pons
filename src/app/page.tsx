@@ -124,7 +124,7 @@ function CopyButton({ text }: { text: string }) {
 
 	return (
 		<button
-			className="absolute top-3 right-3 flex h-7 w-7 items-center justify-center rounded-md bg-white/5 text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
+			className="absolute top-3 right-3 flex h-7 w-7 items-center justify-center rounded-md bg-foreground/5 text-muted-foreground transition hover:bg-foreground/10 hover:text-foreground"
 			onClick={copy}
 			type="button"
 		>
@@ -342,15 +342,15 @@ export default function Home() {
 						</div>
 					</div>
 					<div className="relative">
-						<div className="relative overflow-hidden rounded-lg border border-border/60 bg-[oklch(0.08_0.005_260)]">
-							<div className="flex items-center gap-2 border-border/40 border-b px-4 py-2.5">
-								<Code2 className="h-3.5 w-3.5 text-muted-foreground" />
-								<span className="font-mono text-muted-foreground text-xs">
+						<div className="relative overflow-hidden rounded-lg border border-border/60 bg-[oklch(0.17_0.012_240)]">
+							<div className="flex items-center gap-2 border-[oklch(0.25_0.01_240)] border-b px-4 py-2.5">
+								<Code2 className="h-3.5 w-3.5 text-[oklch(0.65_0.005_240)]" />
+								<span className="font-mono text-[oklch(0.65_0.005_240)] text-xs">
 									mcp.json
 								</span>
 							</div>
 							<pre className="overflow-x-auto p-4 font-mono text-xs leading-relaxed">
-								<code className="text-foreground/80">{mcpConfig}</code>
+								<code className="text-[oklch(0.90_0.005_90)]">{mcpConfig}</code>
 							</pre>
 							<CopyButton text={mcpConfig} />
 						</div>
@@ -404,8 +404,8 @@ export default function Home() {
 				<h2 className="mb-8 font-display font-semibold text-2xl tracking-tight sm:text-3xl">
 					Architecture
 				</h2>
-				<div className="overflow-hidden rounded-lg border border-border/60 bg-[oklch(0.08_0.005_260)] p-6 sm:p-8">
-					<pre className="overflow-x-auto font-mono text-muted-foreground text-xs leading-relaxed sm:text-sm">
+				<div className="overflow-hidden rounded-lg border border-border/60 bg-[oklch(0.17_0.012_240)] p-6 sm:p-8">
+					<pre className="overflow-x-auto font-mono text-[oklch(0.65_0.005_240)] text-xs leading-relaxed sm:text-sm">
 						{`+--------------+     +--------------+     +--------------+
 |              |     |              |     |              |
 |  Claude /    |---->|  Pons MCP    |---->|   Convex     |
@@ -423,11 +423,11 @@ export default function Home() {
 				</div>
 
 				{/* Data model */}
-				<div className="mt-6 overflow-hidden rounded-lg border border-border/60 bg-[oklch(0.08_0.005_260)] p-6 sm:p-8">
-					<h3 className="mb-4 font-display font-medium text-muted-foreground text-sm">
+				<div className="mt-6 overflow-hidden rounded-lg border border-border/60 bg-[oklch(0.17_0.012_240)] p-6 sm:p-8">
+					<h3 className="mb-4 font-display font-medium text-[oklch(0.65_0.005_240)] text-sm">
 						Data Model
 					</h3>
-					<pre className="overflow-x-auto font-mono text-muted-foreground text-xs leading-relaxed">
+					<pre className="overflow-x-auto font-mono text-[oklch(0.65_0.005_240)] text-xs leading-relaxed">
 						{`Account (WhatsApp Business Account)
 |-- AccountMember (owner / admin / member)
 |-- Contact (customer phone numbers)

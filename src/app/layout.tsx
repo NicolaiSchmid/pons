@@ -56,7 +56,7 @@ export default function RootLayout({
 	return (
 		<ConvexAuthNextjsServerProvider>
 			<html
-				className={`dark ${geist.variable} ${geistMono.variable} ${sora.variable}`}
+				className={`${geist.variable} ${geistMono.variable} ${sora.variable}`}
 				lang="en"
 			>
 				<body>

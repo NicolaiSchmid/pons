@@ -79,22 +79,8 @@ const PonsSidebarContent: FC<{
 
 	return (
 		<div className="flex h-full flex-col">
-			{/* Brand + account selector — pt-12 clears the fixed toggle button */}
-			<div className="flex flex-col gap-3 border-sidebar-border border-b px-3 pt-12 pb-3">
-				<Link
-					className="flex items-center gap-2.5 rounded-md px-1 py-1 transition-colors hover:bg-sidebar-accent"
-					href="/"
-				>
-					<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-pons-green/10 ring-1 ring-pons-green/20">
-						<MessageSquare className="h-4 w-4 text-pons-green" />
-					</div>
-					<div className="flex flex-col leading-none">
-						<span className="font-display font-semibold text-sm">Pons</span>
-						<span className="text-muted-foreground text-xs">
-							WhatsApp Bridge
-						</span>
-					</div>
-				</Link>
+			{/* Account selector — pt-12 clears the fixed toggle button */}
+			<div className="border-sidebar-border border-b px-3 pt-12 pb-2">
 				<AccountSelector
 					onSelectAccount={(id) => router.push(`/dashboard/${id}`)}
 					selectedAccountId={accountId}
@@ -202,7 +188,7 @@ const PonsSidebarContent: FC<{
 	);
 };
 
-/* ── Fixed sidebar toggle button — single stable button, no AnimatePresence swap ── */
+/* ── Fixed sidebar toggle button ── */
 
 const FixedSidebarButton: FC = () => {
 	const { toggleSidebar, open } = useSidebar();
@@ -331,7 +317,7 @@ const HybridLayout: FC<{
 							x: open ? 0 : -SIDEBAR_WIDTH,
 							opacity: open ? 1 : 0,
 						}}
-						className="absolute top-0 left-0 z-10 h-full shrink-0 overflow-hidden bg-sidebar text-sidebar-foreground"
+						className="absolute top-0 left-0 z-10 h-full shrink-0 overflow-hidden border-sidebar-border border-r bg-sidebar text-sidebar-foreground"
 						initial={false}
 						style={{
 							width: `${SIDEBAR_WIDTH}px`,
