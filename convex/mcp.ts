@@ -272,13 +272,35 @@ export const resolveAccountByPhone = internalQuery({
 		phone: v.string(),
 	},
 	handler: async (ctx, args) => {
-		// Normalize: strip spaces, dashes
+		// Normalize: strip spaces, dashes, parens
 		const normalized = args.phone.replace(/[\s\-()]/g, "");
 
-		const account = await ctx.db
+		// Try exact match on index first
+		let account = await ctx.db
 			.query("accounts")
 			.withIndex("by_phone_number", (q) => q.eq("phoneNumber", normalized))
 			.first();
+
+		// Fallback: if the stored phone has spaces/dashes (e.g. "+49 30 123"),
+		// the index lookup with the normalized form won't match.
+		// Scan the user's accounts and compare normalized phone numbers.
+		if (!account) {
+			const memberships = await ctx.db
+				.query("accountMembers")
+				.withIndex("by_user", (q) => q.eq("userId", args.userId as Id<"users">))
+				.collect();
+			for (const m of memberships) {
+				const a = await ctx.db.get(m.accountId);
+				if (
+					a &&
+					(a.status === "active" || a.status === "pending_name_review") &&
+					a.phoneNumber.replace(/[\s\-()]/g, "") === normalized
+				) {
+					account = a;
+					break;
+				}
+			}
+		}
 
 		// Helper: list all accounts for this user (for helpful error messages)
 		const listUserAccounts = async () => {

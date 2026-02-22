@@ -15,6 +15,12 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -220,7 +226,13 @@ export function MessageThread({
 										)}
 									>
 										<span>{formatTime(msg.timestamp)}</span>
-										{isOutbound && <StatusIcon status={msg.status} />}
+										{isOutbound && (
+											<StatusIcon
+												errorCode={msg.errorCode}
+												errorMessage={msg.errorMessage}
+												status={msg.status}
+											/>
+										)}
 									</div>
 								</div>
 							</div>
@@ -277,7 +289,15 @@ export function MessageThread({
 	);
 }
 
-function StatusIcon({ status }: { status?: string }) {
+function StatusIcon({
+	status,
+	errorCode,
+	errorMessage,
+}: {
+	status?: string;
+	errorCode?: string;
+	errorMessage?: string;
+}) {
 	switch (status) {
 		case "read":
 			return <CheckCheck className="h-3 w-3 text-pons-accent" />;
@@ -287,8 +307,21 @@ function StatusIcon({ status }: { status?: string }) {
 			return <Check className="h-3 w-3" />;
 		case "pending":
 			return <Circle className="h-2.5 w-2.5" />;
-		case "failed":
-			return <AlertTriangle className="h-3 w-3 text-destructive" />;
+		case "failed": {
+			const errorDetail = [errorCode, errorMessage].filter(Boolean).join(": ");
+			return (
+				<TooltipProvider delayDuration={200}>
+					<Tooltip>
+						<TooltipTrigger asChild>
+							<AlertTriangle className="h-3 w-3 cursor-help text-destructive" />
+						</TooltipTrigger>
+						<TooltipContent className="max-w-xs text-xs" side="top">
+							{errorDetail || "Message failed to deliver"}
+						</TooltipContent>
+					</Tooltip>
+				</TooltipProvider>
+			);
+		}
 		default:
 			return null;
 	}

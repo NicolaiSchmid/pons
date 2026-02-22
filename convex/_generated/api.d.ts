@@ -20,6 +20,7 @@ import type * as http from "../http.js";
 import type * as mcp from "../mcp.js";
 import type * as mcpNode from "../mcpNode.js";
 import type * as messages from "../messages.js";
+import type * as metaFetch from "../metaFetch.js";
 import type * as nameReview from "../nameReview.js";
 import type * as phoneRegistration from "../phoneRegistration.js";
 import type * as tokenExpiry from "../tokenExpiry.js";
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   mcp: typeof mcp;
   mcpNode: typeof mcpNode;
   messages: typeof messages;
+  metaFetch: typeof metaFetch;
   nameReview: typeof nameReview;
   phoneRegistration: typeof phoneRegistration;
   tokenExpiry: typeof tokenExpiry;

@@ -280,33 +280,33 @@ const HybridLayout: FC<{
 								}}
 								initial={{ opacity: 0 }}
 								style={{
-									left: `${SIDEBAR_WIDTH - 5}px`,
-									top: "-5px",
+									left: `${SIDEBAR_WIDTH - 1}px`,
+									top: "0px",
 								}}
 							>
 								<svg
 									aria-hidden="true"
-									height="45"
-									viewBox="0 0 20 45"
-									width="20"
+									height="35"
+									viewBox="0 0 17 35"
+									width="17"
 								>
 									{/* Top rectangle — filled with sidebar color */}
 									<rect
 										className="fill-sidebar"
-										height="23"
-										width="20"
+										height="19"
+										width="17"
 										x="0"
 										y="0"
 									/>
 									{/* Curved fill — sidebar bg behind the curve */}
 									<path
 										className="fill-sidebar"
-										d="M -0.5 22.5 L -0.5 37.5 L 4.5 37.5 Q 4.5 22.5 20.5 22.5 L -0.5 22.5 Z"
+										d="M 0 18.5 L 0 35 L 1 35 Q 1 18.5 17 18.5 Z"
 									/>
 									{/* Curved border stroke — the visible line */}
 									<path
 										className="fill-none stroke-sidebar-border"
-										d="M 4.5 37.5 Q 4.5 22.5 20.5 22.5"
+										d="M 1 35 Q 1 18.5 17 18.5"
 										strokeWidth="1"
 									/>
 								</svg>
