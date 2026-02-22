@@ -413,15 +413,32 @@ ${messagesText || "No messages yet."}`;
 					if (templates.length === 0)
 						return "No templates found. Templates must be created and approved in the Meta Business Suite.";
 
+					const VAR_RE = /\{\{(\w+)\}\}/g;
+
 					return templates
 						.map((t) => {
-							const bodyComponent = t.components.find(
-								(c) => c.type === "BODY" || c.type === "body",
-							);
-							const body = bodyComponent?.text
-								? `\n  Body: ${bodyComponent.text}`
-								: "";
-							return `- ${t.name} (${t.language}) [${t.status}]\n  Category: ${t.category}${body}`;
+							const lines: string[] = [
+								`- ${t.name} (${t.language}) [${t.status}]`,
+								`  Category: ${t.category}`,
+							];
+
+							// Show body text and extract variables per component
+							for (const c of t.components) {
+								const cType = (c.type ?? "").toUpperCase();
+								if (!c.text) continue;
+								lines.push(`  ${cType}: ${c.text}`);
+								const vars = [...c.text.matchAll(VAR_RE)]
+									.map((m) => m[1])
+									.filter((v): v is string => v != null);
+								if (vars.length > 0) {
+									const isNamed = vars.some((v) => !/^\d+$/.test(v));
+									lines.push(
+										`  Variables (${cType}): ${vars.map((v) => `{{${v}}}`).join(", ")}${isNamed ? " [NAMED — parameter_name required]" : " [POSITIONAL]"}`,
+									);
+								}
+							}
+
+							return lines.join("\n");
 						})
 						.join("\n\n");
 				});
@@ -484,7 +501,7 @@ ${messagesText || "No messages yet."}`;
 	// ============================================
 	server.tool(
 		"send_template",
-		`Send a pre-approved template message. Use this for first contact or when the 24-hour window is closed. ${SELF_DOC}`,
+		`Send a pre-approved template message. Use this for first contact or when the 24-hour window is closed. Use list_templates first to see available templates and their variables. ${SELF_DOC}`,
 		{
 			from: z.string().optional().describe(FROM_DESC),
 			phone: z.string().optional().describe(PHONE_DESC),
@@ -519,7 +536,10 @@ ${messagesText || "No messages yet."}`;
 				)
 				.optional()
 				.describe(
-					"Template components (header, body, button variables) as JSON",
+					"Template components with variable values. Use list_templates to see which variables a template needs. " +
+						"For NAMED variables (e.g. {{name}}, {{city}}): each parameter MUST include parameter_name matching the variable. " +
+						"For POSITIONAL variables (e.g. {{1}}, {{2}}): omit parameter_name, order matters. " +
+						'Example (named): [{"type":"BODY","parameters":[{"type":"text","text":"Alice","parameter_name":"name"},{"type":"text","text":"Berlin","parameter_name":"city"}]}]',
 				),
 		},
 		async ({ from, phone, templateName, templateLanguage, components }) => {
