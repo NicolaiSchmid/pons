@@ -11,60 +11,68 @@ if (!convexUrl) {
 const convex = new ConvexHttpClient(convexUrl);
 
 // Zod schemas for WhatsApp webhook payload
-const mediaContentSchema = z.object({
-	id: z.string(),
-	mime_type: z.string().optional(),
-	sha256: z.string().optional(),
-	filename: z.string().optional(),
-	caption: z.string().optional(),
-});
+const mediaContentSchema = z
+	.object({
+		id: z.string(),
+		mime_type: z.string().optional(),
+		sha256: z.string().optional(),
+		filename: z.string().optional(),
+		caption: z.string().optional(),
+	})
+	.passthrough();
 
-const webhookMessageSchema = z.object({
-	id: z.string(),
-	from: z.string(),
-	timestamp: z.string(),
-	type: z.string(),
-	text: z.object({ body: z.string() }).optional(),
-	image: mediaContentSchema.optional(),
-	video: mediaContentSchema.optional(),
-	audio: mediaContentSchema.optional(),
-	voice: mediaContentSchema.optional(),
-	document: mediaContentSchema.optional(),
-	sticker: mediaContentSchema.optional(),
-	location: z
-		.object({
-			latitude: z.number(),
-			longitude: z.number(),
-			name: z.string().optional(),
-			address: z.string().optional(),
-		})
-		.optional(),
-	contacts: z
-		.array(
-			z.object({
-				name: z.object({ formatted_name: z.string() }),
-				phones: z
-					.array(z.object({ phone: z.string(), type: z.string().optional() }))
+const webhookMessageSchema = z
+	.object({
+		id: z.string(),
+		from: z.string(),
+		timestamp: z.string(),
+		type: z.string(),
+		text: z.object({ body: z.string() }).optional(),
+		image: mediaContentSchema.optional(),
+		video: mediaContentSchema.optional(),
+		audio: mediaContentSchema.optional(),
+		voice: mediaContentSchema.optional(),
+		document: mediaContentSchema.optional(),
+		sticker: mediaContentSchema.optional(),
+		location: z
+			.object({
+				latitude: z.number(),
+				longitude: z.number(),
+				name: z.string().optional(),
+				address: z.string().optional(),
+			})
+			.optional(),
+		contacts: z
+			.array(
+				z.object({
+					name: z.object({ formatted_name: z.string() }),
+					phones: z
+						.array(z.object({ phone: z.string(), type: z.string().optional() }))
+						.optional(),
+				}),
+			)
+			.optional(),
+		interactive: z
+			.object({
+				type: z.string(),
+				button_reply: z
+					.object({ id: z.string(), title: z.string() })
 					.optional(),
-			}),
-		)
-		.optional(),
-	interactive: z
-		.object({
-			type: z.string(),
-			button_reply: z.object({ id: z.string(), title: z.string() }).optional(),
-			list_reply: z
-				.object({
-					id: z.string(),
-					title: z.string(),
-					description: z.string().optional(),
-				})
-				.optional(),
-		})
-		.optional(),
-	reaction: z.object({ message_id: z.string(), emoji: z.string() }).optional(),
-	context: z.object({ message_id: z.string() }).optional(),
-});
+				list_reply: z
+					.object({
+						id: z.string(),
+						title: z.string(),
+						description: z.string().optional(),
+					})
+					.optional(),
+			})
+			.optional(),
+		reaction: z
+			.object({ message_id: z.string(), emoji: z.string() })
+			.optional(),
+		context: z.object({ message_id: z.string() }).optional(),
+	})
+	.passthrough();
 
 const webhookStatusSchema = z.object({
 	id: z.string(),
@@ -203,6 +211,7 @@ export async function POST(request: NextRequest) {
 		if (error instanceof z.ZodError) {
 			console.error("[webhook:POST] ✗ Zod validation error", {
 				errors: error.errors,
+				rawBody: body.slice(0, 2000),
 			});
 			return new NextResponse("Invalid payload", { status: 400 });
 		}
