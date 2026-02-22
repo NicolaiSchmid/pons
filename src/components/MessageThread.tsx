@@ -247,12 +247,24 @@ function MessageThreadContent({
 												) : (
 													<Paperclip className="h-3.5 w-3.5" />
 												)}
-												<span>{msg.mediaFilename ?? msg.type}</span>
+												{msg.mediaId ? (
+													<a
+														className="text-pons-accent underline-offset-2 hover:underline"
+														href={`/api/media/${msg._id}`}
+														rel="noopener noreferrer"
+														target="_blank"
+													>
+														{msg.mediaFilename ?? msg.type}
+													</a>
+												) : (
+													<span>{msg.mediaFilename ?? msg.type}</span>
+												)}
 											</div>
-											<p className="text-muted-foreground text-xs">
-												{msg.mediaMimeType ?? msg.type}
-												{msg.caption ? ` - ${msg.caption}` : ""}
-											</p>
+											{msg.caption && (
+												<p className="text-muted-foreground text-xs">
+													{msg.caption}
+												</p>
+											)}
 											{msg.type === "image" && msg.mediaId ? (
 												<a
 													className="mt-1 block w-full max-w-[22rem]"
@@ -268,15 +280,6 @@ function MessageThreadContent({
 														src={`/api/media/${msg._id}`}
 														width={1024}
 													/>
-												</a>
-											) : msg.mediaId ? (
-												<a
-													className="inline-flex text-pons-accent text-xs underline-offset-2 hover:underline"
-													href={`/api/media/${msg._id}`}
-													rel="noopener noreferrer"
-													target="_blank"
-												>
-													Open file
 												</a>
 											) : (
 												(msg.type === "image" ||
