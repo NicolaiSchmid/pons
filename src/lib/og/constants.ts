@@ -15,31 +15,36 @@ export const OG_IMAGE_SIZE = {
 export const OG_CONTENT_TYPE = "image/png" as const;
 
 /**
- * Brand colors for OG images.
+ * Brand colors for OG images — "Petal × Verdigris" identity.
  * Raw hex values — CSS variables aren't available in ImageResponse.
  *
  * Derived from the Pons design system (oklch tokens in globals.css).
+ * Light-mode palette: warm copper-cream background, petal pink accent.
  */
 export const OG_COLORS = {
-	/** Deep dark background — oklch(0.1 0.005 260) */
-	background: "#151719",
-	/** Gradient layers */
+	/** Warm cream background — oklch(0.988 0.004 75) */
+	background: "#FCF9F5",
+	/** Gradient layers for depth on light background */
 	gradient: {
-		/** Base layer */
-		base: "#141618",
-		/** Green glow — bottom left */
-		greenGlow: "#0f1f17",
-		/** Cool tint — top right */
-		coolTint: "#151a20",
-		/** Center depth */
-		center: "#111315",
+		/** Base warm cream */
+		base: "#FCF9F5",
+		/** Pink glow — bottom left — subtle petal wash */
+		pinkGlow: "#F8EEF0",
+		/** Cool cream tint — top right */
+		coolTint: "#F5F2ED",
+		/** Center warmth */
+		center: "#FAF7F2",
 	},
-	/** Primary text — oklch(0.95 0 0) */
-	foreground: "#F0F0F0",
-	/** Muted text — oklch(0.55 0 0) */
-	muted: "#838383",
-	/** Pons green accent — oklch(0.72 0.17 160) */
-	green: "#25D366",
-	/** Pons green dimmed */
-	greenDim: "#1a9e4a",
+	/** Primary text — warm charcoal — oklch(0.18 0.012 55) */
+	foreground: "#2A2520",
+	/** Muted text — oklch(0.50 0.010 65) */
+	muted: "#7B756E",
+	/** Border — oklch(0.905 0.007 78) */
+	border: "#E1DBCF",
+	/** Pons petal pink accent — oklch(0.60 0.15 5) */
+	accent: "#C94A6E",
+	/** Pons accent dimmed — oklch(0.50 0.12 5) */
+	accentDim: "#9C3555",
+	/** Accent foreground — white text on pink */
+	accentForeground: "#FDFBFA",
 } as const;

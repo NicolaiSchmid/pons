@@ -196,7 +196,7 @@ export default function Home() {
 		<main className="relative min-h-screen overflow-hidden bg-noise">
 			<Navbar>
 				<Button
-					className="h-8 gap-2 rounded-md bg-pons-accent px-4 font-medium text-white text-xs hover:bg-pons-accent-bright"
+					className="h-8 gap-2 rounded-md bg-[#1877F2] px-4 font-medium text-white text-xs hover:bg-[#166FE5]"
 					onClick={handleSignIn}
 					size="sm"
 				>

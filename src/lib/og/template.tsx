@@ -19,8 +19,8 @@ export type OGImageProps = {
 /**
  * Generates an Open Graph image with Pons branding.
  *
- * Design: Dark background with layered green glow gradients,
- * MessageSquare icon top-left, green "pons.chat" pill top-right,
+ * Design: Light warm-cream background with subtle petal-pink glow gradients,
+ * MessageSquare icon top-left, pink "pons.chat" pill top-right,
  * Sora display font for headline, Geist Sans for body.
  *
  * NOTE: Uses Node.js runtime (not Edge) to read local font files.
@@ -47,7 +47,7 @@ export async function generateOGImage({
 				display: "flex",
 				flexDirection: "column",
 				backgroundColor: OG_COLORS.gradient.base,
-				backgroundImage: `radial-gradient(ellipse 140% 100% at -15% 110%, ${OG_COLORS.gradient.greenGlow} 0%, transparent 65%), radial-gradient(ellipse 120% 80% at 115% -15%, ${OG_COLORS.gradient.coolTint} 0%, transparent 55%), radial-gradient(ellipse 100% 80% at 50% 50%, ${OG_COLORS.gradient.center} 0%, transparent 80%)`,
+				backgroundImage: `radial-gradient(ellipse 140% 100% at -15% 110%, ${OG_COLORS.gradient.pinkGlow} 0%, transparent 65%), radial-gradient(ellipse 120% 80% at 115% -15%, ${OG_COLORS.gradient.coolTint} 0%, transparent 55%), radial-gradient(ellipse 100% 80% at 50% 50%, ${OG_COLORS.gradient.center} 0%, transparent 80%)`,
 				padding: "60px 80px",
 				fontFamily: "Geist",
 			}}
@@ -61,7 +61,7 @@ export async function generateOGImage({
 					width: "100%",
 				}}
 			>
-				{/* MessageSquare icon in green-tinted box */}
+				{/* MessageSquare icon in pink-tinted box */}
 				<div
 					style={{
 						display: "flex",
@@ -77,15 +77,15 @@ export async function generateOGImage({
 							width: "56px",
 							height: "56px",
 							borderRadius: "14px",
-							backgroundColor: "rgba(37, 211, 102, 0.12)",
-							border: "1px solid rgba(37, 211, 102, 0.2)",
+							backgroundColor: "rgba(201, 74, 110, 0.10)",
+							border: `1px solid ${OG_COLORS.border}`,
 						}}
 					>
 						{/* Inline SVG — MessageSquare from Lucide */}
 						<svg
 							fill="none"
 							height="28"
-							stroke={OG_COLORS.green}
+							stroke={OG_COLORS.accent}
 							strokeLinecap="round"
 							strokeLinejoin="round"
 							strokeWidth="2"
@@ -114,13 +114,13 @@ export async function generateOGImage({
 					style={{
 						display: "flex",
 						alignItems: "center",
-						backgroundColor: OG_COLORS.green,
+						backgroundColor: OG_COLORS.accent,
 						padding: "10px 22px",
 						borderRadius: "9999px",
 						fontSize: "20px",
 						fontWeight: 600,
 						fontFamily: "Sora",
-						color: "#0a0a0a",
+						color: OG_COLORS.accentForeground,
 						letterSpacing: "-0.01em",
 					}}
 				>
@@ -182,8 +182,8 @@ export async function generateOGImage({
 							alignItems: "center",
 							padding: "8px 16px",
 							borderRadius: "9999px",
-							backgroundColor: "rgba(255, 255, 255, 0.06)",
-							border: "1px solid rgba(255, 255, 255, 0.08)",
+							backgroundColor: "rgba(42, 37, 32, 0.04)",
+							border: `1px solid ${OG_COLORS.border}`,
 							fontSize: "16px",
 							color: OG_COLORS.muted,
 							fontFamily: "Geist",
@@ -324,14 +324,14 @@ export async function generateBlogOGImage({
 								width: "48px",
 								height: "48px",
 								borderRadius: "12px",
-								backgroundColor: "rgba(37, 211, 102, 0.15)",
-								border: "1px solid rgba(37, 211, 102, 0.25)",
+								backgroundColor: "rgba(201, 74, 110, 0.20)",
+								border: "1px solid rgba(201, 74, 110, 0.35)",
 							}}
 						>
 							<svg
 								fill="none"
 								height="24"
-								stroke={OG_COLORS.green}
+								stroke={OG_COLORS.accent}
 								strokeLinecap="round"
 								strokeLinejoin="round"
 								strokeWidth="2"
