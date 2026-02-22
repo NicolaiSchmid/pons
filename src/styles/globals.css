@@ -46,14 +46,14 @@
 
 	--radius: 0.5rem;
 
-	/* Sidebar — very slightly tinted off-white */
-	--sidebar: oklch(0.975 0.003 240);
+	/* Sidebar — warm tinted surface, visually distinct from main content */
+	--sidebar: oklch(0.94 0.008 240);
 	--sidebar-foreground: oklch(0.2 0.01 240);
 	--sidebar-primary: oklch(0.55 0.14 175);
 	--sidebar-primary-foreground: oklch(0.98 0.005 175);
-	--sidebar-accent: oklch(0.945 0.005 240);
+	--sidebar-accent: oklch(0.915 0.006 240);
 	--sidebar-accent-foreground: oklch(0.15 0.01 240);
-	--sidebar-border: oklch(0.9 0.005 240);
+	--sidebar-border: oklch(0.87 0.006 240);
 	--sidebar-ring: oklch(0.55 0.14 175);
 
 	/* Pons-specific tokens */
@@ -213,6 +213,12 @@
 }
 .prose a:not([data-card]):hover {
 	text-decoration-color: oklch(0.45 0.12 175 / 0.6);
+}
+
+/* Tables — add left padding to first column */
+.prose th:first-child,
+.prose td:first-child {
+	padding-inline-start: 1rem;
 }
 
 /* Code blocks */
