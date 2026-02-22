@@ -469,6 +469,44 @@ pnpm run build        # Production build
 
 ---
 
+## Security Guidelines
+
+When writing new code or modifying existing code, follow these security rules:
+
+### Authentication & Authorization
+- **Every public Convex action** must call `auth.getUserId(ctx)` and throw `"Unauthorized"` if null
+- **Every action that takes `accountId`** must also call `checkMembership` — never assume auth alone is sufficient
+- **Webhook endpoints** (Twilio, Meta) must verify request signatures cryptographically before processing
+- **MCP routes** (GET, POST, DELETE) must all require a valid API key
+
+### Secrets & Tokens
+- **Never pass access tokens in URL query parameters** — use `Authorization: Bearer` header instead
+- **Never log secrets** (tokens, keys, PINs) or partial secrets — even `token.slice(0, 8)` leaks entropy
+- **Clear ephemeral secrets** (OTPs, PINs) from the database as soon as they're consumed
+- **Mask credentials** in UI responses — show only last 4 characters, never first + last
+
+### API & Input Validation
+- **Validate enum-like inputs** against an allowlist (e.g., API key scopes, status values)
+- **Use timing-safe comparison** (`timingSafeEqual`) for any secret/token comparison in Node.js routes
+- **Verify ownership** of referenced resources (e.g., a user linking Twilio credentials must own them)
+
+### HTTP Security Headers
+- CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy are configured in `next.config.js`
+- Do not weaken CSP without a documented reason
+
+### Meta API Calls
+```typescript
+// ✅ CORRECT — token in Authorization header
+const res = await fetch(`${META_API_BASE}/${id}?fields=name,status`, {
+  headers: { Authorization: `Bearer ${token}` },
+});
+
+// ❌ WRONG — token leaked in URL (visible in logs, proxies, referers)
+const res = await fetch(`${META_API_BASE}/${id}?fields=name&access_token=${token}`);
+```
+
+---
+
 ## Gotchas
 
 ### Convex runtime is NOT Node.js
