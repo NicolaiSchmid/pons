@@ -13,6 +13,7 @@ import {
 	CheckCheck,
 	Circle,
 	Clock,
+	Download,
 	FileText,
 	Image,
 	Paperclip,
@@ -22,6 +23,7 @@ import {
 import NextImage from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
 	Tooltip,
 	TooltipContent,
@@ -92,6 +94,10 @@ function MessageThreadContent({
 	const [error, setError] = useState<string | null>(null);
 	const [sendingTemplate, setSendingTemplate] = useState(false);
 	const [templateError, setTemplateError] = useState<string | null>(null);
+	const [selectedImage, setSelectedImage] = useState<{
+		messageId: Id<"messages">;
+		filename?: string;
+	} | null>(null);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
 
@@ -166,6 +172,9 @@ function MessageThreadContent({
 	const windowOpen = conversation.windowExpiresAt
 		? conversation.windowExpiresAt > Date.now()
 		: false;
+	const selectedImageUrl = selectedImage
+		? `/api/media/${selectedImage.messageId}`
+		: null;
 
 	return (
 		<div className="flex h-full flex-col">
@@ -268,11 +277,15 @@ function MessageThreadContent({
 												</p>
 											)}
 											{msg.type === "image" && msg.mediaId ? (
-												<a
+												<button
 													className="mt-1 block w-full max-w-[22rem]"
-													href={`/api/media/${msg._id}`}
-													rel="noopener noreferrer"
-													target="_blank"
+													onClick={() =>
+														setSelectedImage({
+															messageId: msg._id,
+															filename: msg.mediaFilename,
+														})
+													}
+													type="button"
 												>
 													<NextImage
 														alt={msg.mediaFilename ?? "Image attachment"}
@@ -283,7 +296,7 @@ function MessageThreadContent({
 														unoptimized
 														width={1024}
 													/>
-												</a>
+												</button>
 											) : (
 												(msg.type === "image" ||
 													msg.type === "video" ||
@@ -321,6 +334,46 @@ function MessageThreadContent({
 					<div ref={messagesEndRef} />
 				</div>
 			</div>
+
+			<Dialog
+				onOpenChange={(open) => {
+					if (!open) setSelectedImage(null);
+				}}
+				open={selectedImage !== null}
+			>
+				<DialogContent className="flex h-[94vh] max-w-[96vw] flex-col p-3 sm:h-[88vh] sm:max-w-5xl sm:p-4">
+					<div className="flex items-center justify-between gap-2 pr-8">
+						<p className="truncate text-muted-foreground text-sm italic">
+							{selectedImage?.filename ?? "Image attachment"}
+						</p>
+						{selectedImage && (
+							<Button asChild size="sm" variant="outline">
+								<a
+									href={`${selectedImageUrl}?download=1`}
+									rel="noopener noreferrer"
+									target="_blank"
+								>
+									<Download className="h-4 w-4" />
+									Download
+								</a>
+							</Button>
+						)}
+					</div>
+					{selectedImageUrl && (
+						<div className="relative min-h-0 flex-1 overflow-hidden rounded-md border bg-background/70">
+							<NextImage
+								alt={selectedImage?.filename ?? "Image attachment"}
+								className="h-full w-full object-contain"
+								height={1600}
+								sizes="96vw"
+								src={selectedImageUrl}
+								unoptimized
+								width={1600}
+							/>
+						</div>
+					)}
+				</DialogContent>
+			</Dialog>
 
 			{/* Input */}
 			<div className="shrink-0 border-t px-4 py-3">
