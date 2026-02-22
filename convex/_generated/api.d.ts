@@ -22,7 +22,6 @@ import type * as mcpNode from "../mcpNode.js";
 import type * as messages from "../messages.js";
 import type * as nameReview from "../nameReview.js";
 import type * as phoneRegistration from "../phoneRegistration.js";
-import type * as templates from "../templates.js";
 import type * as tokenExpiry from "../tokenExpiry.js";
 import type * as twilioConnect from "../twilioConnect.js";
 import type * as webhook from "../webhook.js";
@@ -50,7 +49,6 @@ declare const fullApi: ApiFromModules<{
   messages: typeof messages;
   nameReview: typeof nameReview;
   phoneRegistration: typeof phoneRegistration;
-  templates: typeof templates;
   tokenExpiry: typeof tokenExpiry;
   twilioConnect: typeof twilioConnect;
   webhook: typeof webhook;
