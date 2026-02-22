@@ -17,7 +17,6 @@ import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import type { FC } from "react";
 import { AccountSelector } from "@/components/AccountSelector";
-import { ComposeDialog } from "@/components/ComposeDialog";
 import { ConversationList } from "@/components/ConversationList";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,7 +32,7 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 /** Statuses that allow normal messaging */
 const USABLE_STATUSES = new Set(["active", "pending_name_review"]);
 
-const SIDEBAR_WIDTH = 320; // 20rem
+const SIDEBAR_WIDTH = 320;
 const EASE = [0.23, 1, 0.32, 1] as const;
 
 function EmptyState({
@@ -58,7 +57,7 @@ function EmptyState({
 	);
 }
 
-/* ── Sidebar content (brand, account, tabs, conversations, footer) ── */
+/* ── Sidebar content ── */
 
 const PonsSidebarContent: FC<{
 	accountId: Id<"accounts">;
@@ -80,16 +79,16 @@ const PonsSidebarContent: FC<{
 
 	return (
 		<div className="flex h-full flex-col">
-			{/* Brand + account selector — padded below fixed button */}
-			<div className="flex flex-col gap-2 px-3 pt-14 pb-2">
+			{/* Brand + account selector — pt-12 clears the fixed toggle button */}
+			<div className="flex flex-col gap-3 border-sidebar-border border-b px-3 pt-12 pb-3">
 				<Link
 					className="flex items-center gap-2.5 rounded-md px-1 py-1 transition-colors hover:bg-sidebar-accent"
 					href="/"
 				>
-					<div className="flex h-8 w-8 items-center justify-center rounded-md bg-pons-green/10 ring-1 ring-pons-green/20">
+					<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-pons-green/10 ring-1 ring-pons-green/20">
 						<MessageSquare className="h-4 w-4 text-pons-green" />
 					</div>
-					<div className="flex flex-col gap-0 leading-none">
+					<div className="flex flex-col leading-none">
 						<span className="font-display font-semibold text-sm">Pons</span>
 						<span className="text-muted-foreground text-xs">
 							WhatsApp Bridge
@@ -103,18 +102,24 @@ const PonsSidebarContent: FC<{
 			</div>
 
 			{/* Tabs */}
-			<div className="px-2">
+			<div className="border-sidebar-border border-b px-2">
 				<Tabs
-					className="flex flex-col gap-0"
+					className="flex flex-col"
 					onValueChange={onTabChange}
 					value={activeTab}
 				>
-					<TabsList className="shrink-0 rounded-none border-b px-1 py-1.5">
-						<TabsTrigger className="text-xs" value="conversations">
+					<TabsList className="h-9 w-full shrink-0 rounded-none bg-transparent px-0">
+						<TabsTrigger
+							className="flex-1 text-xs data-[state=active]:bg-sidebar-accent"
+							value="conversations"
+						>
 							<MessageSquare className="h-3.5 w-3.5" />
 							Conversations
 						</TabsTrigger>
-						<TabsTrigger className="text-xs" value="templates">
+						<TabsTrigger
+							className="flex-1 text-xs data-[state=active]:bg-sidebar-accent"
+							value="templates"
+						>
 							<FileText className="h-3.5 w-3.5" />
 							Templates
 						</TabsTrigger>
@@ -122,7 +127,7 @@ const PonsSidebarContent: FC<{
 				</Tabs>
 			</div>
 
-			{/* Conversation list */}
+			{/* Scrollable content area */}
 			<div className="flex-1 overflow-y-auto overflow-x-hidden">
 				{isTemplatesView ? null : isUsable ? (
 					<ConversationList
@@ -138,126 +143,94 @@ const PonsSidebarContent: FC<{
 				)}
 			</div>
 
-			{/* Footer nav */}
-			<div className="flex flex-col gap-0.5 border-t px-2 py-2">
-				{[
-					{
-						href: `/dashboard/${accountId}/settings`,
-						icon: Settings,
-						label: "Settings",
-					},
-					{
-						href: `/dashboard/${accountId}/keys`,
-						icon: KeyRound,
-						label: "API Keys",
-					},
-					{
-						href: "/dashboard/setup",
-						icon: Plus,
-						label: "Add Account",
-					},
-				].map(({ href, icon: NavIcon, label }) => (
-					<Link
-						className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sidebar-foreground text-sm transition-colors hover:bg-sidebar-accent"
-						href={href}
-						key={href}
+			{/* Footer — nav + legal */}
+			<div className="border-sidebar-border border-t">
+				<div className="flex flex-col gap-0.5 px-2 py-2">
+					{[
+						{
+							href: `/dashboard/${accountId}/settings`,
+							icon: Settings,
+							label: "Settings",
+						},
+						{
+							href: `/dashboard/${accountId}/keys`,
+							icon: KeyRound,
+							label: "API Keys",
+						},
+						{
+							href: "/dashboard/setup",
+							icon: Plus,
+							label: "Add Account",
+						},
+					].map(({ href, icon: NavIcon, label }) => (
+						<Link
+							className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sidebar-foreground text-sm transition-colors hover:bg-sidebar-accent"
+							href={href}
+							key={href}
+						>
+							<NavIcon className="h-4 w-4 text-muted-foreground" />
+							<span>{label}</span>
+						</Link>
+					))}
+					<button
+						className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sidebar-foreground text-sm transition-colors hover:bg-sidebar-accent"
+						onClick={() => void signOut()}
+						type="button"
 					>
-						<NavIcon className="h-4 w-4" />
-						<span>{label}</span>
+						<LogOut className="h-4 w-4 text-muted-foreground" />
+						<span>Sign out</span>
+					</button>
+				</div>
+
+				{/* Legal links */}
+				<div className="flex items-center gap-3 border-sidebar-border border-t px-3 py-2">
+					<Link
+						className="text-[11px] text-muted-foreground transition-colors hover:text-sidebar-foreground"
+						href="/imprint"
+					>
+						Imprint
 					</Link>
-				))}
-				<button
-					className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sidebar-foreground text-sm transition-colors hover:bg-sidebar-accent"
-					onClick={() => void signOut()}
-					type="button"
-				>
-					<LogOut className="h-4 w-4" />
-					<span>Sign out</span>
-				</button>
+					<Link
+						className="text-[11px] text-muted-foreground transition-colors hover:text-sidebar-foreground"
+						href="/privacy"
+					>
+						Privacy
+					</Link>
+				</div>
 			</div>
 		</div>
 	);
 };
 
-/* ── Fixed sidebar toggle button ── */
+/* ── Fixed sidebar toggle button — single stable button, no AnimatePresence swap ── */
 
-const FixedSidebarButton: FC<{ accountId: Id<"accounts"> }> = ({
-	accountId,
-}) => {
+const FixedSidebarButton: FC = () => {
 	const { toggleSidebar, open } = useSidebar();
 
 	return (
-		<div className="fixed top-3.5 left-2 z-50">
-			<AnimatePresence>
-				{!open ? (
-					/* Closed — container with toggle + compose */
-					<motion.div
-						animate={{ opacity: 1, scale: 1 }}
-						className="flex gap-1 rounded-md bg-sidebar p-1"
-						exit={{ opacity: 0, scale: 0.9 }}
-						initial={{ opacity: 0, scale: 0.9 }}
-						key="closed-buttons"
-						style={{ marginLeft: "-5px", marginTop: "-5px" }}
-						transition={{ duration: 0.1 }}
-					>
-						<Button
-							className="h-8 w-8 p-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-							onClick={toggleSidebar}
-							size="icon"
-							variant="ghost"
-						>
-							<PanelLeft size={20} />
-							<span className="sr-only">Toggle Sidebar</span>
-						</Button>
-
-						<motion.div
-							animate={{ width: "auto", opacity: 1 }}
-							exit={{ width: 0, opacity: 0 }}
-							initial={{ width: 0, opacity: 0 }}
-							style={{ overflow: "hidden" }}
-							transition={{ duration: 0.12, delay: 0.02 }}
-						>
-							<ComposeDialog
-								accountId={accountId}
-								trigger={
-									<Button
-										className="h-8 w-8 p-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-										size="icon"
-										variant="ghost"
-									>
-										<Plus size={20} />
-										<span className="sr-only">New conversation</span>
-									</Button>
-								}
-							/>
-						</motion.div>
-					</motion.div>
-				) : (
-					/* Open — just the toggle */
-					<motion.div
-						animate={{ opacity: 1 }}
-						exit={{ opacity: 0 }}
-						initial={{ opacity: 0 }}
-						key="open-button"
-						transition={{ duration: 0.08 }}
-					>
-						<Button
-							className="h-8 w-8 p-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-							onClick={toggleSidebar}
-							size="icon"
-							variant="ghost"
-						>
-							<PanelLeft size={20} />
-							<span className="sr-only">Toggle Sidebar</span>
-						</Button>
-					</motion.div>
-				)}
-			</AnimatePresence>
+		<div className="fixed top-3 left-2 z-50">
+			<motion.div
+				animate={{
+					backgroundColor: open ? "transparent" : "var(--sidebar)",
+				}}
+				className="rounded-lg p-0.5"
+				transition={{ duration: 0.15, ease: EASE }}
+			>
+				<Button
+					className="h-8 w-8 p-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+					onClick={toggleSidebar}
+					size="icon"
+					variant="ghost"
+				>
+					<PanelLeft size={18} />
+					<span className="sr-only">Toggle Sidebar</span>
+				</Button>
+			</motion.div>
 		</div>
 	);
 };
 
-/* ── Hybrid layout (mobile grid / desktop framer-motion) ── */
+/* ── Hybrid layout ── */
 
 const HybridLayout: FC<{
 	children: React.ReactNode;
@@ -291,10 +264,9 @@ const HybridLayout: FC<{
 
 	return (
 		<div className="relative h-full w-full">
-			<FixedSidebarButton accountId={accountId} />
+			<FixedSidebarButton />
 
 			{isMobile ? (
-				/* Mobile — simple grid with standard sidebar behavior */
 				<div className="grid h-full w-full grid-cols-[auto,1fr]">
 					<div className="h-full overflow-y-auto bg-sidebar text-sidebar-foreground">
 						{sidebarContent}
@@ -306,9 +278,8 @@ const HybridLayout: FC<{
 					</SidebarInset>
 				</div>
 			) : (
-				/* Desktop — Framer Motion animated panels */
 				<div className="relative flex h-full justify-center overflow-hidden">
-					{/* Curved arch SVG overlay at sidebar edge */}
+					{/* Curved arch SVG at sidebar edge */}
 					<AnimatePresence initial={false}>
 						{open && (
 							<motion.div
@@ -333,7 +304,6 @@ const HybridLayout: FC<{
 									viewBox="0 0 20 45"
 									width="20"
 								>
-									{/* Top half — solid background matching top bar */}
 									<rect
 										className="fill-sidebar"
 										height="23"
@@ -341,12 +311,10 @@ const HybridLayout: FC<{
 										x="0"
 										y="0"
 									/>
-									{/* Bottom half — curved corner */}
 									<path
 										className="fill-sidebar"
 										d="M -0.5 22.5 L -0.5 37.5 L 4.5 37.5 Q 4.5 22.5 20.5 22.5 L -0.5 22.5 Z"
 									/>
-									{/* Curved border stroke */}
 									<path
 										className="fill-none stroke-sidebar"
 										d="M 4.5 37.5 Q 4.5 22.5 20.5 22.5"
@@ -357,13 +325,13 @@ const HybridLayout: FC<{
 						)}
 					</AnimatePresence>
 
-					{/* Sidebar panel — slides in from left */}
+					{/* Sidebar panel */}
 					<motion.div
 						animate={{
 							x: open ? 0 : -SIDEBAR_WIDTH,
 							opacity: open ? 1 : 0,
 						}}
-						className="absolute top-0 left-0 z-10 h-full shrink-0 overflow-y-auto bg-sidebar text-sidebar-foreground"
+						className="absolute top-0 left-0 z-10 h-full shrink-0 overflow-hidden bg-sidebar text-sidebar-foreground"
 						initial={false}
 						style={{
 							width: `${SIDEBAR_WIDTH}px`,
@@ -396,7 +364,7 @@ const HybridLayout: FC<{
 					>
 						<SidebarInset className="h-full">
 							<div className="relative flex h-full flex-1 flex-col">
-								{/* Top bar — sidebar color bleed */}
+								{/* Top bar color bleed */}
 								<motion.div
 									animate={{ y: open ? 0 : -18 }}
 									className="fixed top-0 left-0 z-[5] h-[18px] w-screen bg-sidebar"

@@ -8,54 +8,70 @@
 
 /*
  * Pons Design System
- * Aesthetic: Refined utilitarian — dark, purposeful, sharp
- * Accent: WhatsApp green (emerald-tinted)
+ * Aesthetic: Deep ocean — layered dark surfaces, warm off-white text, teal-jade accent
+ * Palette: Blue-gray surfaces (hue 240) · teal-jade accent (hue 175) · warm cream foreground
  */
 
 :root {
-	--background: oklch(0.1 0.005 260);
-	--foreground: oklch(0.95 0 0);
-	--card: oklch(0.13 0.005 260);
-	--card-foreground: oklch(0.95 0 0);
-	--popover: oklch(0.13 0.005 260);
-	--popover-foreground: oklch(0.95 0 0);
-	--primary: oklch(0.72 0.17 160);
-	--primary-foreground: oklch(0.12 0.02 160);
-	--secondary: oklch(0.2 0.005 260);
-	--secondary-foreground: oklch(0.85 0 0);
-	--muted: oklch(0.18 0.005 260);
-	--muted-foreground: oklch(0.55 0 0);
-	--accent: oklch(0.2 0.01 260);
-	--accent-foreground: oklch(0.9 0 0);
-	--destructive: oklch(0.55 0.22 27);
-	--destructive-foreground: oklch(0.95 0 0);
-	--border: oklch(0.22 0.005 260);
-	--input: oklch(0.18 0.005 260);
-	--ring: oklch(0.72 0.17 160);
-	--radius: 0.375rem;
-	--sidebar: oklch(0.08 0.005 260);
-	--sidebar-foreground: oklch(0.85 0 0);
-	--sidebar-primary: oklch(0.72 0.17 160);
-	--sidebar-primary-foreground: oklch(0.12 0.02 160);
-	--sidebar-accent: oklch(0.15 0.005 260);
-	--sidebar-accent-foreground: oklch(0.9 0 0);
-	--sidebar-border: oklch(0.18 0.005 260);
-	--sidebar-ring: oklch(0.72 0.17 160);
+	/* Surfaces — 4 visible layers of depth, all carrying a subtle blue undertone */
+	--background: oklch(0.14 0.012 240);
+	--foreground: oklch(0.93 0.01 90);
+	--card: oklch(0.17 0.01 240);
+	--card-foreground: oklch(0.93 0.01 90);
+	--popover: oklch(0.17 0.01 240);
+	--popover-foreground: oklch(0.93 0.01 90);
+
+	/* Accent — teal-jade, richer and less neon than pure emerald */
+	--primary: oklch(0.7 0.14 175);
+	--primary-foreground: oklch(0.14 0.02 175);
+
+	/* Secondary — a raised surface for tags, pills, secondary buttons */
+	--secondary: oklch(0.22 0.012 240);
+	--secondary-foreground: oklch(0.88 0.008 90);
+
+	/* Muted — inputs, inactive surfaces, placeholders */
+	--muted: oklch(0.2 0.01 240);
+	--muted-foreground: oklch(0.58 0.01 240);
+
+	/* Accent surface — subtle hover/focus states */
+	--accent: oklch(0.22 0.015 240);
+	--accent-foreground: oklch(0.9 0.008 90);
+
+	/* Destructive — warm red that reads clearly on dark surfaces */
+	--destructive: oklch(0.55 0.2 25);
+	--destructive-foreground: oklch(0.93 0.01 90);
+
+	/* Borders — soft, visible but not harsh */
+	--border: oklch(0.26 0.01 240);
+	--input: oklch(0.2 0.01 240);
+	--ring: oklch(0.7 0.14 175);
+
+	--radius: 0.5rem;
+
+	/* Sidebar — deepest surface layer */
+	--sidebar: oklch(0.12 0.015 240);
+	--sidebar-foreground: oklch(0.88 0.008 90);
+	--sidebar-primary: oklch(0.7 0.14 175);
+	--sidebar-primary-foreground: oklch(0.14 0.02 175);
+	--sidebar-accent: oklch(0.18 0.012 240);
+	--sidebar-accent-foreground: oklch(0.9 0.008 90);
+	--sidebar-border: oklch(0.24 0.01 240);
+	--sidebar-ring: oklch(0.7 0.14 175);
 
 	/* Pons-specific tokens */
-	--pons-green: oklch(0.72 0.17 160);
-	--pons-green-dim: oklch(0.55 0.13 160);
-	--pons-green-bright: oklch(0.82 0.19 158);
-	--pons-green-surface: oklch(0.2 0.04 160);
-	--pons-amber: oklch(0.78 0.15 75);
-	--pons-amber-surface: oklch(0.22 0.04 75);
+	--pons-green: oklch(0.7 0.14 175);
+	--pons-green-dim: oklch(0.52 0.1 175);
+	--pons-green-bright: oklch(0.78 0.16 173);
+	--pons-green-surface: oklch(0.2 0.035 175);
+	--pons-amber: oklch(0.78 0.14 75);
+	--pons-amber-surface: oklch(0.22 0.035 75);
 
-	/* Chart colors */
-	--chart-1: oklch(0.72 0.17 160);
-	--chart-2: oklch(0.65 0.15 200);
-	--chart-3: oklch(0.58 0.12 260);
-	--chart-4: oklch(0.78 0.15 75);
-	--chart-5: oklch(0.7 0.18 30);
+	/* Chart colors — teal-jade palette with warm complements */
+	--chart-1: oklch(0.7 0.14 175);
+	--chart-2: oklch(0.65 0.12 210);
+	--chart-3: oklch(0.6 0.1 260);
+	--chart-4: oklch(0.78 0.14 75);
+	--chart-5: oklch(0.68 0.16 30);
 }
 
 @theme inline {
@@ -120,7 +136,7 @@
 	}
 }
 
-/* Subtle scrollbar */
+/* Subtle scrollbar — warm-tinted to match surface hue */
 @layer base {
 	::-webkit-scrollbar {
 		width: 6px;
@@ -130,63 +146,63 @@
 		background: transparent;
 	}
 	::-webkit-scrollbar-thumb {
-		background: oklch(0.3 0 0);
+		background: oklch(0.3 0.01 240);
 		border-radius: 3px;
 	}
 	::-webkit-scrollbar-thumb:hover {
-		background: oklch(0.4 0 0);
+		background: oklch(0.38 0.01 240);
 	}
 }
 
 /*
  * Fumadocs theme overrides
- * Map fd-* variables to Pons design tokens for visual consistency
+ * Map fd-* variables to Pons deep-ocean palette
  */
 :root,
 .dark {
-	--color-fd-background: oklch(0.1 0.005 260);
-	--color-fd-foreground: oklch(0.95 0 0);
-	--color-fd-muted: oklch(0.18 0.005 260);
-	--color-fd-muted-foreground: oklch(0.55 0 0);
-	--color-fd-popover: oklch(0.13 0.005 260);
-	--color-fd-popover-foreground: oklch(0.95 0 0);
-	--color-fd-card: oklch(0.13 0.005 260);
-	--color-fd-card-foreground: oklch(0.95 0 0);
-	--color-fd-border: oklch(0.22 0.005 260);
-	--color-fd-primary: oklch(0.72 0.17 160);
-	--color-fd-primary-foreground: oklch(0.12 0.02 160);
-	--color-fd-secondary: oklch(0.18 0.005 260);
-	--color-fd-secondary-foreground: oklch(0.85 0 0);
-	--color-fd-accent: oklch(0.2 0.01 260);
-	--color-fd-accent-foreground: oklch(0.9 0 0);
-	--color-fd-ring: oklch(0.72 0.17 160);
+	--color-fd-background: oklch(0.14 0.012 240);
+	--color-fd-foreground: oklch(0.93 0.01 90);
+	--color-fd-muted: oklch(0.2 0.01 240);
+	--color-fd-muted-foreground: oklch(0.58 0.01 240);
+	--color-fd-popover: oklch(0.17 0.01 240);
+	--color-fd-popover-foreground: oklch(0.93 0.01 90);
+	--color-fd-card: oklch(0.17 0.01 240);
+	--color-fd-card-foreground: oklch(0.93 0.01 90);
+	--color-fd-border: oklch(0.26 0.01 240);
+	--color-fd-primary: oklch(0.7 0.14 175);
+	--color-fd-primary-foreground: oklch(0.14 0.02 175);
+	--color-fd-secondary: oklch(0.2 0.01 240);
+	--color-fd-secondary-foreground: oklch(0.88 0.008 90);
+	--color-fd-accent: oklch(0.22 0.015 240);
+	--color-fd-accent-foreground: oklch(0.9 0.008 90);
+	--color-fd-ring: oklch(0.7 0.14 175);
 	--color-fd-overlay: oklch(0 0 0 / 0.5);
 }
 
 .dark #nd-sidebar {
-	--color-fd-muted: oklch(0.15 0.005 260);
-	--color-fd-secondary: oklch(0.15 0.005 260);
-	--color-fd-muted-foreground: oklch(0.55 0 0);
+	--color-fd-muted: oklch(0.18 0.012 240);
+	--color-fd-secondary: oklch(0.18 0.012 240);
+	--color-fd-muted-foreground: oklch(0.58 0.01 240);
 }
 
 /* Fumadocs component refinements */
 
-/* Docs nav bar — match the Pons feel */
+/* Docs nav bar */
 #nd-subnav {
-	background: oklch(0.1 0.005 260 / 0.8);
+	background: oklch(0.14 0.012 240 / 0.8);
 	backdrop-filter: blur(12px);
-	border-bottom-color: oklch(0.22 0.005 260);
+	border-bottom-color: oklch(0.26 0.01 240);
 }
 
-/* Sidebar — darker, matching dashboard sidebar */
+/* Sidebar — deepest layer, matching dashboard sidebar */
 #nd-sidebar {
-	background: oklch(0.08 0.005 260);
-	border-right-color: oklch(0.18 0.005 260);
+	background: oklch(0.12 0.015 240);
+	border-right-color: oklch(0.24 0.01 240);
 }
 
-/* Active sidebar item — pons-green accent */
+/* Active sidebar item — teal-jade accent */
 #nd-sidebar [data-active="true"] {
-	color: oklch(0.72 0.17 160);
+	color: oklch(0.7 0.14 175);
 }
 
 /* Docs prose — use display font for headings */
@@ -198,42 +214,42 @@
 	letter-spacing: -0.025em;
 }
 
-/* Docs links — pons-green */
+/* Docs links — teal-jade */
 .prose a:not([data-card]) {
-	color: oklch(0.72 0.17 160);
-	text-decoration-color: oklch(0.72 0.17 160 / 0.3);
+	color: oklch(0.7 0.14 175);
+	text-decoration-color: oklch(0.7 0.14 175 / 0.3);
 }
 .prose a:not([data-card]):hover {
-	text-decoration-color: oklch(0.72 0.17 160 / 0.6);
+	text-decoration-color: oklch(0.7 0.14 175 / 0.6);
 }
 
-/* Code blocks — darker background matching landing page */
+/* Code blocks */
 .dark .prose pre,
 .prose pre {
-	background: oklch(0.08 0.005 260);
-	border: 1px solid oklch(0.22 0.005 260);
+	background: oklch(0.12 0.015 240);
+	border: 1px solid oklch(0.26 0.01 240);
 }
 
 /* Inline code */
 .prose :not(pre) > code {
-	background: oklch(0.15 0.005 260);
-	border: 1px solid oklch(0.22 0.005 260);
-	color: oklch(0.85 0 0);
+	background: oklch(0.18 0.012 240);
+	border: 1px solid oklch(0.26 0.01 240);
+	color: oklch(0.88 0.008 90);
 	border-radius: 4px;
 	padding: 0.15em 0.35em;
 	font-size: 0.875em;
 }
 
-/* Search dialog — match Pons card styling */
+/* Search dialog */
 [data-search-dialog] {
-	background: oklch(0.13 0.005 260);
-	border-color: oklch(0.22 0.005 260);
+	background: oklch(0.17 0.01 240);
+	border-color: oklch(0.26 0.01 240);
 }
 
-/* TOC — active item uses pons-green */
+/* TOC — active item uses teal-jade */
 [data-toc] a[data-active="true"] {
-	color: oklch(0.72 0.17 160);
-	border-left-color: oklch(0.72 0.17 160);
+	color: oklch(0.7 0.14 175);
+	border-left-color: oklch(0.7 0.14 175);
 }
 
 /* Noise texture overlay for depth */
