@@ -185,7 +185,7 @@ export const updateApiKeyLastUsed = internalMutation({
 });
 
 // ============================================
-// Internal: resolve accountId by phoneNumberId
+// Internal: resolve accountId by phoneNumberId (legacy — kept for webhook gateway)
 // ============================================
 
 /**
@@ -234,6 +234,251 @@ export const resolveAccountByPhoneNumberId = internalQuery({
 		}
 
 		return { accountId: account._id };
+	},
+});
+
+// ============================================
+// Internal: resolve account by phone number (new — for self-documenting tools)
+// ============================================
+
+/**
+ * Resolve accountId from a real phone number (E.164 format like "+493023324724").
+ * On failure, returns a helpful error listing all available accounts.
+ */
+export const resolveAccountByPhone = internalQuery({
+	args: {
+		userId: v.string(),
+		phone: v.string(),
+	},
+	handler: async (ctx, args) => {
+		// Normalize: strip spaces, dashes
+		const normalized = args.phone.replace(/[\s\-()]/g, "");
+
+		const account = await ctx.db
+			.query("accounts")
+			.withIndex("by_phone_number", (q) => q.eq("phoneNumber", normalized))
+			.first();
+
+		// Helper: list all accounts for this user (for helpful error messages)
+		const listUserAccounts = async () => {
+			const memberships = await ctx.db
+				.query("accountMembers")
+				.withIndex("by_user", (q) => q.eq("userId", args.userId as Id<"users">))
+				.collect();
+			const accounts = await Promise.all(
+				memberships.map(async (m) => {
+					const a = await ctx.db.get(m.accountId);
+					if (
+						!a ||
+						(a.status !== "active" && a.status !== "pending_name_review")
+					)
+						return null;
+					return { phone: a.phoneNumber, name: a.displayName || a.name };
+				}),
+			);
+			return accounts.filter((a) => a !== null);
+		};
+
+		if (!account) {
+			const available = await listUserAccounts();
+			const list =
+				available.length > 0
+					? available.map((a) => `  • ${a.phone} (${a.name})`).join("\n")
+					: "  (no active accounts found)";
+			return {
+				error: `No account found for "${args.phone}". Available accounts:\n${list}`,
+			};
+		}
+
+		if (
+			account.status !== "active" &&
+			account.status !== "pending_name_review"
+		) {
+			return {
+				error: `Account "${account.displayName}" (${account.phoneNumber}) is not active (status: ${account.status}).`,
+			};
+		}
+
+		// Verify the user has access
+		const membership = await ctx.db
+			.query("accountMembers")
+			.withIndex("by_user", (q) => q.eq("userId", args.userId as Id<"users">))
+			.filter((q) => q.eq(q.field("accountId"), account._id))
+			.first();
+
+		if (!membership) {
+			const available = await listUserAccounts();
+			const list =
+				available.length > 0
+					? available.map((a) => `  • ${a.phone} (${a.name})`).join("\n")
+					: "  (no accounts you have access to)";
+			return {
+				error: `You do not have access to "${account.displayName}" (${account.phoneNumber}). Your accounts:\n${list}`,
+			};
+		}
+
+		return { accountId: account._id };
+	},
+});
+
+/**
+ * List all active accounts for a user. Used when `from` is omitted.
+ */
+export const listAccountsForUser = internalQuery({
+	args: { userId: v.string() },
+	handler: async (ctx, args) => {
+		const memberships = await ctx.db
+			.query("accountMembers")
+			.withIndex("by_user", (q) => q.eq("userId", args.userId as Id<"users">))
+			.collect();
+
+		const accounts = await Promise.all(
+			memberships.map(async (m) => {
+				const a = await ctx.db.get(m.accountId);
+				if (!a || (a.status !== "active" && a.status !== "pending_name_review"))
+					return null;
+				return { phone: a.phoneNumber, name: a.displayName || a.name };
+			}),
+		);
+		return accounts.filter((a) => a !== null);
+	},
+});
+
+/**
+ * List recent contacts for an account. Used when `phone` (recipient) is omitted.
+ */
+export const listContactsForAccount = internalQuery({
+	args: { accountId: v.id("accounts"), limit: v.optional(v.number()) },
+	handler: async (ctx, args) => {
+		const limit = args.limit ?? 20;
+		// Get conversations ordered by most recent activity
+		const conversations = await ctx.db
+			.query("conversations")
+			.withIndex("by_account_last_message", (q) =>
+				q.eq("accountId", args.accountId),
+			)
+			.order("desc")
+			.take(limit);
+
+		return Promise.all(
+			conversations.map(async (conv) => {
+				const contact = await ctx.db.get(conv.contactId);
+				return {
+					phone: contact?.phone ?? "",
+					name: contact?.name ?? "Unknown",
+					lastMessageAt: conv.lastMessageAt,
+				};
+			}),
+		);
+	},
+});
+
+/**
+ * Resolve a conversation by the recipient's phone number.
+ * Returns the conversationId or null.
+ */
+export const resolveConversationByPhone = internalQuery({
+	args: {
+		accountId: v.id("accounts"),
+		phone: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const waId = args.phone.replace(/^\+/, "").replace(/[\s\-()]/g, "");
+		const contact = await ctx.db
+			.query("contacts")
+			.withIndex("by_account_wa_id", (q) =>
+				q.eq("accountId", args.accountId).eq("waId", waId),
+			)
+			.first();
+		if (!contact) return null;
+
+		const conversation = await ctx.db
+			.query("conversations")
+			.withIndex("by_contact", (q) => q.eq("contactId", contact._id))
+			.first();
+		if (!conversation) return null;
+
+		return {
+			conversationId: conversation._id,
+			contactId: contact._id,
+			contactName: contact.name ?? "Unknown",
+			contactPhone: contact.phone,
+		};
+	},
+});
+
+/**
+ * Get recent messages for a conversation (by recipient phone).
+ * Used when `waMessageId` is omitted in send_reaction.
+ */
+export const getRecentMessagesByPhone = internalQuery({
+	args: {
+		accountId: v.id("accounts"),
+		phone: v.string(),
+		limit: v.optional(v.number()),
+	},
+	handler: async (ctx, args) => {
+		const waId = args.phone.replace(/^\+/, "").replace(/[\s\-()]/g, "");
+		const contact = await ctx.db
+			.query("contacts")
+			.withIndex("by_account_wa_id", (q) =>
+				q.eq("accountId", args.accountId).eq("waId", waId),
+			)
+			.first();
+		if (!contact) return [];
+
+		const conversation = await ctx.db
+			.query("conversations")
+			.withIndex("by_contact", (q) => q.eq("contactId", contact._id))
+			.first();
+		if (!conversation) return [];
+
+		const messages = await ctx.db
+			.query("messages")
+			.withIndex("by_conversation_timestamp", (q) =>
+				q.eq("conversationId", conversation._id),
+			)
+			.order("desc")
+			.take(args.limit ?? 10);
+
+		return messages.reverse().map((m) => ({
+			waMessageId: m.waMessageId,
+			direction: m.direction,
+			type: m.type,
+			text: m.text ?? m.caption ?? `[${m.type}]`,
+			timestamp: m.timestamp,
+		}));
+	},
+});
+
+/**
+ * Resolve message details from a waMessageId. Used by send_reaction
+ * to derive phone and conversationId from just a message ID.
+ */
+export const resolveMessageByWaId = internalQuery({
+	args: {
+		accountId: v.id("accounts"),
+		waMessageId: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const message = await ctx.db
+			.query("messages")
+			.withIndex("by_wa_message_id", (q) =>
+				q.eq("waMessageId", args.waMessageId),
+			)
+			.first();
+		if (!message || message.accountId !== args.accountId) return null;
+
+		const conversation = await ctx.db.get(message.conversationId);
+		if (!conversation) return null;
+
+		const contact = await ctx.db.get(conversation.contactId);
+		if (!contact) return null;
+
+		return {
+			conversationId: conversation._id,
+			contactPhone: contact.phone,
+		};
 	},
 });
 

@@ -1,11 +1,106 @@
 /**
  * Gateway actions — the ONLY public entry points for MCP and webhook flows.
  * Each validates credentials before delegating to internal functions.
+ *
+ * Self-documenting: every parameter is optional. Omit any parameter
+ * and the gateway returns the available options for it (_disclosure response).
  */
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action } from "./_generated/server";
+
+// ── Types ──────────────────────────────────────────────────
+
+/** Returned when a required parameter is missing — lists available options. */
+type Disclosure = {
+	readonly _disclosure: true;
+	readonly parameter: string;
+	readonly message: string;
+	readonly options: ReadonlyArray<Record<string, unknown>>;
+};
+
+const disclosure = (
+	parameter: string,
+	message: string,
+	options: ReadonlyArray<Record<string, unknown>>,
+): Disclosure => ({ _disclosure: true, parameter, message, options });
+
+// ── Helpers ────────────────────────────────────────────────
+
+/** Resolve `from` (sender phone) → accountId, or return a disclosure. */
+const resolveFrom = async (
+	ctx: { runQuery: (fn: any, args: any) => Promise<any> },
+	userId: string,
+	from: string | undefined,
+): Promise<{ accountId: Id<"accounts"> } | Disclosure> => {
+	if (!from) {
+		const accounts = await ctx.runQuery(internal.mcp.listAccountsForUser, {
+			userId,
+		});
+		return disclosure(
+			"from",
+			'Omit "from" — here are your WhatsApp accounts. Pass one as the "from" parameter.',
+			accounts,
+		);
+	}
+
+	const result = await ctx.runQuery(internal.mcp.resolveAccountByPhone, {
+		userId,
+		phone: from,
+	});
+
+	if ("error" in result) {
+		return disclosure("from", result.error as string, []);
+	}
+
+	return { accountId: result.accountId as Id<"accounts"> };
+};
+
+/** Resolve `phone` (recipient) → conversationId + contact info, or return a disclosure listing contacts. */
+const resolveRecipient = async (
+	ctx: { runQuery: (fn: any, args: any) => Promise<any> },
+	accountId: Id<"accounts">,
+	phone: string | undefined,
+): Promise<
+	| {
+			conversationId: Id<"conversations">;
+			contactPhone: string;
+			contactName: string;
+	  }
+	| Disclosure
+> => {
+	if (!phone) {
+		const contacts = await ctx.runQuery(internal.mcp.listContactsForAccount, {
+			accountId,
+		});
+		return disclosure(
+			"phone",
+			'Omit "phone" — here are recent contacts. Pass one as the "phone" parameter.',
+			contacts,
+		);
+	}
+
+	const resolved = await ctx.runQuery(internal.mcp.resolveConversationByPhone, {
+		accountId,
+		phone,
+	});
+
+	if (!resolved) {
+		// Not found — still allow sending (new contact will be created)
+		return {
+			conversationId: "" as Id<"conversations">,
+			contactPhone: phone,
+			contactName: "New contact",
+		};
+	}
+
+	return {
+		conversationId: resolved.conversationId as Id<"conversations">,
+		contactPhone: resolved.contactPhone as string,
+		contactName: resolved.contactName as string,
+	};
+};
 
 // ============================================
 // MCP Gateway — validates API key, then runs tool
@@ -13,11 +108,11 @@ import { action } from "./_generated/server";
 
 /**
  * Single gateway for all MCP tool invocations.
- * Validates the API key (user-scoped), resolves the account by phoneNumberId,
- * enforces scopes, then dispatches to the right internal function.
+ * Validates the API key (user-scoped), then dispatches to the right internal function.
  *
- * Every tool call requires a `phoneNumberId` in toolArgs to identify
- * which WhatsApp sender account to use (Meta's phone number ID).
+ * Every tool uses `from` (sender phone number) instead of phoneNumberId.
+ * Every tool that targets a contact uses `phone` (recipient phone) instead of conversationId.
+ * All parameters are optional — omit any to receive available options.
  */
 export const mcpTool = action({
 	args: {
@@ -50,14 +145,8 @@ export const mcpTool = action({
 			"search_messages",
 			"list_templates",
 		];
-		const sendTools = [
-			"send_text",
-			"send_template",
-			"mark_as_read",
-			"send_reaction",
-		];
+		const sendTools = ["send_text", "send_template", "send_reaction"];
 
-		// Reject unknown tools before checking scopes
 		if (!readTools.includes(args.tool) && !sendTools.includes(args.tool)) {
 			throw new Error(`Unknown tool: ${args.tool}`);
 		}
@@ -73,72 +162,115 @@ export const mcpTool = action({
 			);
 		}
 
-		// 3. Resolve accountId by phoneNumberId
+		// 3. Resolve `from` → accountId (all tools need this)
 		const toolArgs = args.toolArgs as Record<string, unknown>;
-		const phoneNumberId = toolArgs.phoneNumberId as string | undefined;
-
-		if (!phoneNumberId) {
-			return {
-				error: true,
-				message:
-					"Missing required parameter: phoneNumberId. This is the Meta phone number ID for the WhatsApp sender account.",
-			};
-		}
-
-		const resolution = await ctx.runQuery(
-			internal.mcp.resolveAccountByPhoneNumberId,
-			{
-				userId: userId as string,
-				phoneNumberId,
-			},
+		const fromResult = await resolveFrom(
+			ctx,
+			userId as string,
+			toolArgs.from as string | undefined,
 		);
+		if ("_disclosure" in fromResult) return fromResult;
 
-		if ("error" in resolution) {
-			return { error: true, message: resolution.error };
-		}
-
-		const accountId = resolution.accountId as Id<"accounts">;
+		const { accountId } = fromResult;
 
 		// 4. Dispatch to internal functions
 		try {
 			switch (args.tool) {
+				// ── Read tools ──────────────────────────────────────
+
 				case "list_conversations": {
 					return await ctx.runQuery(internal.mcp.listConversationsInternal, {
 						accountId,
 						limit: (toolArgs.limit as number | undefined) ?? 50,
 					});
 				}
+
 				case "list_unanswered": {
 					return await ctx.runQuery(internal.mcp.listUnansweredInternal, {
 						accountId,
 						limit: (toolArgs.limit as number | undefined) ?? 20,
 					});
 				}
+
 				case "get_conversation": {
+					const recipient = await resolveRecipient(
+						ctx,
+						accountId,
+						toolArgs.phone as string | undefined,
+					);
+					if ("_disclosure" in recipient) return recipient;
+
+					// If no conversation exists yet, return empty
+					if (!recipient.conversationId) {
+						return {
+							contact: {
+								name: recipient.contactName,
+								phone: recipient.contactPhone,
+							},
+							messages: [],
+							windowOpen: false,
+						};
+					}
+
 					return await ctx.runQuery(internal.mcp.getConversationInternal, {
 						accountId,
-						conversationId: toolArgs.conversationId as Id<"conversations">,
+						conversationId: recipient.conversationId,
 						messageLimit: (toolArgs.messageLimit as number | undefined) ?? 50,
 					});
 				}
+
 				case "search_messages": {
+					const query = toolArgs.query as string | undefined;
+					if (!query) {
+						return disclosure(
+							"query",
+							'Pass a "query" string to search messages across all conversations.',
+							[],
+						);
+					}
 					return await ctx.runQuery(internal.mcp.searchMessagesInternal, {
 						accountId,
-						query: toolArgs.query as string,
+						query,
 						limit: (toolArgs.limit as number | undefined) ?? 20,
 					});
 				}
+
 				case "list_templates": {
 					return await ctx.runAction(internal.whatsapp.fetchTemplates, {
 						accountId,
 					});
 				}
+
+				// ── Send tools ──────────────────────────────────────
+
 				case "send_text": {
+					const phone = toolArgs.phone as string | undefined;
+					if (!phone) {
+						const contacts = await ctx.runQuery(
+							internal.mcp.listContactsForAccount,
+							{ accountId },
+						);
+						return disclosure(
+							"phone",
+							'Pass "phone" (E.164 format) — the recipient\'s phone number.',
+							contacts,
+						);
+					}
+
+					const text = toolArgs.text as string | undefined;
+					if (!text) {
+						return disclosure(
+							"text",
+							'Pass "text" — the message content to send.',
+							[],
+						);
+					}
+
 					const contact = await ctx.runMutation(
 						internal.mcp.getOrCreateContact,
 						{
 							accountId,
-							phone: toolArgs.phone as string,
+							phone,
 							name: toolArgs.name as string | undefined,
 						},
 					);
@@ -146,44 +278,143 @@ export const mcpTool = action({
 					return await ctx.runAction(internal.whatsapp.sendTextMessage, {
 						accountId,
 						conversationId: contact.conversationId,
-						to: toolArgs.phone as string,
-						text: toolArgs.text as string,
+						to: phone,
+						text,
 						replyToMessageId: toolArgs.replyToMessageId as string | undefined,
 					});
 				}
+
 				case "send_template": {
+					const phone = toolArgs.phone as string | undefined;
+					if (!phone) {
+						const contacts = await ctx.runQuery(
+							internal.mcp.listContactsForAccount,
+							{ accountId },
+						);
+						return disclosure(
+							"phone",
+							'Pass "phone" (E.164 format) — the recipient\'s phone number.',
+							contacts,
+						);
+					}
+
+					const templateName = toolArgs.templateName as string | undefined;
+					if (!templateName) {
+						// Auto-disclose available templates
+						const templates = await ctx.runAction(
+							internal.whatsapp.fetchTemplates,
+							{ accountId },
+						);
+						return disclosure(
+							"templateName",
+							'Omit "templateName" — here are available templates. Pass one as "templateName".',
+							(templates as Array<Record<string, unknown>>) ?? [],
+						);
+					}
+
+					const templateLanguage = toolArgs.templateLanguage as
+						| string
+						| undefined;
+					if (!templateLanguage) {
+						return disclosure(
+							"templateLanguage",
+							'Pass "templateLanguage" — e.g. "en_US", "de_DE".',
+							[],
+						);
+					}
+
 					const templateContact = await ctx.runMutation(
 						internal.mcp.getOrCreateContact,
-						{
-							accountId,
-							phone: toolArgs.phone as string,
-						},
+						{ accountId, phone },
 					);
 
-					return await ctx.runAction(internal.whatsapp.sendTemplateMessage, {
-						accountId,
-						conversationId: templateContact.conversationId,
-						to: toolArgs.phone as string,
-						templateName: toolArgs.templateName as string,
-						templateLanguage: toolArgs.templateLanguage as string,
-						components: toolArgs.components,
-					});
+					try {
+						return await ctx.runAction(internal.whatsapp.sendTemplateMessage, {
+							accountId,
+							conversationId: templateContact.conversationId,
+							to: phone,
+							templateName,
+							templateLanguage,
+							components: toolArgs.components,
+						});
+					} catch (sendError) {
+						// On failure, auto-return templates list for recovery
+						const templates = await ctx.runAction(
+							internal.whatsapp.fetchTemplates,
+							{ accountId },
+						);
+						const msg =
+							sendError instanceof Error
+								? sendError.message
+								: String(sendError);
+						return {
+							error: true,
+							message: `Failed to send template "${templateName}": ${msg}`,
+							availableTemplates: templates,
+						};
+					}
 				}
-				case "mark_as_read": {
-					return await ctx.runAction(internal.whatsapp.markAsRead, {
-						accountId,
-						waMessageId: toolArgs.waMessageId as string,
-					});
-				}
+
 				case "send_reaction": {
+					const waMessageId = toolArgs.waMessageId as string | undefined;
+
+					if (!waMessageId) {
+						// Need phone to show recent messages
+						const phone = toolArgs.phone as string | undefined;
+						if (!phone) {
+							const contacts = await ctx.runQuery(
+								internal.mcp.listContactsForAccount,
+								{ accountId },
+							);
+							return disclosure(
+								"phone",
+								'To react, first provide "phone" (recipient) so I can show recent messages, or provide "waMessageId" directly.',
+								contacts,
+							);
+						}
+
+						const messages = await ctx.runQuery(
+							internal.mcp.getRecentMessagesByPhone,
+							{ accountId, phone },
+						);
+						return disclosure(
+							"waMessageId",
+							`Here are the last ${messages.length} messages. Pass one's waMessageId to react.`,
+							messages as unknown as ReadonlyArray<Record<string, unknown>>,
+						);
+					}
+
+					const emoji = toolArgs.emoji as string | undefined;
+					if (!emoji) {
+						return disclosure(
+							"emoji",
+							'Pass "emoji" — the emoji to react with (e.g. "\u{1F44D}", "\u2764\uFE0F", "\u{1F602}").',
+							[],
+						);
+					}
+
+					// Resolve phone + conversationId from the waMessageId
+					const resolved = await ctx.runQuery(
+						internal.mcp.resolveMessageByWaId,
+						{ accountId, waMessageId },
+					);
+
+					if (!resolved) {
+						return {
+							error: true,
+							message: `Message "${waMessageId}" not found in this account.`,
+						};
+					}
+
 					return await ctx.runAction(internal.whatsapp.sendReaction, {
 						accountId,
-						conversationId: toolArgs.conversationId as Id<"conversations">,
-						to: toolArgs.phone as string,
-						messageId: toolArgs.waMessageId as string,
-						emoji: toolArgs.emoji as string,
+						conversationId: resolved.conversationId as Id<"conversations">,
+						to: resolved.contactPhone as string,
+						messageId: waMessageId,
+						emoji,
 					});
 				}
+
 				default:
 					throw new Error(`Unknown tool: ${args.tool}`);
 			}
