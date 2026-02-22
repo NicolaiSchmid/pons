@@ -3,53 +3,10 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalAction } from "./_generated/server";
 import { auth } from "./auth";
-
-const META_API_VERSION = "v22.0";
-const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`;
-
-/** Structured Meta Graph API error response. */
-type MetaApiError = {
-	message: string;
-	type?: string;
-	code: number;
-	error_subcode?: number;
-	error_data?: { details?: string };
-	fbtrace_id?: string;
-};
+import { MetaApiRequestError, metaFetch } from "./metaFetch";
 
 type MetaMessagesResponse = {
 	messages?: Array<{ id: string }>;
-	error?: MetaApiError;
-};
-
-/**
- * Build an actionable error message from a Meta API error.
- * Detects well-known error codes and appends remediation hints.
- */
-const formatMetaError = (error: MetaApiError | undefined): string => {
-	if (!error) return "Unknown Meta API error";
-
-	const base = `Meta API error #${error.code}${error.error_subcode ? ` (subcode ${error.error_subcode})` : ""}: ${error.message}`;
-
-	// #133010 — Phone number not registered with Cloud API
-	if (
-		error.error_subcode === 133010 ||
-		error.message.includes("not registered")
-	) {
-		return `${base}\n\nThe WhatsApp phone number is not registered with the Cloud API. Register it first:\n1. Go to pons.chat and complete the phone registration flow, OR\n2. Call POST /{phone_number_id}/register with messaging_product=whatsapp and a 6-digit pin.`;
-	}
-
-	// #131030 — Recipient phone number not on WhatsApp
-	if (error.error_subcode === 131030) {
-		return `${base}\n\nThe recipient phone number is not a valid WhatsApp user.`;
-	}
-
-	// #132000 — Template not found / not approved
-	if (error.code === 132000 || error.error_subcode === 2388093) {
-		return `${base}\n\nThe template was not found or is not approved. Check the template name and language code.`;
-	}
-
-	return base;
 };
 
 /**
@@ -114,7 +71,7 @@ export const sendTextMessage = internalAction({
 			},
 		);
 
-		// Build API request
+		// Build API request body
 		const body: Record<string, unknown> = {
 			messaging_product: "whatsapp",
 			recipient_type: "individual",
@@ -128,31 +85,11 @@ export const sendTextMessage = internalAction({
 		}
 
 		try {
-			const response = await fetch(
-				`${META_API_BASE}/${account.phoneNumberId}/messages`,
-				{
-					method: "POST",
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify(body),
-				},
+			const data = await metaFetch<MetaMessagesResponse>(
+				`${account.phoneNumberId}/messages`,
+				accessToken,
+				{ method: "POST", body },
 			);
-
-			const data = (await response.json()) as MetaMessagesResponse;
-
-			if (!response.ok) {
-				const errorMsg = formatMetaError(data.error);
-				await ctx.runMutation(internal.messages.updateAfterSend, {
-					messageId,
-					waMessageId: `failed_${Date.now()}`,
-					status: "failed",
-					errorCode: data.error?.code?.toString(),
-					errorMessage: errorMsg,
-				});
-				throw new Error(errorMsg);
-			}
 
 			const waMessageId = data.messages?.[0]?.id ?? `unknown_${Date.now()}`;
 			await ctx.runMutation(internal.messages.updateAfterSend, {
@@ -173,10 +110,15 @@ export const sendTextMessage = internalAction({
 		} catch (error) {
 			const errorMessage =
 				error instanceof Error ? error.message : "Unknown error";
+			const errorCode =
+				error instanceof MetaApiRequestError
+					? error.meta.code.toString()
+					: undefined;
 			await ctx.runMutation(internal.messages.updateAfterSend, {
 				messageId,
 				waMessageId: `failed_${Date.now()}`,
 				status: "failed",
+				errorCode,
 				errorMessage,
 			});
 			throw error;
@@ -246,31 +188,11 @@ export const sendTemplateMessage = internalAction({
 		};
 
 		try {
-			const response = await fetch(
-				`${META_API_BASE}/${account.phoneNumberId}/messages`,
-				{
-					method: "POST",
-					headers: {
-						Authorization: `Bearer ${accessToken}`,
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify(body),
-				},
+			const data = await metaFetch<MetaMessagesResponse>(
+				`${account.phoneNumberId}/messages`,
+				accessToken,
+				{ method: "POST", body },
 			);
-
-			const data = (await response.json()) as MetaMessagesResponse;
-
-			if (!response.ok) {
-				const errorMsg = formatMetaError(data.error);
-				await ctx.runMutation(internal.messages.updateAfterSend, {
-					messageId,
-					waMessageId: `failed_${Date.now()}`,
-					status: "failed",
-					errorCode: data.error?.code?.toString(),
-					errorMessage: errorMsg,
-				});
-				throw new Error(errorMsg);
-			}
 
 			const waMessageId = data.messages?.[0]?.id ?? `unknown_${Date.now()}`;
 			await ctx.runMutation(internal.messages.updateAfterSend, {
@@ -290,10 +212,15 @@ export const sendTemplateMessage = internalAction({
 		} catch (error) {
 			const errorMessage =
 				error instanceof Error ? error.message : "Unknown error";
+			const errorCode =
+				error instanceof MetaApiRequestError
+					? error.meta.code.toString()
+					: undefined;
 			await ctx.runMutation(internal.messages.updateAfterSend, {
 				messageId,
 				waMessageId: `failed_${Date.now()}`,
 				status: "failed",
+				errorCode,
 				errorMessage,
 			});
 			throw error;
@@ -303,6 +230,7 @@ export const sendTemplateMessage = internalAction({
 
 // Download media from Meta and store in Convex
 // This is an internal action called from the webhook handler
+// NOTE: Binary download — intentionally NOT using metaFetch (which is JSON-only)
 export const downloadMedia = internalAction({
 	args: {
 		mediaUrl: v.string(),
@@ -345,22 +273,12 @@ export const getMediaInfo = internalAction({
 		fileSize: number;
 		sha256: string;
 	}> => {
-		const response = await fetch(`${META_API_BASE}/${args.mediaId}`, {
-			headers: {
-				Authorization: `Bearer ${args.accessToken}`,
-			},
-		});
-
-		if (!response.ok) {
-			throw new Error(`Failed to get media info: ${response.status}`);
-		}
-
-		const data = (await response.json()) as {
+		const data = await metaFetch<{
 			url: string;
 			mime_type: string;
 			file_size: number;
 			sha256: string;
-		};
+		}>(args.mediaId, args.accessToken);
 
 		return {
 			url: data.url,
@@ -388,28 +306,18 @@ export const markAsRead = internalAction({
 
 		const accessToken = await resolveAccessToken(ctx, account.ownerId);
 
-		const response = await fetch(
-			`${META_API_BASE}/${account.phoneNumberId}/messages`,
+		await metaFetch<{ success: boolean }>(
+			`${account.phoneNumberId}/messages`,
+			accessToken,
 			{
 				method: "POST",
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
+				body: {
 					messaging_product: "whatsapp",
 					status: "read",
 					message_id: args.waMessageId,
-				}),
+				},
 			},
 		);
-
-		if (!response.ok) {
-			const data = (await response.json()) as {
-				error?: { message: string };
-			};
-			throw new Error(data.error?.message ?? "Failed to mark as read");
-		}
 
 		return { success: true };
 	},
@@ -435,15 +343,12 @@ export const sendReaction = internalAction({
 
 		const accessToken = await resolveAccessToken(ctx, account.ownerId);
 
-		const response = await fetch(
-			`${META_API_BASE}/${account.phoneNumberId}/messages`,
+		const data = await metaFetch<MetaMessagesResponse>(
+			`${account.phoneNumberId}/messages`,
+			accessToken,
 			{
 				method: "POST",
-				headers: {
-					Authorization: `Bearer ${accessToken}`,
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
+				body: {
 					messaging_product: "whatsapp",
 					recipient_type: "individual",
 					to: args.to,
@@ -452,18 +357,9 @@ export const sendReaction = internalAction({
 						message_id: args.messageId,
 						emoji: args.emoji,
 					},
-				}),
+				},
 			},
 		);
-
-		const data = (await response.json()) as {
-			messages?: Array<{ id: string }>;
-			error?: { message: string };
-		};
-
-		if (!response.ok) {
-			throw new Error(data.error?.message ?? "Failed to send reaction");
-		}
 
 		return { waMessageId: data.messages?.[0]?.id };
 	},
@@ -500,7 +396,6 @@ type MetaTemplate = {
 type MetaTemplatesResponse = {
 	data?: MetaTemplate[];
 	paging?: { cursors?: { after?: string }; next?: string };
-	error?: MetaApiError;
 };
 
 /** Normalized template shape returned to callers. */
@@ -525,19 +420,11 @@ export const fetchTemplates = internalAction({
 
 		const allTemplates: Template[] = [];
 		let url: string | null =
-			`${META_API_BASE}/${account.wabaId}/message_templates?limit=100&fields=id,name,language,category,status,components`;
+			`${account.wabaId}/message_templates?limit=100&fields=id,name,language,category,status,components`;
 
 		while (url) {
-			const response = await fetch(url, {
-				headers: { Authorization: `Bearer ${accessToken}` },
-			});
-			const data = (await response.json()) as MetaTemplatesResponse;
-
-			if (!response.ok || data.error) {
-				throw new Error(
-					formatMetaError(data.error) || "Failed to fetch templates from Meta",
-				);
-			}
+			const data: MetaTemplatesResponse =
+				await metaFetch<MetaTemplatesResponse>(url, accessToken);
 
 			for (const t of data.data ?? []) {
 				allTemplates.push({
@@ -550,6 +437,7 @@ export const fetchTemplates = internalAction({
 				});
 			}
 
+			// Pagination: `next` is a full URL — metaFetch handles it
 			url = data.paging?.next ?? null;
 		}
 

@@ -14,9 +14,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
-
-const META_API_VERSION = "v22.0";
-const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`;
+import { metaFetch } from "./metaFetch";
 
 const POLL_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
@@ -76,36 +74,10 @@ export const checkNameStatus = internalAction({
 
 		try {
 			// Query Meta API for phone number details including name_status
-			const res = await fetch(
-				`${META_API_BASE}/${account.phoneNumberId}?fields=name_status,verified_name`,
-				{
-					headers: { Authorization: `Bearer ${token}` },
-				},
-			);
-
-			if (!res.ok) {
-				console.error(
-					`Name review: Meta API returned ${res.status} for account ${args.accountId}`,
-				);
-				// Schedule retry anyway
-				const jobId = await ctx.scheduler.runAfter(
-					POLL_INTERVAL_MS,
-					internal.nameReview.checkNameStatus,
-					{ accountId: args.accountId },
-				);
-				await ctx.runMutation(internal.accounts.updateNameReviewProgress, {
-					accountId: args.accountId,
-					lastCheckedAt: Date.now(),
-					checkCount,
-					scheduledJobId: jobId.toString(),
-				});
-				return;
-			}
-
-			const data = (await res.json()) as {
+			const data = await metaFetch<{
 				name_status?: string;
 				verified_name?: string;
-			};
+			}>(`${account.phoneNumberId}?fields=name_status,verified_name`, token);
 
 			const nameStatus = data.name_status?.toLowerCase();
 
