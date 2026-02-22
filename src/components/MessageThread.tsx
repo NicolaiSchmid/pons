@@ -239,16 +239,39 @@ function MessageThreadContent({
 											</span>
 										</div>
 									) : (
-										<div className="flex items-center gap-1.5 text-muted-foreground text-sm italic">
-											{msg.type === "image" ? (
-												<Image className="h-3.5 w-3.5" />
+										<div className="space-y-1">
+											<div className="flex items-center gap-1.5 text-muted-foreground text-sm italic">
+												{msg.type === "image" ? (
+													<Image className="h-3.5 w-3.5" />
+												) : (
+													<Paperclip className="h-3.5 w-3.5" />
+												)}
+												<span>
+													{msg.type}
+													{msg.caption ? `: ${msg.caption}` : ""}
+												</span>
+											</div>
+											{msg.mediaId ? (
+												<a
+													className="inline-flex text-pons-accent text-xs underline-offset-2 hover:underline"
+													href={`/api/media/${msg._id}`}
+													rel="noopener noreferrer"
+													target="_blank"
+												>
+													Open file
+												</a>
 											) : (
-												<Paperclip className="h-3.5 w-3.5" />
+												(msg.type === "image" ||
+													msg.type === "video" ||
+													msg.type === "audio" ||
+													msg.type === "voice" ||
+													msg.type === "document" ||
+													msg.type === "sticker") && (
+													<span className="text-muted-foreground text-xs">
+														File is still processing...
+													</span>
+												)
 											)}
-											<span>
-												{msg.type}
-												{msg.caption ? `: ${msg.caption}` : ""}
-											</span>
 										</div>
 									)}
 									<div
