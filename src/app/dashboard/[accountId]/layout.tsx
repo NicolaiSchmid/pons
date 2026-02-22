@@ -259,13 +259,13 @@ const HybridLayout: FC<{
 					</div>
 					<SidebarInset>
 						<div className="relative flex h-full flex-1 flex-col">
-							<main className="h-dvh w-full">{children}</main>
+							<div className="h-dvh w-full">{children}</div>
 						</div>
 					</SidebarInset>
 				</div>
 			) : (
 				<div className="relative flex h-full justify-center overflow-hidden">
-					{/* Curved arch SVG at sidebar edge */}
+					{/* Curved corner SVG — connects the left border + top border */}
 					<AnimatePresence initial={false}>
 						{open && (
 							<motion.div
@@ -290,6 +290,7 @@ const HybridLayout: FC<{
 									viewBox="0 0 20 45"
 									width="20"
 								>
+									{/* Top rectangle — filled with sidebar color */}
 									<rect
 										className="fill-sidebar"
 										height="23"
@@ -297,12 +298,14 @@ const HybridLayout: FC<{
 										x="0"
 										y="0"
 									/>
+									{/* Curved fill — sidebar bg behind the curve */}
 									<path
 										className="fill-sidebar"
 										d="M -0.5 22.5 L -0.5 37.5 L 4.5 37.5 Q 4.5 22.5 20.5 22.5 L -0.5 22.5 Z"
 									/>
+									{/* Curved border stroke — the visible line */}
 									<path
-										className="fill-none stroke-sidebar"
+										className="fill-none stroke-sidebar-border"
 										d="M 4.5 37.5 Q 4.5 22.5 20.5 22.5"
 										strokeWidth="1"
 									/>
@@ -317,7 +320,7 @@ const HybridLayout: FC<{
 							x: open ? 0 : -SIDEBAR_WIDTH,
 							opacity: open ? 1 : 0,
 						}}
-						className="absolute top-0 left-0 z-10 h-full shrink-0 overflow-hidden border-sidebar-border border-r bg-sidebar text-sidebar-foreground"
+						className="absolute top-0 left-0 z-10 h-full shrink-0 overflow-hidden bg-sidebar text-sidebar-foreground"
 						initial={false}
 						style={{
 							width: `${SIDEBAR_WIDTH}px`,
@@ -350,7 +353,7 @@ const HybridLayout: FC<{
 					>
 						<SidebarInset className="h-full">
 							<div className="relative flex h-full flex-1 flex-col">
-								{/* Top bar color bleed */}
+								{/* Top bar — sidebar color bleed */}
 								<motion.div
 									animate={{ y: open ? 0 : -18 }}
 									className="fixed top-0 left-0 z-[5] h-[18px] w-screen bg-sidebar"
@@ -362,14 +365,16 @@ const HybridLayout: FC<{
 									}}
 								/>
 
-								<main
+								<div
 									className={cn(
-										"relative w-full",
-										open ? "mt-[18px] h-[calc(100dvh-18px)]" : "h-dvh",
+										"relative w-full bg-background",
+										open
+											? "mt-[18px] h-[calc(100dvh-18px)] rounded-tl-[16px] border-sidebar-border border-t border-l"
+											: "h-dvh",
 									)}
 								>
 									{children}
-								</main>
+								</div>
 							</div>
 						</SidebarInset>
 					</motion.div>

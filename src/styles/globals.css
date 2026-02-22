@@ -188,8 +188,8 @@
 
 /* Sidebar */
 #nd-sidebar {
-	background: oklch(0.975 0.003 240);
-	border-right-color: oklch(0.9 0.005 240);
+	background: oklch(0.94 0.008 240);
+	border-right-color: oklch(0.87 0.006 240);
 }
 
 /* Active sidebar item — teal-jade accent */
