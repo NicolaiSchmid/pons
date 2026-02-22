@@ -1,14 +1,29 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { AlertCircle } from "lucide-react";
-import { useParams } from "next/navigation";
+import {
+	AlertCircle,
+	FileText,
+	Key,
+	MessageSquare,
+	Settings,
+} from "lucide-react";
+import Link from "next/link";
+import { useParams, usePathname } from "next/navigation";
 import { ConversationList } from "@/components/ConversationList";
+import { cn } from "@/lib/utils";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 
 /** Statuses that allow normal messaging */
 const USABLE_STATUSES = new Set(["active", "pending_name_review"]);
+
+const NAV_ITEMS = [
+	{ href: "", icon: MessageSquare, label: "Conversations" },
+	{ href: "/templates", icon: FileText, label: "Templates" },
+	{ href: "/keys", icon: Key, label: "API Keys" },
+	{ href: "/settings", icon: Settings, label: "Settings" },
+] as const;
 
 function EmptyState({
 	icon: Icon,
@@ -38,6 +53,7 @@ export default function AccountLayout({
 	children: React.ReactNode;
 }) {
 	const params = useParams();
+	const pathname = usePathname();
 	const accountId = params.accountId as Id<"accounts">;
 	const conversationId = params.conversationId as
 		| Id<"conversations">
@@ -48,24 +64,60 @@ export default function AccountLayout({
 		? USABLE_STATUSES.has(selectedAccount.status)
 		: false;
 
+	const basePath = `/dashboard/${accountId}`;
+	const SUB_PAGES = ["/templates", "/keys", "/settings"];
+	const isConversationsView = !SUB_PAGES.some((p) =>
+		pathname.startsWith(`${basePath}${p}`),
+	);
+
 	return (
 		<div className="flex flex-1 overflow-hidden">
-			{/* Conversation list sidebar */}
+			{/* Sidebar */}
 			<div className="flex w-80 shrink-0 flex-col border-r">
+				{/* Nav tabs */}
+				<nav className="flex shrink-0 gap-1 border-b px-3 py-2">
+					{NAV_ITEMS.map(({ href, icon: Icon, label }) => {
+						const fullHref = `${basePath}${href}`;
+						const isActive =
+							href === "" ? isConversationsView : pathname.startsWith(fullHref);
+
+						return (
+							<Link
+								className={cn(
+									"flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs transition",
+									isActive
+										? "bg-muted font-medium text-foreground"
+										: "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+								)}
+								href={fullHref}
+								key={href}
+							>
+								<Icon className="h-3.5 w-3.5" />
+								<span className="hidden lg:inline">{label}</span>
+							</Link>
+						);
+					})}
+				</nav>
+
+				{/* Conversation list (only when on conversations view) */}
 				<div className="flex-1 overflow-y-auto">
-					{isUsable ? (
-						<ConversationList
-							accountId={accountId}
-							selectedConversationId={conversationId}
-						/>
-					) : (
-						<EmptyState
-							description="This account isn't ready for messaging yet"
-							icon={AlertCircle}
-							title="Account not ready"
-						/>
-					)}
+					{isConversationsView ? (
+						isUsable ? (
+							<ConversationList
+								accountId={accountId}
+								selectedConversationId={conversationId}
+							/>
+						) : (
+							<EmptyState
+								description="This account isn't ready for messaging yet"
+								icon={AlertCircle}
+								title="Account not ready"
+							/>
+						)
+					) : null}
 				</div>
+
+				{/* Footer links */}
 				<div className="flex shrink-0 gap-3 px-4 py-3">
 					<a
 						className="text-[11px] text-muted-foreground underline transition hover:text-foreground"
