@@ -3,9 +3,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalAction, internalMutation } from "./_generated/server";
 import { getOwnerAccessToken } from "./helpers";
-
-const META_API_VERSION = "v22.0";
-const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`;
+import { metaFetch } from "./metaFetch";
 
 // Message types
 type MessageType =
@@ -403,25 +401,15 @@ export const downloadAndStoreMedia = internalAction({
 	},
 	handler: async (ctx, args): Promise<Id<"_storage"> | null> => {
 		try {
-			// First get the media URL from Meta
-			const infoResponse = await fetch(`${META_API_BASE}/${args.metaMediaId}`, {
-				headers: {
-					Authorization: `Bearer ${args.accessToken}`,
-				},
-			});
-
-			if (!infoResponse.ok) {
-				console.error("Failed to get media info:", infoResponse.status);
-				return null;
-			}
-
-			const mediaInfo = (await infoResponse.json()) as {
+			// First get the media URL from Meta (JSON endpoint → use metaFetch)
+			const mediaInfo = await metaFetch<{
 				url: string;
 				mime_type: string;
 				file_size: number;
-			};
+			}>(args.metaMediaId, args.accessToken);
 
-			// Download the actual media (URL expires in 5 minutes)
+			// Download the actual media (binary — intentionally NOT using metaFetch)
+			// URL expires in 5 minutes
 			const mediaResponse = await fetch(mediaInfo.url, {
 				headers: {
 					Authorization: `Bearer ${args.accessToken}`,

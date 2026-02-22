@@ -2,9 +2,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { action, internalQuery } from "./_generated/server";
 import { auth } from "./auth";
-
-const META_API_VERSION = "v22.0";
-const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`;
+import { metaFetch } from "./metaFetch";
 
 // ── Types ──
 
@@ -29,6 +27,10 @@ type MetaPhoneNumber = {
 	messaging_limit_tier?: string;
 	platform_type?: string; // "CLOUD_API" | "ON_PREMISE" | "NOT_APPLICABLE"
 	is_official_business_account?: boolean;
+};
+
+type MetaListResponse<T> = {
+	data?: T[];
 };
 
 // ── Internal: get Facebook token for current user ──
@@ -63,18 +65,11 @@ export const discoverBusinesses = action({
 		if (!token)
 			throw new Error("No Facebook token found. Please sign in again.");
 
-		const res = await fetch(`${META_API_BASE}/me/businesses?fields=id,name`, {
-			headers: { Authorization: `Bearer ${token}` },
-		});
-		if (!res.ok) {
-			const error = await res.json();
-			throw new Error(
-				`Failed to fetch businesses: ${error.error?.message ?? res.statusText}`,
-			);
-		}
-
-		const data = await res.json();
-		return (data.data ?? []) as MetaBusiness[];
+		const data = await metaFetch<MetaListResponse<MetaBusiness>>(
+			"me/businesses?fields=id,name",
+			token,
+		);
+		return data.data ?? [];
 	},
 });
 
@@ -95,19 +90,11 @@ export const discoverWabas = action({
 		if (!token)
 			throw new Error("No Facebook token found. Please sign in again.");
 
-		const res = await fetch(
-			`${META_API_BASE}/${businessId}/owned_whatsapp_business_accounts?fields=id,name,message_template_namespace`,
-			{ headers: { Authorization: `Bearer ${token}` } },
+		const data = await metaFetch<MetaListResponse<MetaWaba>>(
+			`${businessId}/owned_whatsapp_business_accounts?fields=id,name,message_template_namespace`,
+			token,
 		);
-		if (!res.ok) {
-			const error = await res.json();
-			throw new Error(
-				`Failed to fetch WABAs: ${error.error?.message ?? res.statusText}`,
-			);
-		}
-
-		const data = await res.json();
-		return (data.data ?? []) as MetaWaba[];
+		return data.data ?? [];
 	},
 });
 
@@ -128,19 +115,11 @@ export const discoverPhoneNumbers = action({
 		if (!token)
 			throw new Error("No Facebook token found. Please sign in again.");
 
-		const res = await fetch(
-			`${META_API_BASE}/${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,status,messaging_limit_tier,platform_type,is_official_business_account`,
-			{ headers: { Authorization: `Bearer ${token}` } },
+		const data = await metaFetch<MetaListResponse<MetaPhoneNumber>>(
+			`${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,status,messaging_limit_tier,platform_type,is_official_business_account`,
+			token,
 		);
-		if (!res.ok) {
-			const error = await res.json();
-			throw new Error(
-				`Failed to fetch phone numbers: ${error.error?.message ?? res.statusText}`,
-			);
-		}
-
-		const data = await res.json();
-		return (data.data ?? []) as MetaPhoneNumber[];
+		return data.data ?? [];
 	},
 });
 
@@ -179,18 +158,11 @@ export const discoverAllNumbers = action({
 			throw new Error("No Facebook token found. Please sign in again.");
 
 		// 1. Get all businesses
-		const bizRes = await fetch(
-			`${META_API_BASE}/me/businesses?fields=id,name`,
-			{ headers: { Authorization: `Bearer ${token}` } },
+		const bizData = await metaFetch<MetaListResponse<MetaBusiness>>(
+			"me/businesses?fields=id,name",
+			token,
 		);
-		if (!bizRes.ok) {
-			const error = await bizRes.json();
-			throw new Error(
-				`Failed to fetch businesses: ${error.error?.message ?? bizRes.statusText}`,
-			);
-		}
-		const bizData = await bizRes.json();
-		const businesses = (bizData.data ?? []) as MetaBusiness[];
+		const businesses = bizData.data ?? [];
 
 		const results: Array<{
 			id: string;
@@ -208,23 +180,29 @@ export const discoverAllNumbers = action({
 
 		// 2. For each business, get WABAs
 		for (const biz of businesses) {
-			const wabaRes = await fetch(
-				`${META_API_BASE}/${biz.id}/owned_whatsapp_business_accounts?fields=id,name`,
-				{ headers: { Authorization: `Bearer ${token}` } },
-			);
-			if (!wabaRes.ok) continue;
-			const wabaData = await wabaRes.json();
-			const wabas = (wabaData.data ?? []) as MetaWaba[];
+			let wabaData: MetaListResponse<MetaWaba>;
+			try {
+				wabaData = await metaFetch<MetaListResponse<MetaWaba>>(
+					`${biz.id}/owned_whatsapp_business_accounts?fields=id,name`,
+					token,
+				);
+			} catch {
+				continue;
+			}
+			const wabas = wabaData.data ?? [];
 
 			// 3. For each WABA, get phone numbers
 			for (const waba of wabas) {
-				const phoneRes = await fetch(
-					`${META_API_BASE}/${waba.id}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,status,platform_type`,
-					{ headers: { Authorization: `Bearer ${token}` } },
-				);
-				if (!phoneRes.ok) continue;
-				const phoneData = await phoneRes.json();
-				const phones = (phoneData.data ?? []) as MetaPhoneNumber[];
+				let phoneData: MetaListResponse<MetaPhoneNumber>;
+				try {
+					phoneData = await metaFetch<MetaListResponse<MetaPhoneNumber>>(
+						`${waba.id}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,status,platform_type`,
+						token,
+					);
+				} catch {
+					continue;
+				}
+				const phones = phoneData.data ?? [];
 
 				for (const phone of phones) {
 					results.push({
@@ -258,6 +236,8 @@ export const discoverAllNumbers = action({
 /**
  * Subscribe a WABA to webhooks for receiving messages.
  * This registers the WABA to receive webhooks via the app's webhook endpoint.
+ *
+ * NOTE: Meta requires `access_token` in the JSON body for this endpoint.
  */
 export const subscribeWaba = action({
 	args: { wabaId: v.string() },
@@ -272,23 +252,12 @@ export const subscribeWaba = action({
 		if (!token)
 			throw new Error("No Facebook token found. Please sign in again.");
 
-		// Subscribe the WABA to the app's webhooks
-		const res = await fetch(`${META_API_BASE}/${wabaId}/subscribed_apps`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				access_token: token,
-			}),
-		});
+		const data = await metaFetch<{ success: boolean }>(
+			`${wabaId}/subscribed_apps`,
+			token,
+			{ method: "POST", body: {}, tokenInBody: true },
+		);
 
-		if (!res.ok) {
-			const error = await res.json();
-			throw new Error(
-				`Failed to subscribe WABA: ${error.error?.message ?? res.statusText}`,
-			);
-		}
-
-		const data = await res.json();
 		return { success: data.success === true };
 	},
 });
@@ -298,6 +267,8 @@ export const subscribeWaba = action({
  * Uses an App Access Token (app_id|app_secret) to call POST /{app-id}/subscriptions.
  * This sets the callback URL and verify token for whatsapp_business_account webhooks.
  * Only needs to be called once (or when URL/token changes), but is idempotent.
+ *
+ * NOTE: Meta requires `access_token` in the JSON body for this endpoint.
  */
 export const registerAppWebhook = action({
 	args: {},
@@ -319,26 +290,21 @@ export const registerAppWebhook = action({
 		// App Access Token = "app_id|app_secret"
 		const appAccessToken = `${appId}|${appSecret}`;
 
-		const res = await fetch(`${META_API_BASE}/${appId}/subscriptions`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				object: "whatsapp_business_account",
-				callback_url: callbackUrl,
-				verify_token: verifyToken,
-				fields: "messages",
-				access_token: appAccessToken,
-			}),
-		});
+		const data = await metaFetch<{ success: boolean }>(
+			`${appId}/subscriptions`,
+			appAccessToken,
+			{
+				method: "POST",
+				body: {
+					object: "whatsapp_business_account",
+					callback_url: callbackUrl,
+					verify_token: verifyToken,
+					fields: "messages",
+				},
+				tokenInBody: true,
+			},
+		);
 
-		if (!res.ok) {
-			const error = await res.json();
-			throw new Error(
-				`Failed to register app webhook: ${error.error?.message ?? res.statusText}`,
-			);
-		}
-
-		const data = await res.json();
 		return { success: data.success === true };
 	},
 });

@@ -13,9 +13,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { action } from "./_generated/server";
 import { auth } from "./auth";
-
-const META_API_VERSION = "v22.0";
-const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`;
+import { metaFetch } from "./metaFetch";
 
 // ── Helpers ──
 
@@ -43,7 +41,7 @@ export const addPhoneToWaba = action({
 	args: {
 		accountId: v.id("accounts"),
 	},
-	handler: async (ctx, args) => {
+	handler: async (ctx, args): Promise<{ phoneNumberId: string }> => {
 		const userId = await auth.getUserId(ctx);
 		if (!userId) throw new Error("Unauthorized");
 
@@ -62,8 +60,7 @@ export const addPhoneToWaba = action({
 			throw new Error(`Cannot add phone in status: ${account.status}`);
 		}
 
-		const fbToken = await getFacebookToken(ctx, userId);
-		const token = fbToken;
+		const token = await getFacebookToken(ctx, userId);
 
 		try {
 			// Meta wants phone_number WITHOUT country code or "+" prefix.
@@ -74,57 +71,29 @@ export const addPhoneToWaba = action({
 					? rawDigits.slice(account.countryCode.length)
 					: rawDigits;
 
-			const res = await fetch(
-				`${META_API_BASE}/${account.wabaId}/phone_numbers`,
+			const data = await metaFetch<{ id: string }>(
+				`${account.wabaId}/phone_numbers`,
+				token,
 				{
 					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
+					body: {
 						cc: account.countryCode,
 						phone_number: nationalNumber,
 						verified_name: account.displayName,
-						access_token: token,
-					}),
+					},
+					tokenInBody: true,
 				},
 			);
 
-			if (!res.ok) {
-				const error = await res.json();
-				const errorMsg =
-					error.error?.message ?? `HTTP ${res.status}: ${res.statusText}`;
-				await ctx.runMutation(internal.accounts.transitionToFailed, {
-					accountId: args.accountId,
-					failedAtStep: "adding_number",
-					failedError: errorMsg,
-				});
-				throw new Error(`Failed to add phone number: ${errorMsg}`);
-			}
-
-			const data = (await res.json()) as { id: string };
-
 			// Now request verification code
-			const codeRes = await fetch(`${META_API_BASE}/${data.id}/request_code`, {
+			await metaFetch<{ success: boolean }>(`${data.id}/request_code`, token, {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
+				body: {
 					code_method: "SMS",
 					language: "en_US",
-					access_token: token,
-				}),
+				},
+				tokenInBody: true,
 			});
-
-			if (!codeRes.ok) {
-				const error = await codeRes.json();
-				const errorMsg =
-					error.error?.message ??
-					`HTTP ${codeRes.status}: ${codeRes.statusText}`;
-				await ctx.runMutation(internal.accounts.transitionToFailed, {
-					accountId: args.accountId,
-					failedAtStep: "code_requested",
-					failedError: errorMsg,
-				});
-				throw new Error(`Failed to request verification code: ${errorMsg}`);
-			}
 
 			// Transition to code_requested with the new phone number ID
 			await ctx.runMutation(internal.accounts.transitionToCodeRequested, {
@@ -134,15 +103,18 @@ export const addPhoneToWaba = action({
 
 			return { phoneNumberId: data.id };
 		} catch (error) {
-			// If it's already been transitioned to failed, just re-throw
-			if (error instanceof Error && error.message.startsWith("Failed to")) {
-				throw error;
-			}
-			// Unexpected error
+			const errorMsg = error instanceof Error ? error.message : "Unknown error";
+
+			// Determine which step failed based on error context
+			const failedAtStep =
+				errorMsg.includes("request_code") || errorMsg.includes("verification")
+					? "code_requested"
+					: "adding_number";
+
 			await ctx.runMutation(internal.accounts.transitionToFailed, {
 				accountId: args.accountId,
-				failedAtStep: "adding_number",
-				failedError: error instanceof Error ? error.message : "Unknown error",
+				failedAtStep,
+				failedError: errorMsg,
 			});
 			throw error;
 		}
@@ -185,28 +157,20 @@ export const resendCode = action({
 			throw new Error("Phone number ID not set — cannot resend code");
 		}
 
-		const fbToken = await getFacebookToken(ctx, userId);
-		const token = fbToken;
+		const token = await getFacebookToken(ctx, userId);
 
-		const res = await fetch(
-			`${META_API_BASE}/${account.phoneNumberId}/request_code`,
+		await metaFetch<{ success: boolean }>(
+			`${account.phoneNumberId}/request_code`,
+			token,
 			{
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
+				body: {
 					code_method: "SMS",
 					language: "en_US",
-					access_token: token,
-				}),
+				},
+				tokenInBody: true,
 			},
 		);
-
-		if (!res.ok) {
-			const error = await res.json();
-			throw new Error(
-				`Failed to resend code: ${error.error?.message ?? res.statusText}`,
-			);
-		}
 
 		return { success: true };
 	},
@@ -250,8 +214,7 @@ export const submitCode = action({
 			throw new Error("Phone number ID not set");
 		}
 
-		const fbToken = await getFacebookToken(ctx, userId);
-		const token = fbToken;
+		const token = await getFacebookToken(ctx, userId);
 
 		// Transition to verifying_code
 		await ctx.runMutation(internal.accounts.transitionToVerifyingCode, {
@@ -261,29 +224,15 @@ export const submitCode = action({
 
 		try {
 			// Verify the code
-			const res = await fetch(
-				`${META_API_BASE}/${account.phoneNumberId}/verify_code`,
+			await metaFetch<{ success: boolean }>(
+				`${account.phoneNumberId}/verify_code`,
+				token,
 				{
 					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						code: args.code,
-						access_token: token,
-					}),
+					body: { code: args.code },
+					tokenInBody: true,
 				},
 			);
-
-			if (!res.ok) {
-				const error = await res.json();
-				const errorMsg =
-					error.error?.message ?? `HTTP ${res.status}: ${res.statusText}`;
-				await ctx.runMutation(internal.accounts.transitionToFailed, {
-					accountId: args.accountId,
-					failedAtStep: "verifying_code",
-					failedError: errorMsg,
-				});
-				throw new Error(`Verification failed: ${errorMsg}`);
-			}
 
 			// Code verified — now register the number
 			await ctx.runMutation(internal.accounts.transitionToRegistering, {
@@ -291,30 +240,18 @@ export const submitCode = action({
 				twoStepPin: args.twoStepPin,
 			});
 
-			const regRes = await fetch(
-				`${META_API_BASE}/${account.phoneNumberId}/register`,
+			await metaFetch<{ success: boolean }>(
+				`${account.phoneNumberId}/register`,
+				token,
 				{
 					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
+					body: {
 						messaging_product: "whatsapp",
 						pin: args.twoStepPin,
-						access_token: token,
-					}),
+					},
+					tokenInBody: true,
 				},
 			);
-
-			if (!regRes.ok) {
-				const error = await regRes.json();
-				const errorMsg =
-					error.error?.message ?? `HTTP ${regRes.status}: ${regRes.statusText}`;
-				await ctx.runMutation(internal.accounts.transitionToFailed, {
-					accountId: args.accountId,
-					failedAtStep: "registering",
-					failedError: errorMsg,
-				});
-				throw new Error(`Registration failed: ${errorMsg}`);
-			}
 
 			// Registration successful — transition to pending_name_review
 			await ctx.runMutation(internal.accounts.transitionToPendingNameReview, {
@@ -330,17 +267,18 @@ export const submitCode = action({
 
 			return { success: true };
 		} catch (error) {
-			if (
-				error instanceof Error &&
-				(error.message.startsWith("Verification failed") ||
-					error.message.startsWith("Registration failed"))
-			) {
-				throw error;
-			}
+			const errorMsg = error instanceof Error ? error.message : "Unknown error";
+
+			// Determine which step failed
+			const failedAtStep =
+				errorMsg.includes("Registration") || errorMsg.includes("register")
+					? "registering"
+					: "verifying_code";
+
 			await ctx.runMutation(internal.accounts.transitionToFailed, {
 				accountId: args.accountId,
-				failedAtStep: "verifying_code",
-				failedError: error instanceof Error ? error.message : "Unknown error",
+				failedAtStep,
+				failedError: errorMsg,
 			});
 			throw error;
 		}
@@ -405,32 +343,15 @@ export const autoVerifyAndRegister = action({
 
 		try {
 			// Verify the code
-			const verifyRes = await fetch(
-				`${META_API_BASE}/${account.phoneNumberId}/verify_code`,
+			await metaFetch<{ success: boolean }>(
+				`${account.phoneNumberId}/verify_code`,
+				token,
 				{
 					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						code: account.verificationCode,
-						access_token: token,
-					}),
+					body: { code: account.verificationCode },
+					tokenInBody: true,
 				},
 			);
-
-			if (!verifyRes.ok) {
-				const verifyBody = (await verifyRes.json()) as {
-					error?: { message?: string };
-				};
-				const errorMsg: string =
-					verifyBody.error?.message ??
-					`HTTP ${verifyRes.status}: ${verifyRes.statusText}`;
-				await ctx.runMutation(internal.accounts.transitionToFailed, {
-					accountId: args.accountId,
-					failedAtStep: "verifying_code",
-					failedError: errorMsg,
-				});
-				return { success: false, error: errorMsg };
-			}
 
 			// Register the number
 			await ctx.runMutation(internal.accounts.transitionToRegistering, {
@@ -438,33 +359,18 @@ export const autoVerifyAndRegister = action({
 				twoStepPin: args.twoStepPin,
 			});
 
-			const regRes = await fetch(
-				`${META_API_BASE}/${account.phoneNumberId}/register`,
+			await metaFetch<{ success: boolean }>(
+				`${account.phoneNumberId}/register`,
+				token,
 				{
 					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
+					body: {
 						messaging_product: "whatsapp",
 						pin: args.twoStepPin,
-						access_token: token,
-					}),
+					},
+					tokenInBody: true,
 				},
 			);
-
-			if (!regRes.ok) {
-				const regBody = (await regRes.json()) as {
-					error?: { message?: string };
-				};
-				const errorMsg: string =
-					regBody.error?.message ??
-					`HTTP ${regRes.status}: ${regRes.statusText}`;
-				await ctx.runMutation(internal.accounts.transitionToFailed, {
-					accountId: args.accountId,
-					failedAtStep: "registering",
-					failedError: errorMsg,
-				});
-				return { success: false, error: errorMsg };
-			}
 
 			// Transition to pending_name_review
 			await ctx.runMutation(internal.accounts.transitionToPendingNameReview, {
@@ -480,15 +386,13 @@ export const autoVerifyAndRegister = action({
 
 			return { success: true };
 		} catch (err: unknown) {
+			const errorMsg = err instanceof Error ? err.message : "Unknown error";
 			await ctx.runMutation(internal.accounts.transitionToFailed, {
 				accountId: args.accountId,
 				failedAtStep: "verifying_code",
-				failedError: err instanceof Error ? err.message : "Unknown error",
+				failedError: errorMsg,
 			});
-			return {
-				success: false,
-				error: err instanceof Error ? err.message : "Unknown error",
-			};
+			return { success: false, error: errorMsg };
 		}
 	},
 });
@@ -544,49 +448,31 @@ export const registerExistingNumber = action({
 		});
 
 		// Call Meta's /register endpoint
-		const regRes = await fetch(
-			`${META_API_BASE}/${account.phoneNumberId}/register`,
+		await metaFetch<{ success: boolean }>(
+			`${account.phoneNumberId}/register`,
+			token,
 			{
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
+				body: {
 					messaging_product: "whatsapp",
 					pin: args.twoStepPin,
-					access_token: token,
-				}),
+				},
+				tokenInBody: true,
 			},
 		);
-
-		const regBody = await regRes.json();
-		console.log(
-			`registerExistingNumber: POST /${account.phoneNumberId}/register → ${regRes.status}`,
-			JSON.stringify(regBody),
-		);
-
-		if (!regRes.ok) {
-			const errorMsg =
-				regBody.error?.message ?? `HTTP ${regRes.status}: ${regRes.statusText}`;
-			await ctx.runMutation(internal.accounts.transitionToFailed, {
-				accountId: args.accountId,
-				failedAtStep: "registering",
-				failedError: errorMsg,
-			});
-			throw new Error(`Registration failed: ${errorMsg}`);
-		}
 
 		// Query the number's status to confirm registration took effect
-		const statusRes = await fetch(
-			`${META_API_BASE}/${account.phoneNumberId}?fields=id,status,name_status,code_verification_status,platform_type`,
-			{
-				headers: { Authorization: `Bearer ${token}` },
-			},
-		);
-		if (statusRes.ok) {
-			const statusBody = await statusRes.json();
+		try {
+			const statusBody = await metaFetch<Record<string, unknown>>(
+				`${account.phoneNumberId}?fields=id,status,name_status,code_verification_status,platform_type`,
+				token,
+			);
 			console.log(
-				`registerExistingNumber: phone status after register:`,
+				"registerExistingNumber: phone status after register:",
 				JSON.stringify(statusBody),
 			);
+		} catch {
+			// Non-critical — just for logging
 		}
 
 		// Registration successful — transition to pending_name_review
@@ -636,21 +522,10 @@ export const checkPhoneStatus = action({
 
 		const token = await getFacebookToken(ctx, userId);
 
-		const res = await fetch(
-			`${META_API_BASE}/${account.phoneNumberId}?fields=id,display_phone_number,verified_name,status,name_status,code_verification_status,platform_type,quality_rating,messaging_limit_tier,is_official_business_account`,
-			{
-				headers: { Authorization: `Bearer ${token}` },
-			},
+		const data = await metaFetch<Record<string, unknown>>(
+			`${account.phoneNumberId}?fields=id,display_phone_number,verified_name,status,name_status,code_verification_status,platform_type,quality_rating,messaging_limit_tier,is_official_business_account`,
+			token,
 		);
-
-		if (!res.ok) {
-			const errBody = (await res.json()) as { error?: { message?: string } };
-			throw new Error(
-				`Meta API error: ${errBody.error?.message ?? res.statusText}`,
-			);
-		}
-
-		const data = (await res.json()) as Record<string, unknown>;
 		console.log("checkPhoneStatus:", JSON.stringify(data));
 		return data;
 	},
