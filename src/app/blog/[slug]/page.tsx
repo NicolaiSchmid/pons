@@ -59,7 +59,7 @@ export default async function BlogPost(props: {
 					)}
 				</div>
 
-				<div className="prose mt-10 max-w-none prose-code:rounded prose-pre:border prose-pre:border-border prose-code:bg-muted prose-pre:bg-[oklch(0.17_0.012_240)] prose-code:px-1.5 prose-code:py-0.5 prose-code:font-normal prose-headings:font-display prose-a:text-pons-green prose-pre:text-[oklch(0.90_0.005_90)] prose-headings:tracking-tight prose-a:no-underline prose-code:before:content-none prose-code:after:content-none hover:prose-a:underline">
+				<div className="prose mt-10 max-w-none prose-code:rounded prose-pre:border prose-pre:border-border prose-code:bg-muted prose-pre:bg-muted/50 prose-code:px-1.5 prose-code:py-0.5 prose-code:font-normal prose-headings:font-display prose-a:text-pons-green prose-headings:tracking-tight prose-a:no-underline prose-code:before:content-none prose-code:after:content-none hover:prose-a:underline">
 					<MDXRemote source={post.content} />
 				</div>
 			</article>

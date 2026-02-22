@@ -215,11 +215,10 @@
 	text-decoration-color: oklch(0.45 0.12 175 / 0.6);
 }
 
-/* Code blocks — dark inset for contrast */
+/* Code blocks */
 .prose pre {
-	background: oklch(0.17 0.012 240);
-	border: 1px solid oklch(0.25 0.01 240);
-	color: oklch(0.9 0.005 90);
+	background: oklch(0.955 0.005 240);
+	border: 1px solid oklch(0.9 0.005 240);
 }
 
 /* Inline code */
