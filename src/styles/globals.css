@@ -156,10 +156,12 @@
 
 /*
  * Fumadocs theme overrides
- * Map fd-* variables to Pons deep-ocean palette
+ * Must use @theme to override fumadocs' default-colors.css which also uses @theme.
+ * Plain :root/.dark selectors lose to @theme in Tailwind v4 specificity.
+ *
+ * Values match the deep-ocean palette defined in :root above.
  */
-:root,
-.dark {
+@theme {
 	--color-fd-background: oklch(0.14 0.012 240);
 	--color-fd-foreground: oklch(0.93 0.01 90);
 	--color-fd-muted: oklch(0.2 0.01 240);
