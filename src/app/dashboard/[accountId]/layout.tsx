@@ -79,8 +79,8 @@ const PonsSidebarContent: FC<{
 
 	return (
 		<div className="flex h-full flex-col">
-			{/* Account selector — pt-12 clears the fixed toggle button */}
-			<div className="border-sidebar-border border-b px-3 pt-12 pb-2">
+			{/* Account selector — pt-11 clears the fixed toggle button */}
+			<div className="px-3 pt-11 pb-3">
 				<AccountSelector
 					onSelectAccount={(id) => router.push(`/dashboard/${id}`)}
 					selectedAccountId={accountId}
@@ -88,22 +88,22 @@ const PonsSidebarContent: FC<{
 			</div>
 
 			{/* Tabs */}
-			<div className="border-sidebar-border border-b px-2">
+			<div className="px-3 pb-1">
 				<Tabs
 					className="flex flex-col"
 					onValueChange={onTabChange}
 					value={activeTab}
 				>
-					<TabsList className="h-9 w-full shrink-0 rounded-none bg-transparent px-0">
+					<TabsList className="h-8 w-full shrink-0 rounded-lg bg-sidebar-accent/60 px-0.5">
 						<TabsTrigger
-							className="flex-1 text-xs data-[state=active]:bg-sidebar-accent"
+							className="flex-1 rounded-md text-xs data-[state=active]:bg-sidebar data-[state=active]:shadow-sm"
 							value="conversations"
 						>
 							<MessageSquare className="h-3.5 w-3.5" />
 							Conversations
 						</TabsTrigger>
 						<TabsTrigger
-							className="flex-1 text-xs data-[state=active]:bg-sidebar-accent"
+							className="flex-1 rounded-md text-xs data-[state=active]:bg-sidebar data-[state=active]:shadow-sm"
 							value="templates"
 						>
 							<FileText className="h-3.5 w-3.5" />
@@ -130,8 +130,8 @@ const PonsSidebarContent: FC<{
 			</div>
 
 			{/* Footer — nav + legal */}
-			<div className="border-sidebar-border border-t">
-				<div className="flex flex-col gap-0.5 px-2 py-2">
+			<div className="">
+				<div className="flex flex-col gap-0.5 px-2 py-1.5">
 					{[
 						{
 							href: `/dashboard/${accountId}/settings`,
@@ -194,7 +194,7 @@ const FixedSidebarButton: FC = () => {
 	const { toggleSidebar, open } = useSidebar();
 
 	return (
-		<div className="fixed top-3 left-2 z-50">
+		<div className="fixed top-3 left-2 z-20">
 			<motion.div
 				animate={{
 					backgroundColor: open ? "transparent" : "var(--sidebar)",
@@ -273,7 +273,7 @@ const HybridLayout: FC<{
 									opacity: 1,
 									transition: { duration: 0.1, delay: 0.05 },
 								}}
-								className="pointer-events-none absolute z-[5]"
+								className="pointer-events-none absolute z-[3]"
 								exit={{
 									opacity: 0,
 									transition: { duration: 0 },
@@ -320,7 +320,7 @@ const HybridLayout: FC<{
 							x: open ? 0 : -SIDEBAR_WIDTH,
 							opacity: open ? 1 : 0,
 						}}
-						className="absolute top-0 left-0 z-10 h-full shrink-0 overflow-hidden bg-sidebar text-sidebar-foreground"
+						className="absolute top-0 left-0 z-[2] h-full shrink-0 overflow-hidden bg-sidebar text-sidebar-foreground"
 						initial={false}
 						style={{
 							width: `${SIDEBAR_WIDTH}px`,
@@ -356,7 +356,7 @@ const HybridLayout: FC<{
 								{/* Top bar — sidebar color bleed */}
 								<motion.div
 									animate={{ y: open ? 0 : -18 }}
-									className="fixed top-0 left-0 z-[5] h-[18px] w-screen bg-sidebar"
+									className="fixed top-0 left-0 z-[1] h-[18px] w-screen bg-sidebar"
 									initial={false}
 									transition={{
 										duration: 0.1,

@@ -1,11 +1,10 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import { MessageSquare, Search } from "lucide-react";
+import { MessageSquare, Plus, Search } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { ComposeDialog } from "@/components/ComposeDialog";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -45,84 +44,117 @@ export function ConversationList({
 
 	return (
 		<div className="flex h-full flex-col">
-			{/* Search + New button */}
-			<div className="flex shrink-0 items-center gap-1.5 px-2 py-1.5">
-				<div className="relative flex-1">
-					<Search className="absolute top-1/2 left-2.5 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+			{/* Search */}
+			<div className="px-3 pt-2 pb-1">
+				<div className="relative">
+					<Search className="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60" />
 					<input
-						className="h-7 w-full rounded-md bg-muted pr-2 pl-7 text-foreground text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+						className="h-8 w-full rounded-lg bg-sidebar-accent/60 pr-3 pl-8 text-[13px] text-foreground transition-colors placeholder:text-muted-foreground/50 focus:bg-sidebar-accent focus:outline-none focus:ring-1 focus:ring-sidebar-border"
 						onChange={(e) => setSearch(e.target.value)}
-						placeholder="Search..."
+						placeholder="Search Chats"
 						type="text"
 						value={search}
 					/>
 				</div>
-				<ComposeDialog accountId={accountId} />
 			</div>
 
 			{/* List */}
-			<div className="flex-1 overflow-y-auto">
+			<div className="flex-1 overflow-y-auto pt-1">
 				{filtered.length === 0 ? (
-					<div className="flex flex-col items-center justify-center gap-2 px-3 py-10">
-						<MessageSquare className="h-4 w-4 text-muted-foreground" />
-						<p className="text-muted-foreground text-xs">
+					<div className="flex flex-col items-center justify-center gap-2 px-3 py-12">
+						<MessageSquare className="h-5 w-5 text-muted-foreground/40" />
+						<p className="text-muted-foreground/60 text-xs">
 							{search ? "No results" : "No conversations yet"}
 						</p>
 					</div>
 				) : (
 					filtered.map((conv) => {
 						const name = conv.contact?.name ?? conv.contact?.phone ?? "Unknown";
+						const isSelected = selectedConversationId === conv._id;
 						const hasUnread = conv.unreadCount > 0;
 
 						return (
 							<Link
 								className={cn(
-									"flex items-center gap-2 border-border/40 border-b px-2.5 py-1.5 transition-colors hover:bg-muted/50",
-									selectedConversationId === conv._id && "bg-muted/70",
+									"group flex items-start gap-3 px-3 py-2.5 transition-colors",
+									isSelected
+										? "bg-sidebar-accent"
+										: "hover:bg-sidebar-accent/50",
 								)}
 								href={`/dashboard/${accountId}/${conv._id}`}
 								key={conv._id}
 							>
-								{/* Name / preview */}
-								<div className="flex min-w-0 flex-1 items-baseline gap-1.5">
-									<span
-										className={cn(
-											"shrink-0 truncate text-xs",
-											hasUnread
-												? "font-semibold text-foreground"
-												: "font-medium text-foreground",
-										)}
-										style={{ maxWidth: "40%" }}
-									>
-										{name}
-									</span>
-									{conv.lastMessagePreview && (
-										<span className="truncate text-[11px] text-muted-foreground">
-											{conv.lastMessagePreview}
-										</span>
-									)}
-								</div>
-
-								{/* Timestamp + badge */}
-								<div className="flex shrink-0 items-center gap-1.5">
-									{conv.lastMessageAt && (
-										<span className="text-[10px] text-muted-foreground">
-											{formatRelativeTime(conv.lastMessageAt)}
-										</span>
-									)}
-									{hasUnread && (
-										<Badge
-											className="h-4 min-w-4 justify-center rounded-full bg-pons-accent px-1 font-medium text-[9px] text-pons-accent-foreground hover:bg-pons-accent"
-											variant="default"
+								{/* Content — two-line layout */}
+								<div className="min-w-0 flex-1">
+									{/* Row 1: Name + timestamp */}
+									<div className="flex items-baseline justify-between gap-2">
+										<span
+											className={cn(
+												"truncate text-[13px] leading-tight",
+												hasUnread
+													? "font-semibold text-foreground"
+													: "font-medium text-sidebar-foreground",
+											)}
 										>
-											{conv.unreadCount}
-										</Badge>
-									)}
+											{name}
+										</span>
+										{conv.lastMessageAt && (
+											<span
+												className={cn(
+													"shrink-0 text-[11px] tabular-nums",
+													hasUnread
+														? "font-medium text-pons-accent"
+														: "text-muted-foreground/60",
+												)}
+											>
+												{formatRelativeTime(conv.lastMessageAt)}
+											</span>
+										)}
+									</div>
+
+									{/* Row 2: Preview + unread badge */}
+									<div className="mt-0.5 flex items-center justify-between gap-2">
+										{conv.lastMessagePreview ? (
+											<span
+												className={cn(
+													"truncate text-xs leading-relaxed",
+													hasUnread
+														? "text-sidebar-foreground/70"
+														: "text-muted-foreground/50",
+												)}
+											>
+												{conv.lastMessagePreview}
+											</span>
+										) : (
+											<span />
+										)}
+										{hasUnread && (
+											<span className="flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-pons-accent px-1 font-semibold text-[10px] text-pons-accent-foreground">
+												{conv.unreadCount}
+											</span>
+										)}
+									</div>
 								</div>
 							</Link>
 						);
 					})
 				)}
+			</div>
+
+			{/* Compose button — pinned to bottom of list area */}
+			<div className="shrink-0 border-sidebar-border border-t px-3 py-2">
+				<ComposeDialog
+					accountId={accountId}
+					trigger={
+						<button
+							className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+							type="button"
+						>
+							<Plus className="h-4 w-4" />
+							<span>New Conversation</span>
+						</button>
+					}
+				/>
 			</div>
 		</div>
 	);

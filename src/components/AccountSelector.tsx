@@ -54,17 +54,18 @@ export function AccountSelector({
 		if (!account) return null;
 		return (
 			<button
-				className="flex cursor-pointer items-center gap-1.5 text-muted-foreground text-xs transition-colors hover:text-foreground"
+				className="flex cursor-pointer items-center gap-2 transition-colors hover:opacity-80"
 				onClick={() => onSelectAccount(account._id)}
 				type="button"
 			>
 				<StatusDot status={account.status} />
-				<span>{account.name}</span>
+				<span className="font-display font-semibold text-sidebar-foreground text-sm tracking-tight">
+					{account.name}
+				</span>
 				{account.phoneNumber && (
-					<>
-						<span className="text-border">·</span>
-						<span className="font-mono">{account.phoneNumber}</span>
-					</>
+					<span className="font-mono text-[11px] text-muted-foreground/60">
+						{account.phoneNumber}
+					</span>
 				)}
 			</button>
 		);
