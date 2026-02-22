@@ -258,19 +258,28 @@ export async function POST(request: NextRequest) {
 			if (value.statuses) {
 				for (const status of value.statuses) {
 					try {
-						await convex.action(api.gateway.webhookStatusUpdate, {
-							phoneNumberId,
-							rawBody: body,
-							signature,
+						const result = await convex.action(
+							api.gateway.webhookStatusUpdate,
+							{
+								phoneNumberId,
+								rawBody: body,
+								signature,
+								waMessageId: status.id,
+								status: status.status,
+								timestamp: parseInt(status.timestamp, 10) * 1000,
+								errorCode: status.errors?.[0]?.code?.toString(),
+								errorMessage: status.errors?.[0]?.title,
+							},
+						);
+						console.log("[webhook:POST] Status update result", {
 							waMessageId: status.id,
 							status: status.status,
-							timestamp: parseInt(status.timestamp, 10) * 1000,
-							errorCode: status.errors?.[0]?.code?.toString(),
-							errorMessage: status.errors?.[0]?.title,
+							result,
 						});
 					} catch (error) {
 						console.error("[webhook:POST] ✗ Failed to ingest status", {
 							waMessageId: status.id,
+							status: status.status,
 							error: String(error),
 						});
 					}

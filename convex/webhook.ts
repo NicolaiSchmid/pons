@@ -87,7 +87,13 @@ export const ingestStatusUpdate = internalMutation({
 			)
 			.first();
 
-		if (!message) return { found: false };
+		if (!message) {
+			console.warn("[webhook] Status update for unknown message", {
+				waMessageId: args.waMessageId,
+				status: args.status,
+			});
+			return { found: false };
+		}
 
 		const statusOrder = {
 			pending: 0,
@@ -107,7 +113,13 @@ export const ingestStatusUpdate = internalMutation({
 			} as const
 		)[args.status];
 
-		if (!newStatus) return { found: true, updated: false };
+		if (!newStatus) {
+			console.warn("[webhook] Unknown status value", {
+				waMessageId: args.waMessageId,
+				status: args.status,
+			});
+			return { found: true, updated: false };
+		}
 
 		const newOrder = statusOrder[newStatus];
 
