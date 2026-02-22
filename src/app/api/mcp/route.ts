@@ -124,7 +124,13 @@ export async function GET(request: NextRequest) {
 }
 
 // Handle DELETE for session termination (if needed)
-export async function DELETE(_request: NextRequest) {
+export async function DELETE(request: NextRequest) {
+	// Require API key even for DELETE to prevent unauthenticated session manipulation
+	const apiKey = extractApiKey(request);
+	if (!apiKey) {
+		return NextResponse.json({ error: "Missing API key" }, { status: 401 });
+	}
+
 	// In stateless mode, we don't track sessions, so just return success
 	return NextResponse.json({ success: true });
 }

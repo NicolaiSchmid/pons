@@ -171,6 +171,13 @@ export const resendCode = action({
 			accountId: args.accountId,
 		});
 		if (!account) throw new Error("Account not found");
+
+		const isMember = await ctx.runQuery(internal.accounts.checkMembership, {
+			accountId: args.accountId,
+			userId,
+		});
+		if (!isMember) throw new Error("Unauthorized");
+
 		if (account.status !== "code_requested") {
 			throw new Error(`Cannot resend code in status: ${account.status}`);
 		}
@@ -229,6 +236,13 @@ export const submitCode = action({
 			accountId: args.accountId,
 		});
 		if (!account) throw new Error("Account not found");
+
+		const isMember = await ctx.runQuery(internal.accounts.checkMembership, {
+			accountId: args.accountId,
+			userId,
+		});
+		if (!isMember) throw new Error("Unauthorized");
+
 		if (account.status !== "code_requested") {
 			throw new Error(`Cannot submit code in status: ${account.status}`);
 		}
@@ -341,6 +355,9 @@ export const submitCode = action({
  * Automatically verify and register a phone number using an auto-captured OTP.
  * Called internally after the Twilio SMS webhook captures the verification code.
  * Transitions: code_requested → verifying_code → registering → pending_name_review
+ *
+ * Security: Requires authentication + account membership to prevent
+ * unauthenticated callers from hijacking the registration flow.
  */
 export const autoVerifyAndRegister = action({
 	args: {
@@ -348,10 +365,20 @@ export const autoVerifyAndRegister = action({
 		twoStepPin: v.string(),
 	},
 	handler: async (ctx, args): Promise<{ success: boolean; error?: string }> => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Unauthorized");
+
 		const account = await ctx.runQuery(internal.accounts.getInternal, {
 			accountId: args.accountId,
 		});
 		if (!account) throw new Error("Account not found");
+
+		const isMember = await ctx.runQuery(internal.accounts.checkMembership, {
+			accountId: args.accountId,
+			userId,
+		});
+		if (!isMember) throw new Error("Unauthorized");
+
 		if (account.status !== "code_requested") {
 			throw new Error(`Cannot auto-verify in status: ${account.status}`);
 		}
@@ -549,7 +576,10 @@ export const registerExistingNumber = action({
 
 		// Query the number's status to confirm registration took effect
 		const statusRes = await fetch(
-			`${META_API_BASE}/${account.phoneNumberId}?fields=id,status,name_status,code_verification_status,platform_type&access_token=${token}`,
+			`${META_API_BASE}/${account.phoneNumberId}?fields=id,status,name_status,code_verification_status,platform_type`,
+			{
+				headers: { Authorization: `Bearer ${token}` },
+			},
 		);
 		if (statusRes.ok) {
 			const statusBody = await statusRes.json();
@@ -595,12 +625,22 @@ export const checkPhoneStatus = action({
 			accountId: args.accountId,
 		});
 		if (!account) throw new Error("Account not found");
+
+		const isMember = await ctx.runQuery(internal.accounts.checkMembership, {
+			accountId: args.accountId,
+			userId,
+		});
+		if (!isMember) throw new Error("Unauthorized");
+
 		if (!account.phoneNumberId) throw new Error("No phoneNumberId on account");
 
 		const token = await getFacebookToken(ctx, userId);
 
 		const res = await fetch(
-			`${META_API_BASE}/${account.phoneNumberId}?fields=id,display_phone_number,verified_name,status,name_status,code_verification_status,platform_type,quality_rating,messaging_limit_tier,is_official_business_account&access_token=${token}`,
+			`${META_API_BASE}/${account.phoneNumberId}?fields=id,display_phone_number,verified_name,status,name_status,code_verification_status,platform_type,quality_rating,messaging_limit_tier,is_official_business_account`,
+			{
+				headers: { Authorization: `Bearer ${token}` },
+			},
 		);
 
 		if (!res.ok) {

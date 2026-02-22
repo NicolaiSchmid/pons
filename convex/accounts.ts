@@ -286,6 +286,12 @@ export const createTwilio = mutation({
 		const userId = await auth.getUserId(ctx);
 		if (!userId) throw new Error("Unauthorized");
 
+		// Verify the Twilio credentials belong to the current user
+		const twilioCreds = await ctx.db.get(args.twilioCredentialsId);
+		if (!twilioCreds || twilioCreds.userId !== userId) {
+			throw new Error("Twilio credentials not found or not owned by you");
+		}
+
 		const accountId = await ctx.db.insert("accounts", {
 			ownerId: userId,
 			name: args.name,
@@ -380,6 +386,8 @@ export const transitionToPendingNameReview = internalMutation({
 
 		await ctx.db.patch(args.accountId, {
 			status: "pending_name_review",
+			twoStepPin: undefined, // Clear sensitive PIN after registration completes
+			verificationCode: undefined, // Clear any leftover OTP
 			nameReviewCheckCount: 0,
 			nameReviewMaxChecks: 120, // 5 days at 1 check/hour (covers weekends)
 		});

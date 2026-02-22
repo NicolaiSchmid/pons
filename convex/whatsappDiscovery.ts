@@ -63,9 +63,9 @@ export const discoverBusinesses = action({
 		if (!token)
 			throw new Error("No Facebook token found. Please sign in again.");
 
-		const res = await fetch(
-			`${META_API_BASE}/me/businesses?fields=id,name&access_token=${token}`,
-		);
+		const res = await fetch(`${META_API_BASE}/me/businesses?fields=id,name`, {
+			headers: { Authorization: `Bearer ${token}` },
+		});
 		if (!res.ok) {
 			const error = await res.json();
 			throw new Error(
@@ -96,7 +96,8 @@ export const discoverWabas = action({
 			throw new Error("No Facebook token found. Please sign in again.");
 
 		const res = await fetch(
-			`${META_API_BASE}/${businessId}/owned_whatsapp_business_accounts?fields=id,name,message_template_namespace&access_token=${token}`,
+			`${META_API_BASE}/${businessId}/owned_whatsapp_business_accounts?fields=id,name,message_template_namespace`,
+			{ headers: { Authorization: `Bearer ${token}` } },
 		);
 		if (!res.ok) {
 			const error = await res.json();
@@ -128,7 +129,8 @@ export const discoverPhoneNumbers = action({
 			throw new Error("No Facebook token found. Please sign in again.");
 
 		const res = await fetch(
-			`${META_API_BASE}/${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,status,messaging_limit_tier,platform_type,is_official_business_account&access_token=${token}`,
+			`${META_API_BASE}/${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,status,messaging_limit_tier,platform_type,is_official_business_account`,
+			{ headers: { Authorization: `Bearer ${token}` } },
 		);
 		if (!res.ok) {
 			const error = await res.json();
@@ -178,7 +180,8 @@ export const discoverAllNumbers = action({
 
 		// 1. Get all businesses
 		const bizRes = await fetch(
-			`${META_API_BASE}/me/businesses?fields=id,name&access_token=${token}`,
+			`${META_API_BASE}/me/businesses?fields=id,name`,
+			{ headers: { Authorization: `Bearer ${token}` } },
 		);
 		if (!bizRes.ok) {
 			const error = await bizRes.json();
@@ -206,7 +209,8 @@ export const discoverAllNumbers = action({
 		// 2. For each business, get WABAs
 		for (const biz of businesses) {
 			const wabaRes = await fetch(
-				`${META_API_BASE}/${biz.id}/owned_whatsapp_business_accounts?fields=id,name&access_token=${token}`,
+				`${META_API_BASE}/${biz.id}/owned_whatsapp_business_accounts?fields=id,name`,
+				{ headers: { Authorization: `Bearer ${token}` } },
 			);
 			if (!wabaRes.ok) continue;
 			const wabaData = await wabaRes.json();
@@ -215,7 +219,8 @@ export const discoverAllNumbers = action({
 			// 3. For each WABA, get phone numbers
 			for (const waba of wabas) {
 				const phoneRes = await fetch(
-					`${META_API_BASE}/${waba.id}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,status,platform_type&access_token=${token}`,
+					`${META_API_BASE}/${waba.id}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,status,platform_type`,
+					{ headers: { Authorization: `Bearer ${token}` } },
 				);
 				if (!phoneRes.ok) continue;
 				const phoneData = await phoneRes.json();

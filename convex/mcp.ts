@@ -16,6 +16,14 @@ import { auth } from "./auth";
 // A single key grants access to ALL accounts the user is a member of.
 // ============================================
 
+/** Allowed MCP API key scopes. Reject unknown scopes to prevent typos and future confusion. */
+const VALID_SCOPES = new Set([
+	"messages:read",
+	"messages:write",
+	"conversations:read",
+	"templates:read",
+]);
+
 export const createApiKey = action({
 	args: {
 		name: v.string(),
@@ -29,6 +37,19 @@ export const createApiKey = action({
 		// Defense-in-depth: verify auth before generating key material
 		const userId = await auth.getUserId(ctx);
 		if (!userId) throw new Error("Unauthorized");
+
+		// Validate scopes against allowlist
+		const invalidScopes = args.scopes.filter((s) => !VALID_SCOPES.has(s));
+		if (invalidScopes.length > 0) {
+			throw new Error(
+				`Invalid scope(s): ${invalidScopes.join(", ")}. Valid scopes: ${[...VALID_SCOPES].join(", ")}`,
+			);
+		}
+		if (args.scopes.length === 0) {
+			throw new Error(
+				`At least one scope is required. Valid scopes: ${[...VALID_SCOPES].join(", ")}`,
+			);
+		}
 
 		// Generate the key using Node action
 		const { apiKey, keyHash, keyPrefix } = await ctx.runAction(
