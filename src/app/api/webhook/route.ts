@@ -13,8 +13,8 @@ const convex = new ConvexHttpClient(convexUrl);
 // Zod schemas for WhatsApp webhook payload
 const mediaContentSchema = z.object({
 	id: z.string(),
-	mime_type: z.string(),
-	sha256: z.string(),
+	mime_type: z.string().optional(),
+	sha256: z.string().optional(),
 	filename: z.string().optional(),
 	caption: z.string().optional(),
 });
