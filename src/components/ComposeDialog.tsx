@@ -27,9 +27,11 @@ const normalizePhone = (raw: string): string => {
 
 interface ComposeDialogProps {
 	accountId: Id<"accounts">;
+	/** Custom trigger element. Defaults to a green "New" button. */
+	trigger?: React.ReactNode;
 }
 
-export function ComposeDialog({ accountId }: ComposeDialogProps) {
+export function ComposeDialog({ accountId, trigger }: ComposeDialogProps) {
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
 
@@ -98,13 +100,15 @@ export function ComposeDialog({ accountId }: ComposeDialogProps) {
 	return (
 		<Dialog onOpenChange={setOpen} open={open}>
 			<DialogTrigger asChild>
-				<Button
-					className="h-8 gap-1.5 bg-pons-green text-pons-green-foreground hover:bg-pons-green-bright"
-					size="sm"
-				>
-					<Plus className="h-3.5 w-3.5" />
-					<span className="hidden lg:inline">New</span>
-				</Button>
+				{trigger ?? (
+					<Button
+						className="h-8 gap-1.5 bg-pons-green text-pons-green-foreground hover:bg-pons-green-bright"
+						size="sm"
+					>
+						<Plus className="h-3.5 w-3.5" />
+						<span className="hidden lg:inline">New</span>
+					</Button>
+				)}
 			</DialogTrigger>
 
 			<DialogContent className="max-h-[85vh] overflow-hidden sm:max-w-lg">
