@@ -69,10 +69,6 @@ export const getOrCreate = mutation({
 		const hasAccess = await checkAccountAccess(ctx, userId, args.accountId);
 		if (!hasAccess) throw new Error("Unauthorized");
 
-		console.log(
-			`[conversations.getOrCreate] lookup contactId=${args.contactId} accountId=${args.accountId}`,
-		);
-
 		// Check if conversation exists
 		const existing = await ctx.db
 			.query("conversations")
@@ -80,15 +76,9 @@ export const getOrCreate = mutation({
 			.first();
 
 		if (existing) {
-			console.log(
-				`[conversations.getOrCreate] FOUND existing conversation=${existing._id}`,
-			);
 			return existing._id;
 		}
 
-		console.log(
-			"[conversations.getOrCreate] NOT FOUND — creating new conversation",
-		);
 		// Create new conversation
 		return ctx.db.insert("conversations", {
 			accountId: args.accountId,

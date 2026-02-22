@@ -216,10 +216,6 @@ export const sendTemplateMessage = internalAction({
 
 		const accessToken = await resolveAccessToken(ctx, account.ownerId);
 
-		console.log(
-			`sendTemplateMessage: accountId=${args.accountId}, phoneNumberId=${account.phoneNumberId}, ownerId=${account.ownerId}, status=${account.status}, to=${args.to}, template=${args.templateName}, tokenPrefix=${accessToken.substring(0, 20)}...`,
-		);
-
 		const messageId = await ctx.runMutation(
 			internal.messages.createOutboundInternal,
 			{
@@ -249,11 +245,6 @@ export const sendTemplateMessage = internalAction({
 			template,
 		};
 
-		console.log(
-			"[sendTemplateMessage] payload:",
-			JSON.stringify(body, null, 2),
-		);
-
 		try {
 			const response = await fetch(
 				`${META_API_BASE}/${account.phoneNumberId}/messages`,
@@ -267,9 +258,7 @@ export const sendTemplateMessage = internalAction({
 				},
 			);
 
-			const rawText = await response.text();
-			console.log("[sendTemplateMessage] response:", response.status, rawText);
-			const data = JSON.parse(rawText) as MetaMessagesResponse;
+			const data = (await response.json()) as MetaMessagesResponse;
 
 			if (!response.ok) {
 				const errorMsg = formatMetaError(data.error);
@@ -565,26 +554,6 @@ export const fetchTemplates = internalAction({
 		}
 
 		return allTemplates;
-	},
-});
-
-// Debug: fetch a single template's raw data from Meta (internal — no auth needed)
-export const debugTemplate = internalAction({
-	args: { accountId: v.id("accounts"), templateName: v.string() },
-	handler: async (ctx, args): Promise<Record<string, unknown>> => {
-		const account = await ctx.runQuery(internal.accounts.getInternal, {
-			accountId: args.accountId,
-		});
-		if (!account) throw new Error("Account not found");
-
-		const accessToken = await resolveAccessToken(ctx, account.ownerId);
-		const response = await fetch(
-			`${META_API_BASE}/${account.wabaId}/message_templates?name=${args.templateName}&fields=id,name,language,category,status,components`,
-			{ headers: { Authorization: `Bearer ${accessToken}` } },
-		);
-		const data = (await response.json()) as Record<string, unknown>;
-		console.log("[debugTemplate]", JSON.stringify(data, null, 2));
-		return data;
 	},
 });
 

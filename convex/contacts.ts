@@ -52,10 +52,6 @@ export const getOrCreate = mutation({
 		const hasAccess = await checkAccountAccess(ctx, userId, args.accountId);
 		if (!hasAccess) throw new Error("Unauthorized");
 
-		console.log(
-			`[contacts.getOrCreate] lookup waId="${args.waId}" phone="${args.phone}" accountId=${args.accountId}`,
-		);
-
 		// Check if contact exists
 		const existing = await ctx.db
 			.query("contacts")
@@ -65,9 +61,6 @@ export const getOrCreate = mutation({
 			.first();
 
 		if (existing) {
-			console.log(
-				`[contacts.getOrCreate] FOUND existing contact=${existing._id} waId="${existing.waId}"`,
-			);
 			// Update name if provided and different
 			if (args.name && args.name !== existing.name) {
 				await ctx.db.patch(existing._id, { name: args.name });
@@ -75,7 +68,6 @@ export const getOrCreate = mutation({
 			return existing._id;
 		}
 
-		console.log("[contacts.getOrCreate] NOT FOUND — creating new contact");
 		// Create new contact
 		return ctx.db.insert("contacts", {
 			accountId: args.accountId,

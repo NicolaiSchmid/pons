@@ -46,13 +46,13 @@ export function ConversationList({
 	return (
 		<div className="flex h-full flex-col">
 			{/* Search + New button */}
-			<div className="flex shrink-0 items-center gap-2 p-3">
+			<div className="flex shrink-0 items-center gap-1.5 px-2 py-1.5">
 				<div className="relative flex-1">
-					<Search className="absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+					<Search className="absolute top-1/2 left-2.5 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
 					<input
-						className="h-8 w-full rounded-md bg-muted pr-3 pl-9 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+						className="h-7 w-full rounded-md bg-muted pr-2 pl-7 text-foreground text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
 						onChange={(e) => setSearch(e.target.value)}
-						placeholder="Search conversations..."
+						placeholder="Search..."
 						type="text"
 						value={search}
 					/>
@@ -63,79 +63,69 @@ export function ConversationList({
 			{/* List */}
 			<div className="flex-1 overflow-y-auto">
 				{filtered.length === 0 ? (
-					<div className="flex flex-col items-center justify-center gap-3 px-4 py-12">
-						<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-							<MessageSquare className="h-5 w-5 text-muted-foreground" />
-						</div>
-						<div className="text-center">
-							<p className="font-medium text-foreground text-sm">
-								{search ? "No results" : "No conversations"}
-							</p>
-							<p className="mt-0.5 text-muted-foreground text-xs">
-								{search
-									? "Try a different search"
-									: "Messages will appear here when customers reach out"}
-							</p>
-						</div>
+					<div className="flex flex-col items-center justify-center gap-2 px-3 py-10">
+						<MessageSquare className="h-4 w-4 text-muted-foreground" />
+						<p className="text-muted-foreground text-xs">
+							{search ? "No results" : "No conversations yet"}
+						</p>
 					</div>
 				) : (
-					filtered.map((conv) => (
-						<Link
-							className={cn(
-								"group flex w-full flex-col gap-1 border-border/50 border-b px-4 py-3 text-left transition-colors hover:bg-muted/50",
-								selectedConversationId === conv._id && "bg-muted/70",
-							)}
-							href={`/dashboard/${accountId}/${conv._id}`}
-							key={conv._id}
-						>
-							<div className="flex items-center justify-between gap-2">
-								<div className="flex min-w-0 items-center gap-2">
-									<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted font-medium text-muted-foreground text-xs uppercase">
-										{getInitials(conv.contact?.name, conv.contact?.phone)}
-									</div>
-									<span className="truncate font-medium text-foreground text-sm">
-										{conv.contact?.name ?? conv.contact?.phone ?? "Unknown"}
+					filtered.map((conv) => {
+						const name = conv.contact?.name ?? conv.contact?.phone ?? "Unknown";
+						const hasUnread = conv.unreadCount > 0;
+
+						return (
+							<Link
+								className={cn(
+									"flex items-center gap-2 border-border/40 border-b px-2.5 py-1.5 transition-colors hover:bg-muted/50",
+									selectedConversationId === conv._id && "bg-muted/70",
+								)}
+								href={`/dashboard/${accountId}/${conv._id}`}
+								key={conv._id}
+							>
+								{/* Name / preview */}
+								<div className="flex min-w-0 flex-1 items-baseline gap-1.5">
+									<span
+										className={cn(
+											"shrink-0 truncate text-xs",
+											hasUnread
+												? "font-semibold text-foreground"
+												: "font-medium text-foreground",
+										)}
+										style={{ maxWidth: "40%" }}
+									>
+										{name}
 									</span>
+									{conv.lastMessagePreview && (
+										<span className="truncate text-[11px] text-muted-foreground">
+											{conv.lastMessagePreview}
+										</span>
+									)}
 								</div>
-								<div className="flex shrink-0 items-center gap-2">
+
+								{/* Timestamp + badge */}
+								<div className="flex shrink-0 items-center gap-1.5">
 									{conv.lastMessageAt && (
-										<span className="text-[11px] text-muted-foreground">
+										<span className="text-[10px] text-muted-foreground">
 											{formatRelativeTime(conv.lastMessageAt)}
 										</span>
 									)}
-									{conv.unreadCount > 0 && (
+									{hasUnread && (
 										<Badge
-											className="h-5 min-w-5 justify-center rounded-full bg-pons-green px-1.5 font-medium text-[10px] text-pons-green-foreground hover:bg-pons-green"
+											className="h-4 min-w-4 justify-center rounded-full bg-pons-green px-1 font-medium text-[9px] text-pons-green-foreground hover:bg-pons-green"
 											variant="default"
 										>
 											{conv.unreadCount}
 										</Badge>
 									)}
 								</div>
-							</div>
-							{conv.lastMessagePreview && (
-								<p className="truncate pl-10 text-muted-foreground text-xs leading-relaxed">
-									{conv.lastMessagePreview}
-								</p>
-							)}
-						</Link>
-					))
+							</Link>
+						);
+					})
 				)}
 			</div>
 		</div>
 	);
-}
-
-function getInitials(name?: string, phone?: string): string {
-	if (name) {
-		return name
-			.split(" ")
-			.map((w) => w[0])
-			.join("")
-			.slice(0, 2);
-	}
-	if (phone) return phone.slice(-2);
-	return "?";
 }
 
 function formatRelativeTime(timestamp: number): string {
