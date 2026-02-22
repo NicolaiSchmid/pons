@@ -1,13 +1,7 @@
 "use client";
 
 import { useQuery } from "convex/react";
-import {
-	AlertCircle,
-	FileText,
-	Key,
-	MessageSquare,
-	Settings,
-} from "lucide-react";
+import { AlertCircle, FileText, MessageSquare, Settings } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { ConversationList } from "@/components/ConversationList";
@@ -21,7 +15,6 @@ const USABLE_STATUSES = new Set(["active", "pending_name_review"]);
 const NAV_ITEMS = [
 	{ href: "", icon: MessageSquare, label: "Conversations" },
 	{ href: "/templates", icon: FileText, label: "Templates" },
-	{ href: "/keys", icon: Key, label: "API Keys" },
 	{ href: "/settings", icon: Settings, label: "Settings" },
 ] as const;
 
@@ -65,7 +58,7 @@ export default function AccountLayout({
 		: false;
 
 	const basePath = `/dashboard/${accountId}`;
-	const SUB_PAGES = ["/templates", "/keys", "/settings"];
+	const SUB_PAGES = ["/templates", "/settings"];
 	const isConversationsView = !SUB_PAGES.some((p) =>
 		pathname.startsWith(`${basePath}${p}`),
 	);
