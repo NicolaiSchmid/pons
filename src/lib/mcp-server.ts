@@ -501,7 +501,22 @@ ${messagesText || "No messages yet."}`;
 					'Language code (e.g., "en_US", "de_DE"). Omit to see instructions.',
 				),
 			components: z
-				.any()
+				.array(
+					z
+						.object({
+							type: z.string().transform((t) => t.toUpperCase()),
+							parameters: z.array(
+								z
+									.object({
+										type: z.string(),
+										text: z.string().optional(),
+										parameter_name: z.string().optional(),
+									})
+									.passthrough(),
+							),
+						})
+						.passthrough(),
+				)
 				.optional()
 				.describe(
 					"Template components (header, body, button variables) as JSON",

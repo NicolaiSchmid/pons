@@ -9,6 +9,31 @@ type MetaMessagesResponse = {
 	messages?: Array<{ id: string }>;
 };
 
+// Strict validator for template components — rejects lowercase types.
+// Meta API requires UPPERCASE component types (BODY, HEADER, FOOTER, BUTTONS).
+const templateComponentValidator = v.array(
+	v.object({
+		type: v.union(
+			v.literal("BODY"),
+			v.literal("HEADER"),
+			v.literal("FOOTER"),
+			v.literal("BUTTONS"),
+			v.literal("BUTTON"),
+		),
+		parameters: v.optional(
+			v.array(
+				v.object({
+					type: v.string(),
+					text: v.optional(v.string()),
+					parameter_name: v.optional(v.string()),
+				}),
+			),
+		),
+		sub_type: v.optional(v.string()),
+		index: v.optional(v.union(v.string(), v.number())),
+	}),
+);
+
 /**
  * Resolve the Facebook OAuth token for an account's owner.
  * Used in actions that can't access the DB directly.
@@ -493,7 +518,9 @@ export const sendTemplateMessageUI = action({
 		to: v.string(),
 		templateName: v.string(),
 		templateLanguage: v.string(),
-		components: v.optional(v.any()),
+		// Strict: rejects lowercase component types — our TemplatePicker
+		// must send UPPERCASE. This catches bugs at the boundary.
+		components: v.optional(templateComponentValidator),
 	},
 	handler: async (
 		ctx,

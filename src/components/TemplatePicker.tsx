@@ -25,6 +25,27 @@ const VAR_PATTERN = /\{\{(\w+)\}\}/g;
 /** A variable with its key and the component type it belongs to. */
 export type TemplateVariable = { key: string; componentType: string };
 
+/** A single template parameter for the Meta API. */
+export type TemplateParameter = {
+	type: string;
+	text?: string;
+	parameter_name?: string;
+};
+
+/** Valid Meta API template component types (UPPERCASE required). */
+export type TemplateComponentType =
+	| "BODY"
+	| "HEADER"
+	| "FOOTER"
+	| "BUTTONS"
+	| "BUTTON";
+
+/** A template component for the Meta API (UPPERCASE type required). */
+export type TemplateComponent = {
+	type: TemplateComponentType;
+	parameters: TemplateParameter[];
+};
+
 /** Extract variables from all text components, tracking which component they belong to. */
 export const extractVariables = (template: Template): TemplateVariable[] => {
 	const seen = new Set<string>();
@@ -52,24 +73,22 @@ export const extractVariables = (template: Template): TemplateVariable[] => {
 export const buildMetaComponents = (
 	variables: TemplateVariable[],
 	values: Record<string, string>,
-): Array<Record<string, unknown>> => {
-	const grouped = new Map<string, Array<Record<string, string>>>();
+): TemplateComponent[] => {
+	const grouped = new Map<string, TemplateParameter[]>();
 	for (const v of variables) {
 		const params = grouped.get(v.componentType) ?? [];
 		const isNamed = !/^\d+$/.test(v.key);
-		const param: Record<string, string> = {
+		const param: TemplateParameter = {
 			type: "text",
 			text: values[v.key]?.trim() ?? "",
+			...(isNamed ? { parameter_name: v.key } : {}),
 		};
-		if (isNamed) {
-			param.parameter_name = v.key;
-		}
 		params.push(param);
 		grouped.set(v.componentType, params);
 	}
 	// Meta API requires component types in UPPERCASE (e.g. "BODY", "HEADER")
 	return [...grouped.entries()].map(([type, parameters]) => ({
-		type: type.toUpperCase(),
+		type: type.toUpperCase() as TemplateComponentType,
 		parameters,
 	}));
 };
@@ -85,7 +104,7 @@ const renderPreview = (text: string, values: Record<string, string>): string =>
 
 export interface TemplatePickerResult {
 	template: Template;
-	components: Array<Record<string, unknown>> | undefined;
+	components: TemplateComponent[] | undefined;
 }
 
 interface TemplatePickerProps {
