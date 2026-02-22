@@ -1,0 +1,75 @@
+---
+title: "Self-Documenting MCP Tools: Stop Asking Users for IDs"
+description: "How we redesigned Pons's MCP tools so AI agents never need to know internal IDs. Call any tool with no arguments and it tells you what to pass."
+date: "2026-02-22"
+author: "Nicolai Schmid"
+cover: /blog/self-documenting-mcp-tools.png
+---
+
+I was trying to send a WhatsApp template through my own MCP server. I built the thing. I know how it works. And I still spent five minutes trying to figure out what `phoneNumberId` to pass.
+
+That's when I knew the API was broken.
+
+## The problem with MCP tool design
+
+Most MCP tools work like traditional APIs. You need to know the exact parameter values before you call them. For a WhatsApp MCP server, that means:
+
+- A Meta-internal `phoneNumberId` (a 15-digit number that isn't your phone number)
+- A Convex `conversationId` (an opaque database ID)
+- A `waMessageId` (something like `wamid.HBgNNDkxNzI3...`)
+- A `templateName` (hope you remember what you called it in the Meta Business Suite)
+
+If you get any of these wrong, you get a generic error. No hints. No suggestions. Just "not found."
+
+This is a terrible experience for AI agents. They don't have access to your Meta dashboard. They can't look up IDs. They're stuck.
+
+## The fix: progressive disclosure
+
+We redesigned every tool in Pons to be self-documenting. The idea is simple:
+
+**Call any tool with missing parameters and it tells you what options are available.**
+
+No arguments? Here are your accounts. Passed an account? Here are your contacts. Need a template? Here's every template with its content and language code.
+
+The AI agent never needs to ask the user for an internal ID. It just calls the tool, reads the options, and fills in the next parameter.
+
+Here's what sending a template looks like now:
+
+1. `send_template()` → "Missing `from`. Available accounts: +49 30 233... (Nunc Immobilien)"
+2. `send_template({ from: "+493023324724" })` → "Missing `phone`. Recent contacts: +49 172 738... (Torsten), ..."
+3. `send_template({ from: "...", phone: "..." })` → "Missing `templateName`. Available: renter_ad_reachout (de), nunc_greeting (en_US)"
+4. `send_template({ from: "...", phone: "...", templateName: "renter_ad_reachout", ... })` → Sent.
+
+Four calls instead of one. But the agent figured out everything by itself. No user intervention.
+
+## Smart error recovery
+
+The same pattern works for wrong values, not just missing ones:
+
+- **Wrong phone number?** "Not found. Available accounts: ..." with the correct numbers listed.
+- **Wrong template name?** Instead of a cryptic Meta API error, you get the full list of approved templates with their content and language codes.
+- **Need to react to a message but don't have the ID?** Call `send_reaction` without a `waMessageId` and it returns the last 10 messages with their IDs.
+
+The tool never just fails. It always tells you what the right answer is.
+
+## Real phone numbers everywhere
+
+We killed every internal ID from the parameter surface:
+
+- `phoneNumberId` → `from` (your actual phone number: `+493023324724`)
+- `conversationId` → `phone` (the recipient's actual phone number)
+- `mark_as_read` → removed entirely
+
+Eight tools, zero opaque IDs. An AI agent that's never seen your WhatsApp setup before can figure out everything in a few calls.
+
+## Why this matters for MCP
+
+MCP tools are not REST APIs. They're called by language models that can't browse documentation, can't check a dashboard, and can't ask clarifying questions in most contexts.
+
+If your tool requires knowledge that isn't available in the conversation, the agent is stuck. Self-documenting tools solve this by making the tool itself the documentation.
+
+Every MCP server should work this way.
+
+---
+
+Check out the [full tools reference](/docs/mcp-tools) or try it yourself at [pons.chat](https://pons.chat).
