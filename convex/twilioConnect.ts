@@ -40,11 +40,11 @@ export const getCredentials = query({
 
 		if (!creds) return null;
 
-		// Return with masked token for display
+		// Return with masked token for display — only show last 4 chars
 		return {
 			_id: creds._id,
 			accountSid: creds.accountSid,
-			authTokenMasked: `${creds.authToken.slice(0, 4)}...${creds.authToken.slice(-4)}`,
+			authTokenMasked: `${"•".repeat(28)}${creds.authToken.slice(-4)}`,
 			friendlyName: creds.friendlyName,
 			savedAt: creds.savedAt,
 		};
@@ -512,14 +512,34 @@ export const configureSmsWebhook = action({
  * Finds the account in code_requested state that owns this phone number,
  * stores the code.
  *
+ * Requires a webhook secret to prevent unauthenticated callers from injecting
+ * fake verification codes. The secret is validated against TWILIO_WEBHOOK_SECRET
+ * env var. The calling webhook route must also verify Twilio's request signature.
+ *
  * Called from /api/twilio/sms webhook (public action via ConvexHttpClient).
  */
 export const captureVerificationCode = action({
 	args: {
 		phoneNumber: v.string(),
 		code: v.string(),
+		webhookSecret: v.string(),
 	},
 	handler: async (ctx, args): Promise<{ captured: boolean }> => {
+		// Validate webhook secret to prevent unauthenticated code injection
+		const expectedSecret = process.env.TWILIO_WEBHOOK_SECRET;
+		if (!expectedSecret) {
+			console.error(
+				"[captureVerificationCode] TWILIO_WEBHOOK_SECRET env var not set",
+			);
+			throw new Error("Server misconfigured");
+		}
+		if (args.webhookSecret !== expectedSecret) {
+			console.error(
+				"[captureVerificationCode] Invalid webhook secret — rejecting",
+			);
+			throw new Error("Unauthorized");
+		}
+
 		const account = await ctx.runQuery(
 			internal.twilioConnect.findAccountByPhoneNumber,
 			{ phoneNumber: args.phoneNumber },

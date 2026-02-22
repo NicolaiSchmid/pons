@@ -77,7 +77,10 @@ export const checkNameStatus = internalAction({
 		try {
 			// Query Meta API for phone number details including name_status
 			const res = await fetch(
-				`${META_API_BASE}/${account.phoneNumberId}?fields=name_status,verified_name&access_token=${token}`,
+				`${META_API_BASE}/${account.phoneNumberId}?fields=name_status,verified_name`,
+				{
+					headers: { Authorization: `Bearer ${token}` },
+				},
 			);
 
 			if (!res.ok) {

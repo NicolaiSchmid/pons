@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { ConvexHttpClient } from "convex/browser";
 import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -127,7 +128,6 @@ export async function GET(request: NextRequest) {
 	console.log("[webhook:GET] Verification request", {
 		mode,
 		hasToken: !!token,
-		tokenPreview: token ? `${token.slice(0, 8)}...` : null,
 		hasChallenge: !!challenge,
 		url: request.nextUrl.pathname,
 	});
@@ -140,7 +140,14 @@ export async function GET(request: NextRequest) {
 			return new NextResponse("Server misconfigured", { status: 500 });
 		}
 
-		if (token === expectedToken) {
+		// Use timing-safe comparison to prevent timing-based token leakage
+		const tokenBuffer = Buffer.from(token);
+		const expectedBuffer = Buffer.from(expectedToken);
+		const isValid =
+			tokenBuffer.length === expectedBuffer.length &&
+			timingSafeEqual(tokenBuffer, expectedBuffer);
+
+		if (isValid) {
 			console.log(
 				"[webhook:GET] ✓ Verification successful, returning challenge",
 			);
@@ -175,7 +182,13 @@ export async function POST(request: NextRequest) {
 		return new NextResponse("Missing signature", { status: 401 });
 	}
 
+	// Read the raw body first — needed for signature verification
 	const body = await request.text();
+
+	// Reject obviously invalid bodies before spending time parsing
+	if (!body || body.length === 0) {
+		return new NextResponse("Empty body", { status: 400 });
+	}
 
 	// Parse and validate the payload
 	let payload: WebhookPayload;
@@ -203,7 +216,12 @@ export async function POST(request: NextRequest) {
 		return new NextResponse("OK", { status: 200 });
 	}
 
-	// Process each change — signature verification happens inside the gateway
+	// Note: HMAC signature verification happens inside the Convex gateway
+	// (gateway.webhookIngest / gateway.webhookStatusUpdate) because the
+	// app secret is stored per-account in Convex DB, not available here.
+	// The signature + rawBody are passed through for verification there.
+
+	// Process each change
 	for (const entry of payload.entry) {
 		for (const change of entry.changes) {
 			if (change.field !== "messages") continue;
