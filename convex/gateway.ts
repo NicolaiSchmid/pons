@@ -103,13 +103,10 @@ export const mcpTool = action({
 		try {
 			switch (args.tool) {
 				case "list_conversations": {
-					return await ctx.runQuery(
-						internal.mcp.listConversationsInternal,
-						{
-							accountId,
-							limit: (toolArgs.limit as number | undefined) ?? 50,
-						},
-					);
+					return await ctx.runQuery(internal.mcp.listConversationsInternal, {
+						accountId,
+						limit: (toolArgs.limit as number | undefined) ?? 50,
+					});
 				}
 				case "list_unanswered": {
 					return await ctx.runQuery(internal.mcp.listUnansweredInternal, {
@@ -120,10 +117,8 @@ export const mcpTool = action({
 				case "get_conversation": {
 					return await ctx.runQuery(internal.mcp.getConversationInternal, {
 						accountId,
-						conversationId:
-							toolArgs.conversationId as Id<"conversations">,
-						messageLimit:
-							(toolArgs.messageLimit as number | undefined) ?? 50,
+						conversationId: toolArgs.conversationId as Id<"conversations">,
+						messageLimit: (toolArgs.messageLimit as number | undefined) ?? 50,
 					});
 				}
 				case "search_messages": {
@@ -134,7 +129,7 @@ export const mcpTool = action({
 					});
 				}
 				case "list_templates": {
-					return await ctx.runQuery(internal.mcp.listTemplatesInternal, {
+					return await ctx.runAction(internal.whatsapp.fetchTemplates, {
 						accountId,
 					});
 				}
@@ -153,9 +148,7 @@ export const mcpTool = action({
 						conversationId: contact.conversationId,
 						to: toolArgs.phone as string,
 						text: toolArgs.text as string,
-						replyToMessageId: toolArgs.replyToMessageId as
-							| string
-							| undefined,
+						replyToMessageId: toolArgs.replyToMessageId as string | undefined,
 					});
 				}
 				case "send_template": {
@@ -167,17 +160,14 @@ export const mcpTool = action({
 						},
 					);
 
-					return await ctx.runAction(
-						internal.whatsapp.sendTemplateMessage,
-						{
-							accountId,
-							conversationId: templateContact.conversationId,
-							to: toolArgs.phone as string,
-							templateName: toolArgs.templateName as string,
-							templateLanguage: toolArgs.templateLanguage as string,
-							components: toolArgs.components,
-						},
-					);
+					return await ctx.runAction(internal.whatsapp.sendTemplateMessage, {
+						accountId,
+						conversationId: templateContact.conversationId,
+						to: toolArgs.phone as string,
+						templateName: toolArgs.templateName as string,
+						templateLanguage: toolArgs.templateLanguage as string,
+						components: toolArgs.components,
+					});
 				}
 				case "mark_as_read": {
 					return await ctx.runAction(internal.whatsapp.markAsRead, {
@@ -188,8 +178,7 @@ export const mcpTool = action({
 				case "send_reaction": {
 					return await ctx.runAction(internal.whatsapp.sendReaction, {
 						accountId,
-						conversationId:
-							toolArgs.conversationId as Id<"conversations">,
+						conversationId: toolArgs.conversationId as Id<"conversations">,
 						to: toolArgs.phone as string,
 						messageId: toolArgs.waMessageId as string,
 						emoji: toolArgs.emoji as string,
@@ -199,8 +188,7 @@ export const mcpTool = action({
 					throw new Error(`Unknown tool: ${args.tool}`);
 			}
 		} catch (error) {
-			const message =
-				error instanceof Error ? error.message : String(error);
+			const message = error instanceof Error ? error.message : String(error);
 			return { error: true, message };
 		}
 	},

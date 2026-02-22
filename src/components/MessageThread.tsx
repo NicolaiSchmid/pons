@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import type { Template } from "../../convex/whatsapp";
 
 interface MessageThreadProps {
 	conversationId: Id<"conversations">;
@@ -31,16 +32,18 @@ export function MessageThread({
 }: MessageThreadProps) {
 	const conversation = useQuery(api.conversations.get, { conversationId });
 	const messagesResult = useQuery(api.messages.list, { conversationId });
-	const templates = useQuery(api.templates.list, { accountId });
 	const markAsRead = useMutation(api.conversations.markAsRead);
 	const sendTextMessage = useAction(api.whatsapp.sendTextMessageUI);
 	const sendTemplateMessage = useAction(api.whatsapp.sendTemplateMessageUI);
+	const fetchTemplatesAction = useAction(api.whatsapp.fetchTemplatesUI);
 
 	const [messageText, setMessageText] = useState("");
 	const [sending, setSending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [showTemplates, setShowTemplates] = useState(false);
 	const [sendingTemplate, setSendingTemplate] = useState(false);
+	const [templates, setTemplates] = useState<Template[] | null>(null);
+	const [loadingTemplates, setLoadingTemplates] = useState(false);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const templateRef = useRef<HTMLDivElement>(null);
@@ -79,6 +82,17 @@ export function MessageThread({
 			document.addEventListener("mousedown", handleClickOutside);
 		}
 		return () => document.removeEventListener("mousedown", handleClickOutside);
+	}, [showTemplates]);
+
+	// Fetch templates from Meta when the picker is opened
+	// biome-ignore lint/correctness/useExhaustiveDependencies: Only fetch when picker opens
+	useEffect(() => {
+		if (!showTemplates || templates !== null) return;
+		setLoadingTemplates(true);
+		fetchTemplatesAction({ accountId })
+			.then(setTemplates)
+			.catch(() => setTemplates([]))
+			.finally(() => setLoadingTemplates(false));
 	}, [showTemplates]);
 
 	const handleSendTemplate = async (
@@ -151,11 +165,16 @@ export function MessageThread({
 			<div className="flex shrink-0 items-center justify-between border-b px-4 py-3">
 				<div className="flex items-center gap-3">
 					<div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted font-medium text-muted-foreground text-xs uppercase">
-						{getInitials(conversation.contact?.name, conversation.contact?.phone)}
+						{getInitials(
+							conversation.contact?.name,
+							conversation.contact?.phone,
+						)}
 					</div>
 					<div>
 						<p className="font-medium text-foreground text-sm leading-none">
-							{conversation.contact?.name ?? conversation.contact?.phone ?? "Unknown"}
+							{conversation.contact?.name ??
+								conversation.contact?.phone ??
+								"Unknown"}
 						</p>
 						{conversation.contact?.name && conversation.contact?.phone && (
 							<p className="mt-1 text-muted-foreground text-xs">
@@ -201,30 +220,30 @@ export function MessageThread({
 											: "bg-muted text-foreground",
 									)}
 								>
-								{msg.type === "text" ? (
-									<p className="whitespace-pre-wrap text-sm leading-relaxed">
-										{msg.text}
-									</p>
-								) : msg.type === "template" ? (
-									<div className="flex items-center gap-1.5 text-sm">
-										<FileText className="h-3.5 w-3.5 shrink-0 text-pons-green" />
-										<span className="italic text-muted-foreground">
-											Template: {msg.templateName ?? "unknown"}
-										</span>
-									</div>
-								) : (
-									<div className="flex items-center gap-1.5 text-muted-foreground text-sm italic">
-										{msg.type === "image" ? (
-											<Image className="h-3.5 w-3.5" />
-										) : (
-											<Paperclip className="h-3.5 w-3.5" />
-										)}
-										<span>
-											{msg.type}
-											{msg.caption ? `: ${msg.caption}` : ""}
-										</span>
-									</div>
-								)}
+									{msg.type === "text" ? (
+										<p className="whitespace-pre-wrap text-sm leading-relaxed">
+											{msg.text}
+										</p>
+									) : msg.type === "template" ? (
+										<div className="flex items-center gap-1.5 text-sm">
+											<FileText className="h-3.5 w-3.5 shrink-0 text-pons-green" />
+											<span className="text-muted-foreground italic">
+												Template: {msg.templateName ?? "unknown"}
+											</span>
+										</div>
+									) : (
+										<div className="flex items-center gap-1.5 text-muted-foreground text-sm italic">
+											{msg.type === "image" ? (
+												<Image className="h-3.5 w-3.5" />
+											) : (
+												<Paperclip className="h-3.5 w-3.5" />
+											)}
+											<span>
+												{msg.type}
+												{msg.caption ? `: ${msg.caption}` : ""}
+											</span>
+										</div>
+									)}
 									<div
 										className={cn(
 											"mt-1 flex items-center gap-1 text-[11px]",
@@ -300,7 +319,14 @@ export function MessageThread({
 
 							{showTemplates && (
 								<div className="absolute bottom-12 left-0 z-50 w-full rounded-md border bg-card shadow-lg">
-									{!templates || templates.length === 0 ? (
+									{loadingTemplates ? (
+										<div className="flex items-center justify-center px-3 py-4">
+											<div className="h-4 w-4 animate-spin rounded-full border-2 border-pons-green border-t-transparent" />
+											<span className="ml-2 text-muted-foreground text-sm">
+												Loading templates...
+											</span>
+										</div>
+									) : !templates || templates.length === 0 ? (
 										<div className="px-3 py-4 text-center text-muted-foreground text-sm">
 											No templates found.
 											<br />
@@ -315,7 +341,7 @@ export function MessageThread({
 												.map((t) => (
 													<button
 														className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition hover:bg-muted"
-														key={t._id}
+														key={t.id}
 														onClick={() =>
 															handleSendTemplate(t.name, t.language)
 														}

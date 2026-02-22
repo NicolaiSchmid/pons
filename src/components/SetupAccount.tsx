@@ -476,7 +476,9 @@ function AutoSetup({
 
 		// If registration is needed, require a PIN
 		if (needsRegistration && existingPin.length !== 6) {
-			setError("Please enter a 6-digit PIN for WhatsApp two-step verification.");
+			setError(
+				"Please enter a 6-digit PIN for WhatsApp two-step verification.",
+			);
 			return;
 		}
 
@@ -1218,23 +1220,23 @@ function AutoSetup({
 									This number needs to be registered with the WhatsApp Cloud API
 									{selectedNumber.platform_type
 										? ` (current: ${selectedNumber.platform_type})`
-										: ""}.
-									Enter a 6-digit PIN to complete registration.
+										: ""}
+									. Enter a 6-digit PIN to complete registration.
 								</p>
 							</div>
 							<div>
 								<Label htmlFor="existing-pin">Two-Step Verification PIN</Label>
 								<Input
 									id="existing-pin"
-									type="text"
 									inputMode="numeric"
-									pattern="[0-9]*"
 									maxLength={6}
-									placeholder="000000"
-									value={existingPin}
 									onChange={(e) =>
 										setExistingPin(e.target.value.replace(/\D/g, ""))
 									}
+									pattern="[0-9]*"
+									placeholder="000000"
+									type="text"
+									value={existingPin}
 								/>
 								<p className="mt-1 text-muted-foreground text-xs">
 									Choose a 6-digit PIN for WhatsApp two-step verification.

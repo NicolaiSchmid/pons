@@ -32,7 +32,10 @@ const formatMetaError = (error: MetaApiError | undefined): string => {
 	const base = `Meta API error #${error.code}${error.error_subcode ? ` (subcode ${error.error_subcode})` : ""}: ${error.message}`;
 
 	// #133010 — Phone number not registered with Cloud API
-	if (error.error_subcode === 133010 || error.message.includes("not registered")) {
+	if (
+		error.error_subcode === 133010 ||
+		error.message.includes("not registered")
+	) {
 		return `${base}\n\nThe WhatsApp phone number is not registered with the Cloud API. Register it first:\n1. Go to pons.chat and complete the phone registration flow, OR\n2. Call POST /{phone_number_id}/register with messaging_product=whatsapp and a 6-digit pin.`;
 	}
 
@@ -468,6 +471,94 @@ export const sendReaction = internalAction({
 });
 
 // ============================================
+// Fetch templates directly from Meta API
+// ============================================
+
+/** Meta template component shape (simplified) */
+type MetaTemplateComponent = {
+	type: string; // HEADER, BODY, FOOTER, BUTTONS
+	format?: string; // TEXT, IMAGE, VIDEO, DOCUMENT
+	text?: string;
+	buttons?: Array<{
+		type: string;
+		text: string;
+		url?: string;
+		phone_number?: string;
+	}>;
+	example?: { body_text?: string[][] };
+};
+
+/** Meta template from GET /{WABA_ID}/message_templates */
+type MetaTemplate = {
+	id: string;
+	name: string;
+	language: string;
+	category: string;
+	status: string;
+	components: MetaTemplateComponent[];
+};
+
+type MetaTemplatesResponse = {
+	data?: MetaTemplate[];
+	paging?: { cursors?: { after?: string }; next?: string };
+	error?: MetaApiError;
+};
+
+/** Normalized template shape returned to callers. */
+export type Template = {
+	id: string;
+	name: string;
+	language: string;
+	category: string;
+	status: string;
+	components: MetaTemplateComponent[];
+};
+
+export const fetchTemplates = internalAction({
+	args: { accountId: v.id("accounts") },
+	handler: async (ctx, args): Promise<Template[]> => {
+		const account = await ctx.runQuery(internal.accounts.getInternal, {
+			accountId: args.accountId,
+		});
+		if (!account) throw new Error("Account not found");
+
+		const accessToken = await resolveAccessToken(ctx, account.ownerId);
+
+		const allTemplates: Template[] = [];
+		let url: string | null =
+			`${META_API_BASE}/${account.wabaId}/message_templates?limit=100&fields=id,name,language,category,status,components`;
+
+		while (url) {
+			const response = await fetch(url, {
+				headers: { Authorization: `Bearer ${accessToken}` },
+			});
+			const data = (await response.json()) as MetaTemplatesResponse;
+
+			if (!response.ok || data.error) {
+				throw new Error(
+					formatMetaError(data.error) || "Failed to fetch templates from Meta",
+				);
+			}
+
+			for (const t of data.data ?? []) {
+				allTemplates.push({
+					id: t.id,
+					name: t.name,
+					language: t.language,
+					category: t.category.toLowerCase(),
+					status: t.status.toLowerCase(),
+					components: t.components ?? [],
+				});
+			}
+
+			url = data.paging?.next ?? null;
+		}
+
+		return allTemplates;
+	},
+});
+
+// ============================================
 // Public UI wrappers — validate user auth, then delegate to internal actions
 // ============================================
 
@@ -520,5 +611,21 @@ export const sendTemplateMessageUI = action({
 		if (!membership) throw new Error("Access denied");
 
 		return ctx.runAction(internal.whatsapp.sendTemplateMessage, args);
+	},
+});
+
+export const fetchTemplatesUI = action({
+	args: { accountId: v.id("accounts") },
+	handler: async (ctx, args): Promise<Template[]> => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Unauthorized");
+
+		const membership = await ctx.runQuery(internal.accounts.checkMembership, {
+			accountId: args.accountId,
+			userId,
+		});
+		if (!membership) throw new Error("Access denied");
+
+		return ctx.runAction(internal.whatsapp.fetchTemplates, args);
 	},
 });

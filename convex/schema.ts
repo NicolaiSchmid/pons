@@ -229,29 +229,6 @@ export default defineSchema({
 			filterFields: ["accountId"],
 		}),
 
-	// Message templates
-	templates: defineTable({
-		accountId: v.id("accounts"),
-		waTemplateId: v.optional(v.string()),
-		name: v.string(),
-		language: v.string(),
-		category: v.union(
-			v.literal("marketing"),
-			v.literal("utility"),
-			v.literal("authentication"),
-		),
-		status: v.union(
-			v.literal("approved"),
-			v.literal("pending"),
-			v.literal("rejected"),
-			v.literal("paused"),
-			v.literal("disabled"),
-		),
-		components: v.any(),
-	})
-		.index("by_account", ["accountId"])
-		.index("by_account_name_language", ["accountId", "name", "language"]),
-
 	// Webhook logs (for debugging)
 	webhookLogs: defineTable({
 		accountId: v.optional(v.id("accounts")),

@@ -162,7 +162,9 @@ export const validateApiKeyInternal = internalQuery({
 		);
 
 		const activeAccounts = accounts.filter(
-			(a) => a !== null && (a.status === "active" || a.status === "pending_name_review"),
+			(a) =>
+				a !== null &&
+				(a.status === "active" || a.status === "pending_name_review"),
 		);
 
 		return {
@@ -209,7 +211,10 @@ export const resolveAccountByPhoneNumberId = internalQuery({
 			};
 		}
 
-		if (account.status !== "active" && account.status !== "pending_name_review") {
+		if (
+			account.status !== "active" &&
+			account.status !== "pending_name_review"
+		) {
 			return {
 				error: `Account "${account.name}" (${account.phoneNumber}) is not active (status: ${account.status}).`,
 			};
@@ -450,25 +455,6 @@ export const getContactByPhone = internalQuery({
 			name: contact.name,
 			phone: contact.phone,
 		};
-	},
-});
-
-// List templates for an account
-export const listTemplatesInternal = internalQuery({
-	args: { accountId: v.id("accounts") },
-	handler: async (ctx, args) => {
-		const templates = await ctx.db
-			.query("templates")
-			.withIndex("by_account", (q) => q.eq("accountId", args.accountId))
-			.collect();
-
-		return templates.map((t) => ({
-			id: t._id,
-			name: t.name,
-			language: t.language,
-			category: t.category,
-			status: t.status,
-		}));
 	},
 });
 

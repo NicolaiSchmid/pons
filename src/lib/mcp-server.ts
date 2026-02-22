@@ -75,9 +75,7 @@ export function createMcpServer(apiKey: string) {
 		{
 			phoneNumberId: z
 				.string()
-				.describe(
-					"Meta phone number ID for the WhatsApp sender account",
-				),
+				.describe("Meta phone number ID for the WhatsApp sender account"),
 			limit: z
 				.number()
 				.optional()
@@ -123,7 +121,9 @@ export function createMcpServer(apiKey: string) {
 			} catch (error) {
 				const msg = error instanceof Error ? error.message : String(error);
 				return {
-					content: [{ type: "text", text: `Error listing conversations: ${msg}` }],
+					content: [
+						{ type: "text", text: `Error listing conversations: ${msg}` },
+					],
 					isError: true,
 				};
 			}
@@ -139,9 +139,7 @@ export function createMcpServer(apiKey: string) {
 		{
 			phoneNumberId: z
 				.string()
-				.describe(
-					"Meta phone number ID for the WhatsApp sender account",
-				),
+				.describe("Meta phone number ID for the WhatsApp sender account"),
 			limit: z
 				.number()
 				.optional()
@@ -187,9 +185,7 @@ export function createMcpServer(apiKey: string) {
 
 				const text = conversations
 					.map((c) => {
-						const ago = c.lastMessageAt
-							? formatTimeAgo(c.lastMessageAt)
-							: "";
+						const ago = c.lastMessageAt ? formatTimeAgo(c.lastMessageAt) : "";
 						const window = c.windowOpen
 							? " [window open]"
 							: " [window closed — template required]";
@@ -213,9 +209,7 @@ export function createMcpServer(apiKey: string) {
 			} catch (error) {
 				const msg = error instanceof Error ? error.message : String(error);
 				return {
-					content: [
-						{ type: "text", text: `Error listing unanswered: ${msg}` },
-					],
+					content: [{ type: "text", text: `Error listing unanswered: ${msg}` }],
 					isError: true,
 				};
 			}
@@ -231,9 +225,7 @@ export function createMcpServer(apiKey: string) {
 		{
 			phoneNumberId: z
 				.string()
-				.describe(
-					"Meta phone number ID for the WhatsApp sender account",
-				),
+				.describe("Meta phone number ID for the WhatsApp sender account"),
 			conversationId: z.string().describe("The conversation ID"),
 			messageLimit: z
 				.number()
@@ -282,8 +274,7 @@ export function createMcpServer(apiKey: string) {
 					.map((m) => {
 						const dir = m.direction === "inbound" ? "←" : "→";
 						const time = new Date(m.timestamp).toISOString();
-						const status =
-							m.direction === "outbound" ? ` [${m.status}]` : "";
+						const status = m.direction === "outbound" ? ` [${m.status}]` : "";
 						return `${dir} [${time}]${status} ${m.text ?? `[${m.type}]`}`;
 					})
 					.join("\n");
@@ -318,9 +309,7 @@ ${messagesText || "No messages yet."}`;
 		{
 			phoneNumberId: z
 				.string()
-				.describe(
-					"Meta phone number ID for the WhatsApp sender account",
-				),
+				.describe("Meta phone number ID for the WhatsApp sender account"),
 			query: z.string().describe("Text to search for in messages"),
 			limit: z.number().optional().describe("Max results (default 20)"),
 		},
@@ -360,9 +349,7 @@ ${messagesText || "No messages yet."}`;
 			} catch (error) {
 				const msg = error instanceof Error ? error.message : String(error);
 				return {
-					content: [
-						{ type: "text", text: `Error searching messages: ${msg}` },
-					],
+					content: [{ type: "text", text: `Error searching messages: ${msg}` }],
 					isError: true,
 				};
 			}
@@ -378,9 +365,7 @@ ${messagesText || "No messages yet."}`;
 		{
 			phoneNumberId: z
 				.string()
-				.describe(
-					"Meta phone number ID for the WhatsApp sender account",
-				),
+				.describe("Meta phone number ID for the WhatsApp sender account"),
 			phone: z
 				.string()
 				.describe("Phone number in E.164 format (e.g., +491234567890)"),
@@ -443,9 +428,7 @@ ${messagesText || "No messages yet."}`;
 		{
 			phoneNumberId: z
 				.string()
-				.describe(
-					"Meta phone number ID for the WhatsApp sender account",
-				),
+				.describe("Meta phone number ID for the WhatsApp sender account"),
 			phone: z
 				.string()
 				.describe("Phone number in E.164 format (e.g., +491234567890)"),
@@ -460,7 +443,13 @@ ${messagesText || "No messages yet."}`;
 					"Template components (header, body, button variables) as JSON",
 				),
 		},
-		async ({ phoneNumberId, phone, templateName, templateLanguage, components }) => {
+		async ({
+			phoneNumberId,
+			phone,
+			templateName,
+			templateLanguage,
+			components,
+		}) => {
 			try {
 				const result = (await callTool(convex, apiKey, "send_template", {
 					phoneNumberId,
@@ -502,23 +491,19 @@ ${messagesText || "No messages yet."}`;
 		{
 			phoneNumberId: z
 				.string()
-				.describe(
-					"Meta phone number ID for the WhatsApp sender account",
-				),
+				.describe("Meta phone number ID for the WhatsApp sender account"),
 		},
 		async ({ phoneNumberId }) => {
 			try {
-				const templates = (await callTool(
-					convex,
-					apiKey,
-					"list_templates",
-					{ phoneNumberId },
-				)) as Array<{
-					id: Id<"templates">;
+				const templates = (await callTool(convex, apiKey, "list_templates", {
+					phoneNumberId,
+				})) as Array<{
+					id: string;
 					name: string;
 					language: string;
 					category: string;
 					status: string;
+					components: Array<{ type: string; text?: string }>;
 				}>;
 
 				if (templates.length === 0) {
@@ -533,10 +518,15 @@ ${messagesText || "No messages yet."}`;
 				}
 
 				const text = templates
-					.map(
-						(t) =>
-							`- ${t.name} (${t.language}) [${t.status}]\n  Category: ${t.category}\n  ID: ${t.id}`,
-					)
+					.map((t) => {
+						const bodyComponent = t.components.find(
+							(c) => c.type === "BODY" || c.type === "body",
+						);
+						const body = bodyComponent?.text
+							? `\n  Body: ${bodyComponent.text}`
+							: "";
+						return `- ${t.name} (${t.language}) [${t.status}]\n  Category: ${t.category}${body}`;
+					})
 					.join("\n\n");
 
 				return {
@@ -545,9 +535,7 @@ ${messagesText || "No messages yet."}`;
 			} catch (error) {
 				const msg = error instanceof Error ? error.message : String(error);
 				return {
-					content: [
-						{ type: "text", text: `Error listing templates: ${msg}` },
-					],
+					content: [{ type: "text", text: `Error listing templates: ${msg}` }],
 					isError: true,
 				};
 			}
@@ -563,16 +551,17 @@ ${messagesText || "No messages yet."}`;
 		{
 			phoneNumberId: z
 				.string()
-				.describe(
-					"Meta phone number ID for the WhatsApp sender account",
-				),
+				.describe("Meta phone number ID for the WhatsApp sender account"),
 			waMessageId: z
 				.string()
 				.describe("The WhatsApp message ID (wamid.xxx) to mark as read"),
 		},
 		async ({ phoneNumberId, waMessageId }) => {
 			try {
-				await callTool(convex, apiKey, "mark_as_read", { phoneNumberId, waMessageId });
+				await callTool(convex, apiKey, "mark_as_read", {
+					phoneNumberId,
+					waMessageId,
+				});
 
 				return {
 					content: [
@@ -606,9 +595,7 @@ ${messagesText || "No messages yet."}`;
 		{
 			phoneNumberId: z
 				.string()
-				.describe(
-					"Meta phone number ID for the WhatsApp sender account",
-				),
+				.describe("Meta phone number ID for the WhatsApp sender account"),
 			conversationId: z.string().describe("The conversation ID"),
 			phone: z
 				.string()

@@ -583,7 +583,6 @@ export const remove = mutation({
 			"messages",
 			"conversations",
 			"contacts",
-			"templates",
 			"accountMembers",
 			"webhookLogs",
 		] as const;
