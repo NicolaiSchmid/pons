@@ -301,12 +301,12 @@ const HybridLayout: FC<{
 									{/* Curved fill — sidebar bg behind the curve */}
 									<path
 										className="fill-sidebar"
-										d="M 0 18.5 L 0 35 L 1 35 Q 1 18.5 17 18.5 Z"
+										d="M 0 18.5 L 0 35 L 1 35 A 16 16 0 0 1 17 18.5 L 0 18.5 Z"
 									/>
-									{/* Curved border stroke — the visible line */}
+									{/* Curved border stroke — the visible arc */}
 									<path
 										className="fill-none stroke-sidebar-border"
-										d="M 1 35 Q 1 18.5 17 18.5"
+										d="M 1 35 A 16 16 0 0 1 17 18.5"
 										strokeWidth="1"
 									/>
 								</svg>
