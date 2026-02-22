@@ -57,16 +57,25 @@ const extractVariables = (template: Template): TemplateVariable[] => {
 /**
  * Build the Meta API `components` array from variables and their values.
  * Groups parameters by component type (header, body, etc.).
+ * Named params (e.g. {{name}}) get a `parameter_name` field;
+ * numeric params (e.g. {{1}}) are positional only.
  */
 const buildMetaComponents = (
 	variables: TemplateVariable[],
 	values: Record<string, string>,
 ): Array<Record<string, unknown>> => {
-	// Group variables by component type, preserving order
-	const grouped = new Map<string, Array<{ type: string; text: string }>>();
+	const grouped = new Map<string, Array<Record<string, string>>>();
 	for (const v of variables) {
 		const params = grouped.get(v.componentType) ?? [];
-		params.push({ type: "text", text: values[v.key]?.trim() ?? "" });
+		const isNamed = !/^\d+$/.test(v.key);
+		const param: Record<string, string> = {
+			type: "text",
+			text: values[v.key]?.trim() ?? "",
+		};
+		if (isNamed) {
+			param.parameter_name = v.key;
+		}
+		params.push(param);
 		grouped.set(v.componentType, params);
 	}
 	return [...grouped.entries()].map(([type, parameters]) => ({
