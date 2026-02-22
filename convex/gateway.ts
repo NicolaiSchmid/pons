@@ -323,6 +323,130 @@ export const mcpTool = action({
 						);
 					}
 
+					// ── Validate components against template variables ──
+					// Fetch the template to know what variables it expects
+					const templates = await ctx.runAction(
+						internal.whatsapp.fetchTemplates,
+						{ accountId },
+					);
+					const matchedTemplate = (
+						templates as Array<{
+							name: string;
+							components: Array<{ type: string; text?: string }>;
+						}>
+					).find((t) => t.name === templateName);
+
+					if (matchedTemplate) {
+						const VAR_RE = /\{\{(\w+)\}\}/g;
+						const expectedVars: Array<{
+							key: string;
+							componentType: string;
+							isNamed: boolean;
+						}> = [];
+						for (const c of matchedTemplate.components) {
+							if (!c.text) continue;
+							for (const m of c.text.matchAll(VAR_RE)) {
+								const key = m[1];
+								if (key) {
+									expectedVars.push({
+										key,
+										componentType: c.type.toUpperCase(),
+										isNamed: !/^\d+$/.test(key),
+									});
+								}
+							}
+						}
+
+						const firstVar = expectedVars[0];
+						if (expectedVars.length > 0 && firstVar) {
+							const components = toolArgs.components as
+								| Array<{
+										type: string;
+										parameters?: Array<{
+											type: string;
+											text?: string;
+											parameter_name?: string;
+										}>;
+								  }>
+								| undefined;
+
+							// No components provided but template needs them
+							if (!components || components.length === 0) {
+								const hasNamed = expectedVars.some((v) => v.isNamed);
+								return {
+									error: true,
+									message: `Template "${templateName}" requires variables but no components were provided.`,
+									requiredVariables: expectedVars.map((v) => ({
+										variable: `{{${v.key}}}`,
+										componentType: v.componentType,
+										parameterFormat: v.isNamed ? "NAMED" : "POSITIONAL",
+									})),
+									example: hasNamed
+										? [
+												{
+													type: firstVar.componentType,
+													parameters: expectedVars
+														.filter(
+															(v) => v.componentType === firstVar.componentType,
+														)
+														.map((v) => ({
+															type: "text",
+															text: `<${v.key}>`,
+															parameter_name: v.isNamed ? v.key : undefined,
+														})),
+												},
+											]
+										: [
+												{
+													type: firstVar.componentType,
+													parameters: expectedVars
+														.filter(
+															(v) => v.componentType === firstVar.componentType,
+														)
+														.map((_v) => ({ type: "text", text: "<value>" })),
+												},
+											],
+								};
+							}
+
+							// Components provided — check for missing parameter_name on named vars
+							const hasNamed = expectedVars.some((v) => v.isNamed);
+							if (hasNamed) {
+								for (const comp of components) {
+									const compType = (comp.type ?? "").toUpperCase();
+									const compVars = expectedVars.filter(
+										(v) => v.componentType === compType && v.isNamed,
+									);
+									if (compVars.length === 0) continue;
+
+									for (const param of comp.parameters ?? []) {
+										if (!param.parameter_name) {
+											return {
+												error: true,
+												message: `Template "${templateName}" uses NAMED parameters — each parameter must include "parameter_name". Missing on: ${JSON.stringify(param)}`,
+												requiredVariables: compVars.map((v) => ({
+													variable: `{{${v.key}}}`,
+													componentType: v.componentType,
+													parameter_name: v.key,
+												})),
+												example: [
+													{
+														type: compType,
+														parameters: compVars.map((v) => ({
+															type: "text",
+															text: `<${v.key}>`,
+															parameter_name: v.key,
+														})),
+													},
+												],
+											};
+										}
+									}
+								}
+							}
+						}
+					}
+
 					const templateContact = await ctx.runMutation(
 						internal.mcp.getOrCreateContact,
 						{ accountId, phone },
