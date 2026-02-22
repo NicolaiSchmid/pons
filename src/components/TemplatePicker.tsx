@@ -67,8 +67,9 @@ export const buildMetaComponents = (
 		params.push(param);
 		grouped.set(v.componentType, params);
 	}
+	// Meta API requires component types in UPPERCASE (e.g. "BODY", "HEADER")
 	return [...grouped.entries()].map(([type, parameters]) => ({
-		type,
+		type: type.toUpperCase(),
 		parameters,
 	}));
 };

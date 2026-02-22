@@ -176,7 +176,14 @@ export const sendTemplateMessage = internalAction({
 			language: { code: args.templateLanguage },
 		};
 		if (Array.isArray(args.components) && args.components.length > 0) {
-			template.components = args.components;
+			// Meta API requires component types in UPPERCASE (e.g. "BODY", "HEADER").
+			// Normalize here as a safety net regardless of caller.
+			template.components = args.components.map(
+				(c: Record<string, unknown>) => ({
+					...c,
+					type: typeof c.type === "string" ? c.type.toUpperCase() : c.type,
+				}),
+			);
 		}
 
 		const body: Record<string, unknown> = {
