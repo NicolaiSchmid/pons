@@ -68,6 +68,7 @@ export const discoverBusinesses = action({
 		const data = await metaFetch<MetaListResponse<MetaBusiness>>(
 			"me/businesses?fields=id,name",
 			token,
+			{ tokenInBody: false },
 		);
 		return data.data ?? [];
 	},
@@ -93,6 +94,7 @@ export const discoverWabas = action({
 		const data = await metaFetch<MetaListResponse<MetaWaba>>(
 			`${businessId}/owned_whatsapp_business_accounts?fields=id,name,message_template_namespace`,
 			token,
+			{ tokenInBody: false },
 		);
 		return data.data ?? [];
 	},
@@ -118,6 +120,7 @@ export const discoverPhoneNumbers = action({
 		const data = await metaFetch<MetaListResponse<MetaPhoneNumber>>(
 			`${wabaId}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,status,messaging_limit_tier,platform_type,is_official_business_account`,
 			token,
+			{ tokenInBody: false },
 		);
 		return data.data ?? [];
 	},
@@ -161,6 +164,7 @@ export const discoverAllNumbers = action({
 		const bizData = await metaFetch<MetaListResponse<MetaBusiness>>(
 			"me/businesses?fields=id,name",
 			token,
+			{ tokenInBody: false },
 		);
 		const businesses = bizData.data ?? [];
 
@@ -185,6 +189,7 @@ export const discoverAllNumbers = action({
 				wabaData = await metaFetch<MetaListResponse<MetaWaba>>(
 					`${biz.id}/owned_whatsapp_business_accounts?fields=id,name`,
 					token,
+					{ tokenInBody: false },
 				);
 			} catch {
 				continue;
@@ -198,6 +203,7 @@ export const discoverAllNumbers = action({
 					phoneData = await metaFetch<MetaListResponse<MetaPhoneNumber>>(
 						`${waba.id}/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status,status,platform_type`,
 						token,
+						{ tokenInBody: false },
 					);
 				} catch {
 					continue;

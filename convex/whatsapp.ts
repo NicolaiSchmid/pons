@@ -88,7 +88,7 @@ export const sendTextMessage = internalAction({
 			const data = await metaFetch<MetaMessagesResponse>(
 				`${account.phoneNumberId}/messages`,
 				accessToken,
-				{ method: "POST", body },
+				{ method: "POST", body, tokenInBody: false },
 			);
 
 			const waMessageId = data.messages?.[0]?.id ?? `unknown_${Date.now()}`;
@@ -191,7 +191,7 @@ export const sendTemplateMessage = internalAction({
 			const data = await metaFetch<MetaMessagesResponse>(
 				`${account.phoneNumberId}/messages`,
 				accessToken,
-				{ method: "POST", body },
+				{ method: "POST", body, tokenInBody: false },
 			);
 
 			const waMessageId = data.messages?.[0]?.id ?? `unknown_${Date.now()}`;
@@ -278,7 +278,7 @@ export const getMediaInfo = internalAction({
 			mime_type: string;
 			file_size: number;
 			sha256: string;
-		}>(args.mediaId, args.accessToken);
+		}>(args.mediaId, args.accessToken, { tokenInBody: false });
 
 		return {
 			url: data.url,
@@ -316,6 +316,7 @@ export const markAsRead = internalAction({
 					status: "read",
 					message_id: args.waMessageId,
 				},
+				tokenInBody: false,
 			},
 		);
 
@@ -358,6 +359,7 @@ export const sendReaction = internalAction({
 						emoji: args.emoji,
 					},
 				},
+				tokenInBody: false,
 			},
 		);
 
@@ -424,7 +426,9 @@ export const fetchTemplates = internalAction({
 
 		while (url) {
 			const data: MetaTemplatesResponse =
-				await metaFetch<MetaTemplatesResponse>(url, accessToken);
+				await metaFetch<MetaTemplatesResponse>(url, accessToken, {
+					tokenInBody: false,
+				});
 
 			for (const t of data.data ?? []) {
 				allTemplates.push({

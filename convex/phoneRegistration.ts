@@ -62,6 +62,7 @@ export const addPhoneToWaba = action({
 
 		const token = await getFacebookToken(ctx, userId);
 
+		let step: "adding_number" | "code_requested" = "adding_number";
 		try {
 			// Meta wants phone_number WITHOUT country code or "+" prefix.
 			// e.g. for "+18302228750" with cc "1" → phone_number "8302228750"
@@ -86,6 +87,7 @@ export const addPhoneToWaba = action({
 			);
 
 			// Now request verification code
+			step = "code_requested";
 			await metaFetch<{ success: boolean }>(`${data.id}/request_code`, token, {
 				method: "POST",
 				body: {
@@ -105,15 +107,9 @@ export const addPhoneToWaba = action({
 		} catch (error) {
 			const errorMsg = error instanceof Error ? error.message : "Unknown error";
 
-			// Determine which step failed based on error context
-			const failedAtStep =
-				errorMsg.includes("request_code") || errorMsg.includes("verification")
-					? "code_requested"
-					: "adding_number";
-
 			await ctx.runMutation(internal.accounts.transitionToFailed, {
 				accountId: args.accountId,
-				failedAtStep,
+				failedAtStep: step,
 				failedError: errorMsg,
 			});
 			throw error;
@@ -222,6 +218,7 @@ export const submitCode = action({
 			verificationCode: args.code,
 		});
 
+		let step: "verifying_code" | "registering" = "verifying_code";
 		try {
 			// Verify the code
 			await metaFetch<{ success: boolean }>(
@@ -240,6 +237,7 @@ export const submitCode = action({
 				twoStepPin: args.twoStepPin,
 			});
 
+			step = "registering";
 			await metaFetch<{ success: boolean }>(
 				`${account.phoneNumberId}/register`,
 				token,
@@ -269,15 +267,9 @@ export const submitCode = action({
 		} catch (error) {
 			const errorMsg = error instanceof Error ? error.message : "Unknown error";
 
-			// Determine which step failed
-			const failedAtStep =
-				errorMsg.includes("Registration") || errorMsg.includes("register")
-					? "registering"
-					: "verifying_code";
-
 			await ctx.runMutation(internal.accounts.transitionToFailed, {
 				accountId: args.accountId,
-				failedAtStep,
+				failedAtStep: step,
 				failedError: errorMsg,
 			});
 			throw error;
@@ -341,6 +333,7 @@ export const autoVerifyAndRegister = action({
 			verificationCode: account.verificationCode,
 		});
 
+		let step: "verifying_code" | "registering" = "verifying_code";
 		try {
 			// Verify the code
 			await metaFetch<{ success: boolean }>(
@@ -359,6 +352,7 @@ export const autoVerifyAndRegister = action({
 				twoStepPin: args.twoStepPin,
 			});
 
+			step = "registering";
 			await metaFetch<{ success: boolean }>(
 				`${account.phoneNumberId}/register`,
 				token,
@@ -389,7 +383,7 @@ export const autoVerifyAndRegister = action({
 			const errorMsg = err instanceof Error ? err.message : "Unknown error";
 			await ctx.runMutation(internal.accounts.transitionToFailed, {
 				accountId: args.accountId,
-				failedAtStep: "verifying_code",
+				failedAtStep: step,
 				failedError: errorMsg,
 			});
 			return { success: false, error: errorMsg };
@@ -466,6 +460,7 @@ export const registerExistingNumber = action({
 			const statusBody = await metaFetch<Record<string, unknown>>(
 				`${account.phoneNumberId}?fields=id,status,name_status,code_verification_status,platform_type`,
 				token,
+				{ tokenInBody: false },
 			);
 			console.log(
 				"registerExistingNumber: phone status after register:",
@@ -525,6 +520,7 @@ export const checkPhoneStatus = action({
 		const data = await metaFetch<Record<string, unknown>>(
 			`${account.phoneNumberId}?fields=id,display_phone_number,verified_name,status,name_status,code_verification_status,platform_type,quality_rating,messaging_limit_tier,is_official_business_account`,
 			token,
+			{ tokenInBody: false },
 		);
 		console.log("checkPhoneStatus:", JSON.stringify(data));
 		return data;
