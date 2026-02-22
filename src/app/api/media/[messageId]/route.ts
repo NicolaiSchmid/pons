@@ -1,13 +1,15 @@
 import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
 import { fetchQuery } from "convex/nextjs";
-import { NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 
 export async function GET(
-	_request: Request,
-	context: { params: { messageId: string } },
+	_request: NextRequest,
+	context: { params: Promise<{ messageId: string }> },
 ) {
+	const { messageId } = await context.params;
+
 	const token = await convexAuthNextjsToken();
 	if (!token) {
 		return new NextResponse("Unauthorized", { status: 401 });
@@ -15,7 +17,7 @@ export async function GET(
 
 	const mediaUrl = await fetchQuery(
 		api.messages.getMediaUrl,
-		{ messageId: context.params.messageId as Id<"messages"> },
+		{ messageId: messageId as Id<"messages"> },
 		{ token },
 	);
 
