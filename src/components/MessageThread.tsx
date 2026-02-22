@@ -241,25 +241,27 @@ function MessageThreadContent({
 										</div>
 									) : (
 										<div className="space-y-1">
-											<div className="flex items-center gap-1.5 text-muted-foreground text-sm italic">
-												{msg.type === "image" ? (
-													<Image className="h-3.5 w-3.5" />
-												) : (
-													<Paperclip className="h-3.5 w-3.5" />
-												)}
-												{msg.mediaId ? (
-													<a
-														className="text-pons-accent underline-offset-2 hover:underline"
-														href={`/api/media/${msg._id}`}
-														rel="noopener noreferrer"
-														target="_blank"
-													>
-														{msg.mediaFilename ?? msg.type}
-													</a>
-												) : (
-													<span>{msg.mediaFilename ?? msg.type}</span>
-												)}
-											</div>
+											{(msg.mediaFilename || msg.type !== "image") && (
+												<div className="flex items-center gap-1.5 text-muted-foreground text-sm italic">
+													{msg.type === "image" ? (
+														<Image className="h-3.5 w-3.5" />
+													) : (
+														<Paperclip className="h-3.5 w-3.5" />
+													)}
+													{msg.mediaId ? (
+														<a
+															className="text-pons-accent underline-offset-2 hover:underline"
+															href={`/api/media/${msg._id}`}
+															rel="noopener noreferrer"
+															target="_blank"
+														>
+															{msg.mediaFilename ?? msg.type}
+														</a>
+													) : (
+														<span>{msg.mediaFilename ?? msg.type}</span>
+													)}
+												</div>
+											)}
 											{msg.caption && (
 												<p className="text-muted-foreground text-xs">
 													{msg.caption}
@@ -278,6 +280,7 @@ function MessageThreadContent({
 														height={1024}
 														sizes="(max-width: 768px) 80vw, 22rem"
 														src={`/api/media/${msg._id}`}
+														unoptimized
 														width={1024}
 													/>
 												</a>
