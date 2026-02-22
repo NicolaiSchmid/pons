@@ -233,17 +233,20 @@ export const sendTemplateMessage = internalAction({
 			},
 		);
 
+		const template: Record<string, unknown> = {
+			name: args.templateName,
+			language: { code: args.templateLanguage },
+		};
+		if (Array.isArray(args.components) && args.components.length > 0) {
+			template.components = args.components;
+		}
+
 		const body: Record<string, unknown> = {
 			messaging_product: "whatsapp",
 			recipient_type: "individual",
 			to: args.to,
 			type: "template",
-			template: {
-				name: args.templateName,
-				language: { code: args.templateLanguage },
-
-				components: args.components,
-			},
+			template,
 		};
 
 		try {

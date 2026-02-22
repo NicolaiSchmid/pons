@@ -33,16 +33,46 @@ import type { Template } from "../../convex/whatsapp";
 /** Match `{{1}}`, `{{name}}`, `{{city}}`, etc. */
 const VAR_PATTERN = /\{\{(\w+)\}\}/g;
 
-/** Extract variable keys from all text components of a template. */
-const extractVariables = (template: Template): string[] => {
-	const keys = new Set<string>();
+/** A variable with its key and the component type it belongs to. */
+type TemplateVariable = { key: string; componentType: string };
+
+/** Extract variables from all text components, tracking which component they belong to. */
+const extractVariables = (template: Template): TemplateVariable[] => {
+	const seen = new Set<string>();
+	const result: TemplateVariable[] = [];
 	for (const c of template.components) {
 		if (!c.text) continue;
+		const compType = c.type.toLowerCase();
 		for (const m of c.text.matchAll(VAR_PATTERN)) {
-			if (m[1]) keys.add(m[1]);
+			const key = m[1];
+			if (key && !seen.has(key)) {
+				seen.add(key);
+				result.push({ key, componentType: compType });
+			}
 		}
 	}
-	return [...keys];
+	return result;
+};
+
+/**
+ * Build the Meta API `components` array from variables and their values.
+ * Groups parameters by component type (header, body, etc.).
+ */
+const buildMetaComponents = (
+	variables: TemplateVariable[],
+	values: Record<string, string>,
+): Array<Record<string, unknown>> => {
+	// Group variables by component type, preserving order
+	const grouped = new Map<string, Array<{ type: string; text: string }>>();
+	for (const v of variables) {
+		const params = grouped.get(v.componentType) ?? [];
+		params.push({ type: "text", text: values[v.key]?.trim() ?? "" });
+		grouped.set(v.componentType, params);
+	}
+	return [...grouped.entries()].map(([type, parameters]) => ({
+		type,
+		parameters,
+	}));
 };
 
 /** Replace `{{key}}` placeholders with provided values for preview. */
@@ -116,7 +146,7 @@ export function ComposeDialog({ accountId }: ComposeDialogProps) {
 		if (!phone.trim()) return false;
 		if (!selectedTemplate) return false;
 		// All variables must be filled
-		return variables.every((key) => variableValues[key]?.trim());
+		return variables.every((v) => variableValues[v.key]?.trim());
 	}, [phone, selectedTemplate, variables, variableValues]);
 
 	// Load templates when dialog opens
@@ -180,16 +210,11 @@ export function ComposeDialog({ accountId }: ComposeDialogProps) {
 				contactId,
 			});
 
-			// 3. Build components array for Meta API
-			// Meta expects positional parameters in order of appearance
-			const components: Array<Record<string, unknown>> = [];
-			if (variables.length > 0) {
-				const parameters = variables.map((key) => ({
-					type: "text",
-					text: variableValues[key] ?? "",
-				}));
-				components.push({ type: "body", parameters });
-			}
+			// 3. Build components array for Meta API (grouped by component type)
+			const metaComponents =
+				variables.length > 0
+					? buildMetaComponents(variables, variableValues)
+					: undefined;
 
 			// 4. Send template
 			await sendTemplateMessage({
@@ -198,7 +223,7 @@ export function ComposeDialog({ accountId }: ComposeDialogProps) {
 				to: normalized,
 				templateName: selectedTemplate.name,
 				templateLanguage: selectedTemplate.language,
-				components: components.length > 0 ? components : undefined,
+				components: metaComponents,
 			});
 
 			// 5. Navigate to the new conversation
@@ -331,24 +356,24 @@ export function ComposeDialog({ accountId }: ComposeDialogProps) {
 					{selectedTemplate && variables.length > 0 && (
 						<div className="space-y-3">
 							<Label>Template variables</Label>
-							{variables.map((key) => (
-								<div className="space-y-1" key={key}>
+							{variables.map((v) => (
+								<div className="space-y-1" key={v.key}>
 									<Label
 										className="text-muted-foreground text-xs"
-										htmlFor={`var-${key}`}
+										htmlFor={`var-${v.key}`}
 									>
-										{`{{${key}}}`}
+										{`{{${v.key}}}`}
 									</Label>
 									<Input
-										id={`var-${key}`}
+										id={`var-${v.key}`}
 										onChange={(e) =>
 											setVariableValues((prev) => ({
 												...prev,
-												[key]: e.target.value,
+												[v.key]: e.target.value,
 											}))
 										}
-										placeholder={`Value for {{${key}}}`}
-										value={variableValues[key] ?? ""}
+										placeholder={`Value for {{${v.key}}}`}
+										value={variableValues[v.key] ?? ""}
 									/>
 								</div>
 							))}
