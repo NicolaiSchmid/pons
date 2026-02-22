@@ -75,18 +75,31 @@ export const formatMetaError = (error: MetaApiError | undefined): string => {
 
 // ── Fetch helper ──
 
-type MetaFetchOptions<TBody = Record<string, unknown>> = {
-	/** HTTP method. Defaults to GET. */
-	method?: "GET" | "POST" | "DELETE";
-	/** JSON body for POST/DELETE. Ignored for GET. */
-	body?: TBody;
-	/**
-	 * When true, puts the token in the JSON body as `access_token`
-	 * instead of the Authorization header.
-	 * Required by some Meta endpoints (subscribed_apps, register, verify_code, etc.).
-	 */
-	tokenInBody?: boolean;
+/**
+ * GET requests always use Bearer header auth — `tokenInBody` must be false.
+ */
+type MetaFetchGetOptions = {
+	method?: "GET";
+	body?: never;
+	tokenInBody: false;
 };
+
+/**
+ * POST/DELETE requests can use either auth strategy.
+ * When `tokenInBody: true`, the token is sent as `access_token` in the JSON body.
+ */
+type MetaFetchMutationOptions<TBody = Record<string, unknown>> = {
+	method: "POST" | "DELETE";
+	body?: TBody;
+	tokenInBody: boolean;
+};
+
+/**
+ * Discriminated union ensures GET + tokenInBody:true is a compile-time error.
+ */
+type MetaFetchOptions<TBody = Record<string, unknown>> =
+	| MetaFetchGetOptions
+	| MetaFetchMutationOptions<TBody>;
 
 type MetaErrorEnvelope = {
 	error?: MetaApiError;
@@ -105,9 +118,9 @@ type MetaErrorEnvelope = {
 export async function metaFetch<T>(
 	path: string,
 	token: string,
-	options: MetaFetchOptions = {},
+	options: MetaFetchOptions,
 ): Promise<T> {
-	const { method = "GET", body, tokenInBody = false } = options;
+	const { method = "GET", body, tokenInBody } = options;
 
 	// Support both relative paths and full URLs (pagination cursors)
 	const url = path.startsWith("https://") ? path : `${META_API_BASE}/${path}`;
@@ -137,14 +150,26 @@ export async function metaFetch<T>(
 		body: fetchBody,
 	});
 
-	const data = (await response.json()) as T & MetaErrorEnvelope;
+	let data: T & MetaErrorEnvelope;
+	try {
+		data = (await response.json()) as T & MetaErrorEnvelope;
+	} catch {
+		// Non-JSON response (e.g. HTML 502 from CDN)
+		if (!response.ok) {
+			throw new Error(
+				`Meta API request failed: ${response.status} ${response.statusText} (non-JSON body)`,
+			);
+		}
+		throw new Error(
+			`Meta API returned non-JSON body with status ${response.status}`,
+		);
+	}
 
 	if (!response.ok) {
-		const errorBody = data as MetaErrorEnvelope;
-		if (errorBody.error) {
+		if (data.error) {
 			throw new MetaApiRequestError(
-				formatMetaError(errorBody.error),
-				errorBody.error,
+				formatMetaError(data.error),
+				data.error,
 				response.status,
 			);
 		}

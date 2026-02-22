@@ -406,7 +406,7 @@ export const downloadAndStoreMedia = internalAction({
 				url: string;
 				mime_type: string;
 				file_size: number;
-			}>(args.metaMediaId, args.accessToken);
+			}>(args.metaMediaId, args.accessToken, { tokenInBody: false });
 
 			// Download the actual media (binary — intentionally NOT using metaFetch)
 			// URL expires in 5 minutes

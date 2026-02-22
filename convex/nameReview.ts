@@ -77,7 +77,9 @@ export const checkNameStatus = internalAction({
 			const data = await metaFetch<{
 				name_status?: string;
 				verified_name?: string;
-			}>(`${account.phoneNumberId}?fields=name_status,verified_name`, token);
+			}>(`${account.phoneNumberId}?fields=name_status,verified_name`, token, {
+				tokenInBody: false,
+			});
 
 			const nameStatus = data.name_status?.toLowerCase();
 
