@@ -1,16 +1,32 @@
 "use client";
 
+import { useAuthActions } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
-import { AlertCircle, FileText, MessageSquare } from "lucide-react";
+import {
+	AlertCircle,
+	FileText,
+	KeyRound,
+	LogOut,
+	MessageSquare,
+	Plus,
+	Settings,
+} from "lucide-react";
+import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
+import { AccountSelector } from "@/components/AccountSelector";
 import { ConversationList } from "@/components/ConversationList";
 import { Separator } from "@/components/ui/separator";
 import {
 	Sidebar,
 	SidebarContent,
 	SidebarFooter,
+	SidebarGroup,
+	SidebarGroupContent,
 	SidebarHeader,
 	SidebarInset,
+	SidebarMenu,
+	SidebarMenuButton,
+	SidebarMenuItem,
 	SidebarProvider,
 	SidebarTrigger,
 } from "@/components/ui/sidebar";
@@ -48,6 +64,7 @@ export default function AccountLayout({
 }: {
 	children: React.ReactNode;
 }) {
+	const { signOut } = useAuthActions();
 	const params = useParams();
 	const pathname = usePathname();
 	const router = useRouter();
@@ -83,67 +100,117 @@ export default function AccountLayout({
 			}
 		>
 			<Sidebar collapsible="offcanvas">
-				<SidebarHeader className="p-0">
-					<Tabs
-						className="flex flex-col gap-0"
-						onValueChange={handleTabChange}
-						value={activeTab}
-					>
-						<TabsList className="shrink-0 rounded-none border-b px-2 py-1.5">
-							<TabsTrigger className="text-xs" value="conversations">
-								<MessageSquare className="h-3.5 w-3.5" />
-								Conversations
-							</TabsTrigger>
-							<TabsTrigger className="text-xs" value="templates">
-								<FileText className="h-3.5 w-3.5" />
-								Templates
-							</TabsTrigger>
-						</TabsList>
-					</Tabs>
+				{/* Brand + account selector */}
+				<SidebarHeader>
+					<SidebarMenu>
+						<SidebarMenuItem>
+							<SidebarMenuButton asChild size="lg">
+								<Link href="/">
+									<div className="flex h-8 w-8 items-center justify-center rounded-md bg-pons-green/10 ring-1 ring-pons-green/20">
+										<MessageSquare className="h-4 w-4 text-pons-green" />
+									</div>
+									<div className="flex flex-col gap-0.5 leading-none">
+										<span className="font-display font-semibold text-sm">
+											Pons
+										</span>
+										<span className="text-muted-foreground text-xs">
+											WhatsApp Bridge
+										</span>
+									</div>
+								</Link>
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+					</SidebarMenu>
+					<AccountSelector
+						onSelectAccount={(id) => router.push(`/dashboard/${id}`)}
+						selectedAccountId={accountId}
+					/>
 				</SidebarHeader>
 
-				<SidebarContent className="overflow-hidden">
-					{isTemplatesView ? null : isUsable ? (
-						<ConversationList
-							accountId={accountId}
-							selectedConversationId={conversationId}
-						/>
-					) : (
-						<EmptyState
-							description="This account isn't ready for messaging yet"
-							icon={AlertCircle}
-							title="Account not ready"
-						/>
-					)}
+				{/* Tabs + conversation list */}
+				<SidebarContent className="gap-0 overflow-hidden">
+					<SidebarGroup className="p-0">
+						<Tabs
+							className="flex flex-col gap-0"
+							onValueChange={handleTabChange}
+							value={activeTab}
+						>
+							<TabsList className="shrink-0 rounded-none border-b px-2 py-1.5">
+								<TabsTrigger className="text-xs" value="conversations">
+									<MessageSquare className="h-3.5 w-3.5" />
+									Conversations
+								</TabsTrigger>
+								<TabsTrigger className="text-xs" value="templates">
+									<FileText className="h-3.5 w-3.5" />
+									Templates
+								</TabsTrigger>
+							</TabsList>
+						</Tabs>
+					</SidebarGroup>
+
+					<SidebarGroup className="flex-1 overflow-hidden p-0">
+						<SidebarGroupContent className="h-full">
+							{isTemplatesView ? null : isUsable ? (
+								<ConversationList
+									accountId={accountId}
+									selectedConversationId={conversationId}
+								/>
+							) : (
+								<EmptyState
+									description="This account isn't ready for messaging yet"
+									icon={AlertCircle}
+									title="Account not ready"
+								/>
+							)}
+						</SidebarGroupContent>
+					</SidebarGroup>
 				</SidebarContent>
 
-				<SidebarFooter className="flex-row gap-3 px-4 py-3">
-					<a
-						className="text-[11px] text-muted-foreground underline transition hover:text-foreground"
-						href="/docs"
-					>
-						Docs
-					</a>
-					<a
-						className="text-[11px] text-muted-foreground underline transition hover:text-foreground"
-						href="/imprint"
-					>
-						Imprint
-					</a>
-					<a
-						className="text-[11px] text-muted-foreground underline transition hover:text-foreground"
-						href="/privacy"
-					>
-						Privacy
-					</a>
+				{/* Settings / keys / signout */}
+				<SidebarFooter>
+					<SidebarMenu>
+						<SidebarMenuItem>
+							<SidebarMenuButton asChild tooltip="Account settings">
+								<Link href={`/dashboard/${accountId}/settings`}>
+									<Settings className="h-4 w-4" />
+									<span>Settings</span>
+								</Link>
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+						<SidebarMenuItem>
+							<SidebarMenuButton asChild tooltip="MCP API keys">
+								<Link href={`/dashboard/${accountId}/keys`}>
+									<KeyRound className="h-4 w-4" />
+									<span>API Keys</span>
+								</Link>
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+						<SidebarMenuItem>
+							<SidebarMenuButton asChild tooltip="Add WhatsApp account">
+								<Link href="/dashboard/setup">
+									<Plus className="h-4 w-4" />
+									<span>Add Account</span>
+								</Link>
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+						<SidebarMenuItem>
+							<SidebarMenuButton
+								onClick={() => void signOut()}
+								tooltip="Sign out"
+							>
+								<LogOut className="h-4 w-4" />
+								<span>Sign out</span>
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+					</SidebarMenu>
 				</SidebarFooter>
 			</Sidebar>
 
 			<SidebarInset className="overflow-hidden">
-				<header className="flex h-10 shrink-0 items-center gap-2 border-b px-3">
+				<header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
 					<SidebarTrigger className="-ml-1" />
 					<Separator className="!h-4" orientation="vertical" />
-					<span className="truncate text-muted-foreground text-xs">
+					<span className="truncate text-muted-foreground text-sm">
 						{selectedAccount?.displayName ?? "WhatsApp"}
 					</span>
 				</header>
