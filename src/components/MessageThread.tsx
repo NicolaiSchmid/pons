@@ -135,6 +135,7 @@ function MessageThreadContent({
 				templateName: result.template.name,
 				templateLanguage: result.template.language,
 				components: result.components,
+				text: result.text,
 			});
 		} catch (err) {
 			setTemplateError(
@@ -263,11 +264,22 @@ function MessageThreadContent({
 												{msg.text}
 											</p>
 										) : msg.type === "template" ? (
-											<div className="flex items-center gap-1.5 text-sm">
-												<FileText className="h-3.5 w-3.5 shrink-0 text-pons-accent" />
-												<span className="text-muted-foreground italic">
-													Template: {msg.templateName ?? "unknown"}
-												</span>
+											<div className="space-y-1">
+												<div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+													<FileText className="h-3 w-3 shrink-0 text-pons-accent" />
+													<span className="italic">
+														{msg.templateName ?? "template"}
+													</span>
+												</div>
+												{msg.text ? (
+													<p className="whitespace-pre-wrap text-sm leading-relaxed">
+														{msg.text}
+													</p>
+												) : (
+													<p className="text-muted-foreground text-sm italic">
+														Template: {msg.templateName ?? "unknown"}
+													</p>
+												)}
 											</div>
 										) : (
 											<div className="space-y-1">

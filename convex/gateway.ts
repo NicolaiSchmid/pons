@@ -28,6 +28,60 @@ const disclosure = (
 
 // ── Helpers ────────────────────────────────────────────────
 
+const VAR_RE = /\{\{(\w+)\}\}/g;
+
+/**
+ * Resolve a template's body text by substituting variable placeholders
+ * with the actual parameter values from the Meta API components array.
+ */
+const resolveTemplateBodyText = (
+	templateComponents: Array<{ type: string; text?: string }>,
+	metaComponents:
+		| Array<{
+				type: string;
+				parameters?: Array<{
+					type: string;
+					text?: string;
+					parameter_name?: string;
+				}>;
+		  }>
+		| undefined,
+): string | undefined => {
+	const bodyComp = templateComponents.find(
+		(c) => c.type === "BODY" || c.type === "body",
+	);
+	if (!bodyComp?.text) return undefined;
+
+	if (!metaComponents || metaComponents.length === 0) return bodyComp.text;
+
+	// Extract variables from body text to map positional params
+	const bodyVars: string[] = [];
+	for (const m of bodyComp.text.matchAll(VAR_RE)) {
+		if (m[1]) bodyVars.push(m[1]);
+	}
+
+	// Build values map from Meta components
+	const values: Record<string, string> = {};
+	for (const comp of metaComponents) {
+		const compType = (comp.type ?? "").toUpperCase();
+		if (compType !== "BODY") continue;
+		for (let i = 0; i < (comp.parameters?.length ?? 0); i++) {
+			const param = comp.parameters?.[i];
+			if (!param?.text) continue;
+			if (param.parameter_name) {
+				values[param.parameter_name] = param.text;
+			} else {
+				const varKey = bodyVars[i];
+				if (varKey) values[varKey] = param.text;
+			}
+		}
+	}
+
+	return bodyComp.text.replace(VAR_RE, (match, key: string) => {
+		return values[key]?.trim() || match;
+	});
+};
+
 /** Resolve `from` (sender phone) → accountId, or return a disclosure. */
 const resolveFrom = async (
 	ctx: { runQuery: (fn: any, args: any) => Promise<any> },
@@ -452,6 +506,23 @@ export const mcpTool = action({
 						{ accountId, phone },
 					);
 
+					// Resolve the template body text with variables filled in
+					const resolvedText = matchedTemplate
+						? resolveTemplateBodyText(
+								matchedTemplate.components,
+								toolArgs.components as
+									| Array<{
+											type: string;
+											parameters?: Array<{
+												type: string;
+												text?: string;
+												parameter_name?: string;
+											}>;
+									  }>
+									| undefined,
+							)
+						: undefined;
+
 					try {
 						return await ctx.runAction(internal.whatsapp.sendTemplateMessage, {
 							accountId,
@@ -460,6 +531,7 @@ export const mcpTool = action({
 							templateName,
 							templateLanguage,
 							components: toolArgs.components,
+							text: resolvedText,
 						});
 					} catch (sendError) {
 						// On failure, auto-return templates list for recovery

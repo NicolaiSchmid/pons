@@ -85,6 +85,7 @@ export function ComposeDialog({ accountId, trigger }: ComposeDialogProps) {
 				templateName: result.template.name,
 				templateLanguage: result.template.language,
 				components: result.components,
+				text: result.text,
 			});
 
 			// 4. Navigate to the new conversation

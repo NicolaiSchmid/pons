@@ -181,6 +181,8 @@ export const sendTemplateMessage = internalAction({
 		templateName: v.string(),
 		templateLanguage: v.string(),
 		components: v.optional(v.any()),
+		// Resolved template body text with variables filled in (for display)
+		text: v.optional(v.string()),
 	},
 	handler: async (
 		ctx,
@@ -210,6 +212,7 @@ export const sendTemplateMessage = internalAction({
 				accountId: args.accountId,
 				conversationId: args.conversationId,
 				type: "template",
+				text: args.text,
 				templateName: args.templateName,
 				templateLanguage: args.templateLanguage,
 
@@ -256,7 +259,7 @@ export const sendTemplateMessage = internalAction({
 
 			await ctx.runMutation(internal.conversations.updateLastMessage, {
 				conversationId: args.conversationId,
-				preview: `[Template: ${args.templateName}]`,
+				preview: args.text || `[Template: ${args.templateName}]`,
 				timestamp: Date.now(),
 				incrementUnread: false,
 			});
@@ -563,6 +566,8 @@ export const sendTemplateMessageUI = action({
 		// Strict: rejects lowercase component types — our TemplatePicker
 		// must send UPPERCASE. This catches bugs at the boundary.
 		components: v.optional(templateComponentValidator),
+		// Resolved template body text with variables filled in (for display)
+		text: v.optional(v.string()),
 	},
 	handler: async (
 		ctx,

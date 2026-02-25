@@ -94,17 +94,66 @@ export const buildMetaComponents = (
 };
 
 /** Replace `{{key}}` placeholders with provided values for preview. */
-const renderPreview = (text: string, values: Record<string, string>): string =>
+export const renderPreview = (
+	text: string,
+	values: Record<string, string>,
+): string =>
 	text.replace(VAR_PATTERN, (match, key: string) => {
 		const val = values[key]?.trim();
 		return val || match;
 	});
+
+/**
+ * Resolve the full template body text with variables filled in.
+ * Extracts the BODY component text, then substitutes variable values
+ * using the Meta API components array. Returns undefined if no body text.
+ */
+export const resolveTemplateText = (
+	template: Template,
+	components: TemplateComponent[] | undefined,
+): string | undefined => {
+	const bodyComp = template.components.find(
+		(c) => c.type === "BODY" || c.type === "body",
+	);
+	if (!bodyComp?.text) return undefined;
+
+	if (!components || components.length === 0) return bodyComp.text;
+
+	// Build a values map from the Meta API components array
+	const values: Record<string, string> = {};
+	const variables = extractVariables(template);
+
+	for (const comp of components) {
+		const compType = comp.type.toLowerCase();
+		const compVars = variables.filter((v) => v.componentType === compType);
+
+		for (let i = 0; i < (comp.parameters?.length ?? 0); i++) {
+			const param = comp.parameters[i];
+			if (!param?.text) continue;
+
+			// Named parameter: use parameter_name as key
+			if (param.parameter_name) {
+				values[param.parameter_name] = param.text;
+			} else {
+				// Positional: match by index within this component type
+				const varDef = compVars[i];
+				if (varDef) {
+					values[varDef.key] = param.text;
+				}
+			}
+		}
+	}
+
+	return renderPreview(bodyComp.text, values);
+};
 
 // ── Component ──
 
 export interface TemplatePickerResult {
 	template: Template;
 	components: TemplateComponent[] | undefined;
+	/** Resolved body text with variables filled in. */
+	text: string | undefined;
 }
 
 interface TemplatePickerProps {
@@ -202,7 +251,13 @@ export function TemplatePicker({
 				? buildMetaComponents(variables, variableValues)
 				: undefined;
 
-		onSend({ template: selectedTemplate, components: metaComponents });
+		const resolvedText = resolveTemplateText(selectedTemplate, metaComponents);
+
+		onSend({
+			template: selectedTemplate,
+			components: metaComponents,
+			text: resolvedText,
+		});
 	};
 
 	// ── Loading / error states ──
