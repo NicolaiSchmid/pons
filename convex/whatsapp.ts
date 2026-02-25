@@ -131,6 +131,27 @@ export const sendTextMessage = internalAction({
 				incrementUnread: false,
 			});
 
+			// Send read receipt for the last inbound message
+			const lastInboundWaId = await ctx.runQuery(
+				internal.messages.lastInboundWaMessageId,
+				{ conversationId: args.conversationId },
+			);
+			if (lastInboundWaId) {
+				await metaFetch<{ success: boolean }>(
+					`${account.phoneNumberId}/messages`,
+					accessToken,
+					{
+						method: "POST",
+						body: {
+							messaging_product: "whatsapp",
+							status: "read",
+							message_id: lastInboundWaId,
+						},
+						tokenInBody: false,
+					},
+				);
+			}
+
 			return { messageId, waMessageId };
 		} catch (error) {
 			const errorMessage =
@@ -239,6 +260,27 @@ export const sendTemplateMessage = internalAction({
 				timestamp: Date.now(),
 				incrementUnread: false,
 			});
+
+			// Send read receipt for the last inbound message
+			const lastInboundWaId = await ctx.runQuery(
+				internal.messages.lastInboundWaMessageId,
+				{ conversationId: args.conversationId },
+			);
+			if (lastInboundWaId) {
+				await metaFetch<{ success: boolean }>(
+					`${account.phoneNumberId}/messages`,
+					accessToken,
+					{
+						method: "POST",
+						body: {
+							messaging_product: "whatsapp",
+							status: "read",
+							message_id: lastInboundWaId,
+						},
+						tokenInBody: false,
+					},
+				);
+			}
 
 			return { messageId, waMessageId };
 		} catch (error) {

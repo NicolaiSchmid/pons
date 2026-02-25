@@ -1,5 +1,10 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
+import {
+	internalMutation,
+	internalQuery,
+	mutation,
+	query,
+} from "./_generated/server";
 import { auth } from "./auth";
 import { checkAccountAccess } from "./helpers";
 
@@ -291,5 +296,22 @@ export const getMediaUrl = query({
 		if (!hasAccess) return null;
 
 		return ctx.storage.getUrl(message.mediaId);
+	},
+});
+
+// Get the WhatsApp message ID of the last inbound message in a conversation
+export const lastInboundWaMessageId = internalQuery({
+	args: { conversationId: v.id("conversations") },
+	handler: async (ctx, args) => {
+		const messages = await ctx.db
+			.query("messages")
+			.withIndex("by_conversation_timestamp", (q) =>
+				q.eq("conversationId", args.conversationId),
+			)
+			.order("desc")
+			.take(20);
+
+		const lastInbound = messages.find((m) => m.direction === "inbound");
+		return lastInbound?.waMessageId ?? null;
 	},
 });
