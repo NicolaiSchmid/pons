@@ -103,9 +103,7 @@ export const updateLastMessage = internalMutation({
 		await ctx.db.patch(args.conversationId, {
 			lastMessageAt: args.timestamp,
 			lastMessagePreview: args.preview.slice(0, 100),
-			unreadCount: args.incrementUnread
-				? conversation.unreadCount + 1
-				: conversation.unreadCount,
+			unreadCount: args.incrementUnread ? conversation.unreadCount + 1 : 0,
 		});
 	},
 });
