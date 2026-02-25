@@ -168,7 +168,25 @@ function MessageThreadContent({
 		}
 	};
 
-	const messages = messagesResult.messages;
+	const allMessages = messagesResult.messages;
+
+	// Build a map of reactions: waMessageId → emoji(s)
+	const reactionsMap = new Map<string, string[]>();
+	for (const msg of allMessages) {
+		if (
+			msg.type === "reaction" &&
+			msg.reactionToMessageId &&
+			msg.reactionEmoji
+		) {
+			const existing = reactionsMap.get(msg.reactionToMessageId) ?? [];
+			existing.push(msg.reactionEmoji);
+			reactionsMap.set(msg.reactionToMessageId, existing);
+		}
+	}
+
+	// Filter out reaction messages from the visible message list
+	const messages = allMessages.filter((msg) => msg.type !== "reaction");
+
 	const windowOpen = conversation.windowExpiresAt
 		? conversation.windowExpiresAt > Date.now()
 		: false;
@@ -219,6 +237,7 @@ function MessageThreadContent({
 							? msg.timestamp - prevMsg.timestamp
 							: Number.POSITIVE_INFINITY;
 						const showGap = !sameDirection || timeDiff > 300000; // 5min gap
+						const reactions = reactionsMap.get(msg.waMessageId);
 
 						return (
 							<div
@@ -226,107 +245,122 @@ function MessageThreadContent({
 									"flex",
 									isOutbound ? "justify-end" : "justify-start",
 									showGap && i > 0 && "mt-3",
+									reactions && "mb-3",
 								)}
 								key={msg._id}
 							>
-								<div
-									className={cn(
-										"max-w-[75%] rounded-lg px-3 py-2",
-										isOutbound
-											? "bg-pons-accent-surface text-foreground"
-											: "bg-muted text-foreground",
-									)}
-								>
-									{msg.type === "text" ? (
-										<p className="whitespace-pre-wrap text-sm leading-relaxed">
-											{msg.text}
-										</p>
-									) : msg.type === "template" ? (
-										<div className="flex items-center gap-1.5 text-sm">
-											<FileText className="h-3.5 w-3.5 shrink-0 text-pons-accent" />
-											<span className="text-muted-foreground italic">
-												Template: {msg.templateName ?? "unknown"}
-											</span>
-										</div>
-									) : (
-										<div className="space-y-1">
-											{(msg.mediaFilename || msg.type !== "image") && (
-												<div className="flex items-center gap-1.5 text-muted-foreground text-sm italic">
-													{msg.type === "image" ? (
-														<Image className="h-3.5 w-3.5" />
-													) : (
-														<Paperclip className="h-3.5 w-3.5" />
-													)}
-													{msg.mediaId ? (
-														<a
-															className="text-pons-accent underline-offset-2 hover:underline"
-															href={`/api/media/${msg._id}`}
-															rel="noopener noreferrer"
-															target="_blank"
-														>
-															{msg.mediaFilename ?? msg.type}
-														</a>
-													) : (
-														<span>{msg.mediaFilename ?? msg.type}</span>
-													)}
-												</div>
-											)}
-											{msg.caption && (
-												<p className="text-muted-foreground text-xs">
-													{msg.caption}
-												</p>
-											)}
-											{msg.type === "image" && msg.mediaId ? (
-												<button
-													className="mt-1 block w-full max-w-[22rem]"
-													onClick={() =>
-														setSelectedImage({
-															messageId: msg._id,
-															filename: msg.mediaFilename,
-														})
-													}
-													type="button"
-												>
-													<NextImage
-														alt={msg.mediaFilename ?? "Image attachment"}
-														className="h-auto max-h-72 w-full rounded-md border object-contain"
-														height={1024}
-														sizes="(max-width: 768px) 80vw, 22rem"
-														src={`/api/media/${msg._id}`}
-														unoptimized
-														width={1024}
-													/>
-												</button>
-											) : (
-												(msg.type === "image" ||
-													msg.type === "video" ||
-													msg.type === "audio" ||
-													msg.type === "voice" ||
-													msg.type === "sticker") && (
-													<span className="text-muted-foreground text-xs">
-														File is still processing...
-													</span>
-												)
-											)}
-										</div>
-									)}
+								<div className="relative max-w-[75%]">
 									<div
 										className={cn(
-											"mt-1 flex items-center gap-1 text-[11px]",
+											"rounded-lg px-3 py-2",
 											isOutbound
-												? "justify-end text-pons-accent-dim"
-												: "text-muted-foreground",
+												? "bg-pons-accent-surface text-foreground"
+												: "bg-muted text-foreground",
 										)}
 									>
-										<span>{formatTime(msg.timestamp)}</span>
-										{isOutbound && (
-											<StatusIcon
-												errorCode={msg.errorCode}
-												errorMessage={msg.errorMessage}
-												status={msg.status}
-											/>
+										{msg.type === "text" ? (
+											<p className="whitespace-pre-wrap text-sm leading-relaxed">
+												{msg.text}
+											</p>
+										) : msg.type === "template" ? (
+											<div className="flex items-center gap-1.5 text-sm">
+												<FileText className="h-3.5 w-3.5 shrink-0 text-pons-accent" />
+												<span className="text-muted-foreground italic">
+													Template: {msg.templateName ?? "unknown"}
+												</span>
+											</div>
+										) : (
+											<div className="space-y-1">
+												{(msg.mediaFilename || msg.type !== "image") && (
+													<div className="flex items-center gap-1.5 text-muted-foreground text-sm italic">
+														{msg.type === "image" ? (
+															<Image className="h-3.5 w-3.5" />
+														) : (
+															<Paperclip className="h-3.5 w-3.5" />
+														)}
+														{msg.mediaId ? (
+															<a
+																className="text-pons-accent underline-offset-2 hover:underline"
+																href={`/api/media/${msg._id}`}
+																rel="noopener noreferrer"
+																target="_blank"
+															>
+																{msg.mediaFilename ?? msg.type}
+															</a>
+														) : (
+															<span>{msg.mediaFilename ?? msg.type}</span>
+														)}
+													</div>
+												)}
+												{msg.caption && (
+													<p className="text-muted-foreground text-xs">
+														{msg.caption}
+													</p>
+												)}
+												{msg.type === "image" && msg.mediaId ? (
+													<button
+														className="mt-1 block w-full max-w-[22rem]"
+														onClick={() =>
+															setSelectedImage({
+																messageId: msg._id,
+																filename: msg.mediaFilename,
+															})
+														}
+														type="button"
+													>
+														<NextImage
+															alt={msg.mediaFilename ?? "Image attachment"}
+															className="h-auto max-h-72 w-full rounded-md border object-contain"
+															height={1024}
+															sizes="(max-width: 768px) 80vw, 22rem"
+															src={`/api/media/${msg._id}`}
+															unoptimized
+															width={1024}
+														/>
+													</button>
+												) : (
+													(msg.type === "image" ||
+														msg.type === "video" ||
+														msg.type === "audio" ||
+														msg.type === "voice" ||
+														msg.type === "sticker") && (
+														<span className="text-muted-foreground text-xs">
+															File is still processing...
+														</span>
+													)
+												)}
+											</div>
 										)}
+										<div
+											className={cn(
+												"mt-1 flex items-center gap-1 text-[11px]",
+												isOutbound
+													? "justify-end text-pons-accent-dim"
+													: "text-muted-foreground",
+											)}
+										>
+											<span>{formatTime(msg.timestamp)}</span>
+											{isOutbound && (
+												<StatusIcon
+													errorCode={msg.errorCode}
+													errorMessage={msg.errorMessage}
+													status={msg.status}
+												/>
+											)}
+										</div>
 									</div>
+									{reactions && (
+										<div
+											className={cn(
+												"absolute -bottom-2.5 flex gap-0.5",
+												isOutbound ? "right-1" : "left-1",
+											)}
+										>
+											<span className="rounded-full bg-background px-1.5 py-0.5 text-sm shadow-sm ring-1 ring-border">
+												{reactions.join("")}
+											</span>
+										</div>
+									)}
 								</div>
 							</div>
 						);
@@ -374,8 +408,6 @@ function MessageThreadContent({
 					)}
 				</DialogContent>
 			</Dialog>
-
-			{/* Input */}
 			<div className="shrink-0 border-t px-4 py-3">
 				{error && (
 					<div className="mb-2 flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm">
