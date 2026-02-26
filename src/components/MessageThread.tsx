@@ -16,6 +16,7 @@ import {
 	Download,
 	FileText,
 	Image,
+	Loader2,
 	Paperclip,
 	Send,
 	X,
@@ -88,6 +89,8 @@ function MessageThreadContent({
 	const markAsRead = useMutation(api.conversations.markAsRead);
 	const sendTextMessage = useAction(api.whatsapp.sendTextMessageUI);
 	const sendTemplateMessage = useAction(api.whatsapp.sendTemplateMessageUI);
+	const sendMediaMessage = useAction(api.whatsapp.sendMediaMessageUI);
+	const generateUploadUrl = useMutation(api.messages.generateUploadUrl);
 
 	const [messageText, setMessageText] = useState("");
 	const [sending, setSending] = useState(false);
@@ -98,8 +101,12 @@ function MessageThreadContent({
 		messageId: Id<"messages">;
 		filename?: string;
 	} | null>(null);
+	const [attachedFile, setAttachedFile] = useState<File | null>(null);
+	const [attachedPreview, setAttachedPreview] = useState<string | null>(null);
+	const [uploading, setUploading] = useState(false);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
+	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	// Mark conversation as read when opened
 	useEffect(() => {
@@ -166,6 +173,78 @@ function MessageThreadContent({
 			setError(err instanceof Error ? err.message : "Failed to send message");
 		} finally {
 			setSending(false);
+		}
+	};
+
+	const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!file) return;
+		setAttachedFile(file);
+
+		// Generate preview for images
+		if (file.type.startsWith("image/")) {
+			const url = URL.createObjectURL(file);
+			setAttachedPreview(url);
+		} else {
+			setAttachedPreview(null);
+		}
+	};
+
+	const clearAttachment = () => {
+		setAttachedFile(null);
+		if (attachedPreview) {
+			URL.revokeObjectURL(attachedPreview);
+			setAttachedPreview(null);
+		}
+		if (fileInputRef.current) fileInputRef.current.value = "";
+	};
+
+	const handleSendMedia = async () => {
+		if (!attachedFile || !conversation?.contact?.phone) return;
+
+		setSending(true);
+		setUploading(true);
+		setError(null);
+
+		try {
+			// 1. Get upload URL
+			const uploadUrl = await generateUploadUrl();
+
+			// 2. Upload file to Convex storage
+			const uploadResult = await fetch(uploadUrl, {
+				method: "POST",
+				headers: { "Content-Type": attachedFile.type },
+				body: attachedFile,
+			});
+
+			if (!uploadResult.ok) throw new Error("Failed to upload file");
+
+			const { storageId } = (await uploadResult.json()) as {
+				storageId: string;
+			};
+
+			setUploading(false);
+
+			// 3. Send via WhatsApp
+			await sendMediaMessage({
+				accountId,
+				conversationId,
+				to: conversation.contact.phone,
+				storageId: storageId as Id<"_storage">,
+				mimeType: attachedFile.type,
+				filename: attachedFile.name,
+				caption: messageText.trim() || undefined,
+			});
+
+			// Clear state
+			setMessageText("");
+			clearAttachment();
+			inputRef.current?.focus();
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to send file");
+		} finally {
+			setSending(false);
+			setUploading(false);
 		}
 	};
 
@@ -431,37 +510,109 @@ function MessageThreadContent({
 					</div>
 				)}
 				{windowOpen ? (
-					<form className="mx-auto flex max-w-2xl gap-2" onSubmit={handleSend}>
-						<textarea
-							className="max-h-32 min-h-10 flex-1 resize-none rounded-md border bg-muted px-3 py-2 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-							disabled={sending}
-							onChange={(e) => {
-								setMessageText(e.target.value);
-								// Auto-resize
-								e.target.style.height = "auto";
-								e.target.style.height = `${e.target.scrollHeight}px`;
-							}}
-							onKeyDown={(e) => {
-								if (e.key === "Enter" && !e.shiftKey) {
-									e.preventDefault();
-									if (messageText.trim()) {
-										handleSend(e);
+					<form
+						className="mx-auto max-w-2xl"
+						onSubmit={(e) => {
+							e.preventDefault();
+							if (attachedFile) {
+								handleSendMedia();
+							} else {
+								handleSend(e);
+							}
+						}}
+					>
+						{/* File attachment preview */}
+						{attachedFile && (
+							<div className="mb-2 flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2">
+								{attachedPreview ? (
+									/* biome-ignore lint/performance/noImgElement: blob URL preview, not optimizable by next/image */
+									<img
+										alt={attachedFile.name}
+										className="h-10 w-10 rounded object-cover"
+										src={attachedPreview}
+									/>
+								) : (
+									<div className="flex h-10 w-10 items-center justify-center rounded bg-muted">
+										<Paperclip className="h-4 w-4 text-muted-foreground" />
+									</div>
+								)}
+								<div className="min-w-0 flex-1">
+									<p className="truncate text-foreground text-sm">
+										{attachedFile.name}
+									</p>
+									<p className="text-muted-foreground text-xs">
+										{formatFileSize(attachedFile.size)}
+									</p>
+								</div>
+								<Button
+									className="h-6 w-6 shrink-0"
+									disabled={sending}
+									onClick={clearAttachment}
+									size="icon"
+									type="button"
+									variant="ghost"
+								>
+									<X className="h-3.5 w-3.5" />
+								</Button>
+							</div>
+						)}
+						<div className="flex gap-2">
+							<input
+								accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar"
+								className="hidden"
+								onChange={handleFileSelect}
+								ref={fileInputRef}
+								type="file"
+							/>
+							<Button
+								className="h-10 w-10 shrink-0"
+								disabled={sending}
+								onClick={() => fileInputRef.current?.click()}
+								size="icon"
+								type="button"
+								variant="ghost"
+							>
+								<Paperclip className="h-4 w-4" />
+							</Button>
+							<textarea
+								className="max-h-32 min-h-10 flex-1 resize-none rounded-md border bg-muted px-3 py-2 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+								disabled={sending}
+								onChange={(e) => {
+									setMessageText(e.target.value);
+									// Auto-resize
+									e.target.style.height = "auto";
+									e.target.style.height = `${e.target.scrollHeight}px`;
+								}}
+								onKeyDown={(e) => {
+									if (e.key === "Enter" && !e.shiftKey) {
+										e.preventDefault();
+										if (attachedFile) {
+											handleSendMedia();
+										} else if (messageText.trim()) {
+											handleSend(e);
+										}
 									}
+								}}
+								placeholder={
+									attachedFile ? "Add a caption..." : "Type a message..."
 								}
-							}}
-							placeholder="Type a message..."
-							ref={inputRef}
-							rows={1}
-							value={messageText}
-						/>
-						<Button
-							className="h-10 w-10 shrink-0 bg-pons-accent text-primary-foreground hover:bg-pons-accent-bright"
-							disabled={sending || !messageText.trim()}
-							size="icon"
-							type="submit"
-						>
-							<Send className="h-4 w-4" />
-						</Button>
+								ref={inputRef}
+								rows={1}
+								value={messageText}
+							/>
+							<Button
+								className="h-10 w-10 shrink-0 bg-pons-accent text-primary-foreground hover:bg-pons-accent-bright"
+								disabled={sending || (!messageText.trim() && !attachedFile)}
+								size="icon"
+								type="submit"
+							>
+								{uploading ? (
+									<Loader2 className="h-4 w-4 animate-spin" />
+								) : (
+									<Send className="h-4 w-4" />
+								)}
+							</Button>
+						</div>
 					</form>
 				) : (
 					<div className="mx-auto max-w-2xl">
@@ -534,4 +685,10 @@ function formatTime(timestamp: number): string {
 		hour: "2-digit",
 		minute: "2-digit",
 	});
+}
+
+function formatFileSize(bytes: number): string {
+	if (bytes < 1024) return `${bytes} B`;
+	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

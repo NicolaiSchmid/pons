@@ -8,6 +8,16 @@ import {
 import { auth } from "./auth";
 import { checkAccountAccess } from "./helpers";
 
+// Generate a short-lived upload URL for client-side file uploads
+export const generateUploadUrl = mutation({
+	args: {},
+	handler: async (ctx) => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Unauthorized");
+		return await ctx.storage.generateUploadUrl();
+	},
+});
+
 // Message type validator
 const messageTypeValidator = v.union(
 	v.literal("text"),

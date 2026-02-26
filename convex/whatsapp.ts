@@ -3,7 +3,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalAction } from "./_generated/server";
 import { auth } from "./auth";
-import { MetaApiRequestError, metaFetch } from "./metaFetch";
+import { META_API_BASE, MetaApiRequestError, metaFetch } from "./metaFetch";
 
 type MetaMessagesResponse = {
 	messages?: Array<{ id: string }>;
@@ -127,6 +127,188 @@ export const sendTextMessage = internalAction({
 			await ctx.runMutation(internal.conversations.updateLastMessage, {
 				conversationId: args.conversationId,
 				preview: args.text,
+				timestamp: Date.now(),
+				incrementUnread: false,
+			});
+
+			// Send read receipt for the last inbound message
+			const lastInboundWaId = await ctx.runQuery(
+				internal.messages.lastInboundWaMessageId,
+				{ conversationId: args.conversationId },
+			);
+			if (lastInboundWaId) {
+				await metaFetch<{ success: boolean }>(
+					`${account.phoneNumberId}/messages`,
+					accessToken,
+					{
+						method: "POST",
+						body: {
+							messaging_product: "whatsapp",
+							status: "read",
+							message_id: lastInboundWaId,
+						},
+						tokenInBody: false,
+					},
+				);
+			}
+
+			return { messageId, waMessageId };
+		} catch (error) {
+			const errorMessage =
+				error instanceof Error ? error.message : "Unknown error";
+			const errorCode =
+				error instanceof MetaApiRequestError
+					? error.meta.code.toString()
+					: undefined;
+			await ctx.runMutation(internal.messages.updateAfterSend, {
+				messageId,
+				waMessageId: `failed_${Date.now()}`,
+				status: "failed",
+				errorCode,
+				errorMessage,
+			});
+			throw error;
+		}
+	},
+});
+
+/**
+ * Determine WhatsApp message type from MIME type.
+ * WhatsApp supports: image, video, audio, document, sticker.
+ */
+function mediaTypeFromMime(
+	mimeType: string,
+): "image" | "video" | "audio" | "document" | "sticker" {
+	if (mimeType.startsWith("image/webp")) return "sticker";
+	if (mimeType.startsWith("image/")) return "image";
+	if (mimeType.startsWith("video/")) return "video";
+	if (mimeType.startsWith("audio/")) return "audio";
+	return "document";
+}
+
+// Send a media message (internal — called from MCP gateway or UI actions)
+// Flow: Convex storage → upload to Meta → send message → record in DB
+export const sendMediaMessage = internalAction({
+	args: {
+		accountId: v.id("accounts"),
+		conversationId: v.id("conversations"),
+		to: v.string(),
+		storageId: v.id("_storage"),
+		mimeType: v.string(),
+		filename: v.optional(v.string()),
+		caption: v.optional(v.string()),
+	},
+	handler: async (
+		ctx,
+		args,
+	): Promise<{ messageId: Id<"messages">; waMessageId: string }> => {
+		const account = await ctx.runQuery(internal.accounts.getInternal, {
+			accountId: args.accountId,
+		});
+		if (!account) throw new Error("Account not found");
+		if (!account.phoneNumberId) {
+			throw new Error(
+				"Account has no phone number ID — registration may be incomplete",
+			);
+		}
+		if (
+			account.status !== "active" &&
+			account.status !== "pending_name_review"
+		) {
+			throw new Error(`Account is not active (status: ${account.status})`);
+		}
+
+		const accessToken = await resolveAccessToken(ctx, account.ownerId);
+
+		// 1. Download from Convex storage
+		const fileUrl = await ctx.storage.getUrl(args.storageId);
+		if (!fileUrl) throw new Error("File not found in storage");
+
+		const fileResponse = await fetch(fileUrl);
+		if (!fileResponse.ok)
+			throw new Error("Failed to download file from storage");
+		const fileBlob = await fileResponse.blob();
+
+		// 2. Upload to Meta's media API (multipart/form-data)
+		const formData = new FormData();
+		formData.append("messaging_product", "whatsapp");
+		formData.append("type", args.mimeType);
+		formData.append(
+			"file",
+			new Blob([fileBlob], { type: args.mimeType }),
+			args.filename ?? "file",
+		);
+
+		const uploadResponse = await fetch(
+			`${META_API_BASE}/${account.phoneNumberId}/media`,
+			{
+				method: "POST",
+				headers: { Authorization: `Bearer ${accessToken}` },
+				body: formData,
+			},
+		);
+
+		if (!uploadResponse.ok) {
+			const errorBody = await uploadResponse.text();
+			throw new Error(
+				`Meta media upload failed (${uploadResponse.status}): ${errorBody}`,
+			);
+		}
+
+		const uploadResult = (await uploadResponse.json()) as { id: string };
+		const metaMediaId = uploadResult.id;
+
+		// 3. Determine message type and build API body
+		const mediaType = mediaTypeFromMime(args.mimeType);
+
+		const messageId = await ctx.runMutation(
+			internal.messages.createOutboundInternal,
+			{
+				accountId: args.accountId,
+				conversationId: args.conversationId,
+				type: mediaType,
+				caption: args.caption,
+				mediaId: args.storageId,
+				mediaMimeType: args.mimeType,
+				mediaFilename: args.filename,
+			},
+		);
+
+		const mediaPayload: Record<string, unknown> = { id: metaMediaId };
+		if (args.caption) mediaPayload.caption = args.caption;
+		if (mediaType === "document" && args.filename) {
+			mediaPayload.filename = args.filename;
+		}
+
+		const body: Record<string, unknown> = {
+			messaging_product: "whatsapp",
+			recipient_type: "individual",
+			to: args.to,
+			type: mediaType,
+			[mediaType]: mediaPayload,
+		};
+
+		try {
+			const data = await metaFetch<MetaMessagesResponse>(
+				`${account.phoneNumberId}/messages`,
+				accessToken,
+				{ method: "POST", body, tokenInBody: false },
+			);
+
+			const waMessageId = data.messages?.[0]?.id ?? `unknown_${Date.now()}`;
+			await ctx.runMutation(internal.messages.updateAfterSend, {
+				messageId,
+				waMessageId,
+				status: "sent",
+			});
+
+			// Update conversation preview
+			const preview =
+				args.caption ||
+				`[${mediaType === "document" ? (args.filename ?? "Document") : mediaType.charAt(0).toUpperCase() + mediaType.slice(1)}]`;
+			await ctx.runMutation(internal.conversations.updateLastMessage, {
+				conversationId: args.conversationId,
+				preview,
 				timestamp: Date.now(),
 				incrementUnread: false,
 			});
@@ -583,6 +765,33 @@ export const sendTemplateMessageUI = action({
 		if (!membership) throw new Error("Access denied");
 
 		return ctx.runAction(internal.whatsapp.sendTemplateMessage, args);
+	},
+});
+
+export const sendMediaMessageUI = action({
+	args: {
+		accountId: v.id("accounts"),
+		conversationId: v.id("conversations"),
+		to: v.string(),
+		storageId: v.id("_storage"),
+		mimeType: v.string(),
+		filename: v.optional(v.string()),
+		caption: v.optional(v.string()),
+	},
+	handler: async (
+		ctx,
+		args,
+	): Promise<{ messageId: Id<"messages">; waMessageId: string }> => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Unauthorized");
+
+		const membership = await ctx.runQuery(internal.accounts.checkMembership, {
+			accountId: args.accountId,
+			userId,
+		});
+		if (!membership) throw new Error("Access denied");
+
+		return ctx.runAction(internal.whatsapp.sendMediaMessage, args);
 	},
 });
 

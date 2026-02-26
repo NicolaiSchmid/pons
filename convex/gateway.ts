@@ -199,7 +199,12 @@ export const mcpTool = action({
 			"search_messages",
 			"list_templates",
 		];
-		const sendTools = ["send_text", "send_template", "send_reaction"];
+		const sendTools = [
+			"send_text",
+			"send_template",
+			"send_reaction",
+			"send_media",
+		];
 
 		if (!readTools.includes(args.tool) && !sendTools.includes(args.tool)) {
 			throw new Error(`Unknown tool: ${args.tool}`);
@@ -549,6 +554,70 @@ export const mcpTool = action({
 							availableTemplates: templates,
 						};
 					}
+				}
+
+				case "send_media": {
+					const phone = toolArgs.phone as string | undefined;
+					if (!phone) {
+						const contacts = await ctx.runQuery(
+							internal.mcp.listContactsForAccount,
+							{ accountId },
+						);
+						return disclosure(
+							"phone",
+							'Pass "phone" (E.164 format) — the recipient\'s phone number.',
+							contacts,
+						);
+					}
+
+					const url = toolArgs.url as string | undefined;
+					if (!url) {
+						return disclosure(
+							"url",
+							'Pass "url" — a publicly accessible URL of the file to send (image, document, video, or audio).',
+							[],
+						);
+					}
+
+					const mimeType = toolArgs.mimeType as string | undefined;
+					if (!mimeType) {
+						return disclosure(
+							"mimeType",
+							'Pass "mimeType" — the MIME type of the file (e.g. "image/jpeg", "application/pdf", "video/mp4").',
+							[],
+						);
+					}
+
+					// Download the file from the URL
+					const fileResponse = await fetch(url);
+					if (!fileResponse.ok) {
+						return {
+							error: true,
+							message: `Failed to download file from URL (${fileResponse.status}): ${fileResponse.statusText}`,
+						};
+					}
+
+					const blob = await fileResponse.blob();
+
+					// Store in Convex file storage
+					const storageId = await ctx.storage.store(
+						new Blob([blob], { type: mimeType }),
+					);
+
+					const mediaContact = await ctx.runMutation(
+						internal.mcp.getOrCreateContact,
+						{ accountId, phone },
+					);
+
+					return await ctx.runAction(internal.whatsapp.sendMediaMessage, {
+						accountId,
+						conversationId: mediaContact.conversationId,
+						to: phone,
+						storageId,
+						mimeType,
+						filename: (toolArgs.filename as string | undefined) ?? undefined,
+						caption: (toolArgs.caption as string | undefined) ?? undefined,
+					});
 				}
 
 				case "send_reaction": {

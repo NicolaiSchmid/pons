@@ -1,9 +1,9 @@
 ---
 title: MCP Tools Reference
-description: Complete reference for all 9 MCP tools exposed by Pons.
+description: Complete reference for all 10 MCP tools exposed by Pons.
 ---
 
-Pons exposes 9 tools to MCP clients. Each tool requires an API key with the appropriate scope.
+Pons exposes 10 tools to MCP clients. Each tool requires an API key with the appropriate scope.
 
 ## Reading Tools
 
@@ -115,6 +115,22 @@ Send a text message to a WhatsApp contact. Requires an open 24-hour window.
 | `replyToMessageId` | string | No | WhatsApp message ID to reply to |
 
 **Returns:** Confirmation with the sent message ID. If the 24h window is closed, returns an error suggesting `send_template` instead.
+
+---
+
+### send_media
+
+Send a media file (image, document, video, or audio) to a WhatsApp contact. Requires an open 24-hour window.
+
+| Parameter | Type | Required | Description |
+|:----------|:-----|:---------|:------------|
+| `phone` | string | Yes | Phone number in E.164 format (e.g., `+491234567890`) |
+| `url` | string | Yes | Publicly accessible URL of the file to send |
+| `mimeType` | string | Yes | MIME type of the file (e.g., `image/jpeg`, `application/pdf`, `video/mp4`) |
+| `filename` | string | No | Display filename for documents (e.g., `report.pdf`) |
+| `caption` | string | No | Caption to send with the media |
+
+**Returns:** Confirmation with the sent message ID. The file type (image, video, audio, document) is auto-detected from the MIME type.
 
 ---
 

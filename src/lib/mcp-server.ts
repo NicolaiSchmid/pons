@@ -590,6 +590,68 @@ ${messagesText || "No messages yet."}`;
 	);
 
 	// ============================================
+	// Tool: send_media
+	// ============================================
+	server.tool(
+		"send_media",
+		`Send a media file (image, document, video, audio) to a WhatsApp contact. Provide a publicly accessible URL. Requires an open 24-hour window. ${SELF_DOC}`,
+		{
+			from: z.string().optional().describe(FROM_DESC),
+			phone: z.string().optional().describe(PHONE_DESC),
+			url: z
+				.string()
+				.optional()
+				.describe(
+					"Publicly accessible URL of the file to send. Omit to see instructions.",
+				),
+			mimeType: z
+				.string()
+				.optional()
+				.describe(
+					'MIME type of the file (e.g. "image/jpeg", "application/pdf", "video/mp4", "audio/ogg").',
+				),
+			filename: z
+				.string()
+				.optional()
+				.describe(
+					'Display filename for documents (e.g. "report.pdf"). Optional for images/video/audio.',
+				),
+			caption: z
+				.string()
+				.optional()
+				.describe("Optional caption to send with the media."),
+		},
+		async ({ from, phone, url, mimeType, filename, caption }) => {
+			try {
+				const result = await callTool(convex, apiKey, "send_media", {
+					from,
+					phone,
+					url,
+					mimeType,
+					filename,
+					caption,
+				});
+
+				return handleResult(result, (data) => {
+					const r = data as {
+						messageId: string;
+						waMessageId: string;
+					};
+					return `Media sent successfully!\nMessage ID: ${r.waMessageId}`;
+				});
+			} catch (error) {
+				const msg = error instanceof Error ? error.message : String(error);
+				if (msg.includes("outside") || msg.includes("24")) {
+					return text(
+						"Failed to send: 24-hour messaging window is closed. Use send_template to send a template message first.",
+					);
+				}
+				return err(`Failed to send media: ${msg}`);
+			}
+		},
+	);
+
+	// ============================================
 	// Tool: send_reaction
 	// ============================================
 	server.tool(
