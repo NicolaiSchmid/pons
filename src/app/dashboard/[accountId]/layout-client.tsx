@@ -10,7 +10,6 @@ import {
 	LogOut,
 	MessageSquare,
 	PanelLeft,
-	Plus,
 	Settings,
 } from "lucide-react";
 import Link from "next/link";
@@ -24,7 +23,6 @@ import {
 	SidebarProvider,
 	useSidebar,
 } from "@/components/ui/sidebar";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import type { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -63,18 +61,12 @@ const PonsSidebarContent: FC<{
 	accountId: Id<"accounts">;
 	conversationId?: Id<"conversations">;
 	isUsable: boolean;
-	isTemplatesView: boolean;
-	activeTab: string;
-	onTabChange: (value: string) => void;
 	preloadedAccounts: Preloaded<typeof api.accounts.list>;
 	preloadedConversations: Preloaded<typeof api.conversations.list>;
 }> = ({
 	accountId,
 	conversationId,
 	isUsable,
-	isTemplatesView,
-	activeTab,
-	onTabChange,
 	preloadedAccounts,
 	preloadedConversations,
 }) => {
@@ -93,35 +85,9 @@ const PonsSidebarContent: FC<{
 				/>
 			</div>
 
-			{/* Tabs */}
-			<div className="px-3 pb-1">
-				<Tabs
-					className="flex flex-col"
-					onValueChange={onTabChange}
-					value={activeTab}
-				>
-					<TabsList className="h-8 w-full shrink-0 rounded-lg bg-sidebar-accent/60 px-0.5">
-						<TabsTrigger
-							className="flex-1 rounded-md text-xs data-[state=active]:bg-sidebar data-[state=active]:shadow-sm"
-							value="conversations"
-						>
-							<MessageSquare className="h-3.5 w-3.5" />
-							Conversations
-						</TabsTrigger>
-						<TabsTrigger
-							className="flex-1 rounded-md text-xs data-[state=active]:bg-sidebar data-[state=active]:shadow-sm"
-							value="templates"
-						>
-							<FileText className="h-3.5 w-3.5" />
-							Templates
-						</TabsTrigger>
-					</TabsList>
-				</Tabs>
-			</div>
-
 			{/* Scrollable content area */}
 			<div className="flex-1 overflow-y-auto overflow-x-hidden">
-				{isTemplatesView ? null : isUsable ? (
+				{isUsable ? (
 					<ConversationListPreloaded
 						accountId={accountId}
 						preloadedConversations={preloadedConversations}
@@ -140,6 +106,11 @@ const PonsSidebarContent: FC<{
 			<div className="">
 				<div className="flex flex-col gap-0.5 px-2 py-1.5">
 					{[
+						{
+							href: `/dashboard/${accountId}/templates`,
+							icon: FileText,
+							label: "Templates",
+						},
 						{
 							href: `/dashboard/${accountId}/settings`,
 							icon: Settings,
@@ -225,9 +196,6 @@ const HybridLayout: FC<{
 	accountId: Id<"accounts">;
 	conversationId?: Id<"conversations">;
 	isUsable: boolean;
-	isTemplatesView: boolean;
-	activeTab: string;
-	onTabChange: (value: string) => void;
 	preloadedAccounts: Preloaded<typeof api.accounts.list>;
 	preloadedConversations: Preloaded<typeof api.conversations.list>;
 }> = ({
@@ -235,9 +203,6 @@ const HybridLayout: FC<{
 	accountId,
 	conversationId,
 	isUsable,
-	isTemplatesView,
-	activeTab,
-	onTabChange,
 	preloadedAccounts,
 	preloadedConversations,
 }) => {
@@ -246,11 +211,8 @@ const HybridLayout: FC<{
 	const sidebarContent = (
 		<PonsSidebarContent
 			accountId={accountId}
-			activeTab={activeTab}
 			conversationId={conversationId}
-			isTemplatesView={isTemplatesView}
 			isUsable={isUsable}
-			onTabChange={onTabChange}
 			preloadedAccounts={preloadedAccounts}
 			preloadedConversations={preloadedConversations}
 		/>
@@ -417,18 +379,6 @@ export function AccountLayoutClient({
 		? USABLE_STATUSES.has(selectedAccount.status)
 		: false;
 
-	const basePath = `/dashboard/${accountId}`;
-	const isTemplatesView = pathname.startsWith(`${basePath}/templates`);
-	const activeTab = isTemplatesView ? "templates" : "conversations";
-
-	const handleTabChange = (value: string) => {
-		if (value === "templates") {
-			router.push(`${basePath}/templates`);
-		} else {
-			router.push(basePath);
-		}
-	};
-
 	return (
 		<SidebarProvider
 			className="flex-1 overflow-hidden"
@@ -441,11 +391,8 @@ export function AccountLayoutClient({
 		>
 			<HybridLayout
 				accountId={accountId}
-				activeTab={activeTab}
 				conversationId={conversationId}
-				isTemplatesView={isTemplatesView}
 				isUsable={isUsable}
-				onTabChange={handleTabChange}
 				preloadedAccounts={preloadedAccounts}
 				preloadedConversations={preloadedConversations}
 			>
