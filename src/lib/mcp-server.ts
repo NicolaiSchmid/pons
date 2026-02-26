@@ -183,6 +183,7 @@ export function createMcpServer(apiKey: string) {
 						lastMessageAt?: number;
 						lastMessagePreview?: string;
 						unreadCount: number;
+						archived?: boolean;
 						windowOpen: boolean;
 					}>;
 
@@ -195,8 +196,9 @@ export function createMcpServer(apiKey: string) {
 								: "Never";
 							const unread =
 								c.unreadCount > 0 ? ` (${c.unreadCount} unread)` : "";
+							const archived = c.archived ? " [archived]" : "";
 							const window = c.windowOpen ? " [24h window open]" : "";
-							return `- ${c.contactName} (${c.contactPhone})${unread}${window}\n  Last: ${c.lastMessagePreview ?? "No messages"} at ${time}`;
+							return `- ${c.contactName} (${c.contactPhone})${unread}${archived}${window}\n  Last: ${c.lastMessagePreview ?? "No messages"} at ${time}`;
 						})
 						.join("\n\n");
 				});
@@ -694,6 +696,47 @@ ${messagesText || "No messages yet."}`;
 			} catch (error) {
 				return err(
 					`Failed to send reaction: ${error instanceof Error ? error.message : String(error)}`,
+				);
+			}
+		},
+	);
+
+	// ============================================
+	// Tool: updateConversation
+	// ============================================
+	server.tool(
+		"updateConversation",
+		`Update conversation metadata. Currently supports archive state via the "archived" flag. ${SELF_DOC}`,
+		{
+			from: z.string().optional().describe(FROM_DESC),
+			phone: z.string().optional().describe(PHONE_DESC),
+			archived: z
+				.boolean()
+				.optional()
+				.describe("Set to true to archive, false to unarchive."),
+		},
+		async ({ from, phone, archived }) => {
+			try {
+				const result = await callTool(convex, apiKey, "updateConversation", {
+					from,
+					phone,
+					archived,
+				});
+
+				return handleResult(result, (data) => {
+					const r = data as {
+						conversationId: string;
+						archived: boolean;
+						archivedAt?: number;
+					};
+
+					return r.archived
+						? `Conversation archived.\nConversation ID: ${r.conversationId}\nArchived at: ${r.archivedAt ? new Date(r.archivedAt).toISOString() : "now"}`
+						: `Conversation unarchived.\nConversation ID: ${r.conversationId}`;
+				});
+			} catch (error) {
+				return err(
+					`Failed to update conversation: ${error instanceof Error ? error.message : String(error)}`,
 				);
 			}
 		},

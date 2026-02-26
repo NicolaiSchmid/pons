@@ -104,6 +104,53 @@ export const updateLastMessage = internalMutation({
 			lastMessageAt: args.timestamp,
 			lastMessagePreview: args.preview.slice(0, 100),
 			unreadCount: args.incrementUnread ? conversation.unreadCount + 1 : 0,
+			archivedAt: args.incrementUnread ? undefined : conversation.archivedAt,
+		});
+	},
+});
+
+// Archive conversation
+export const archive = mutation({
+	args: { conversationId: v.id("conversations") },
+	handler: async (ctx, args) => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Unauthorized");
+
+		const conversation = await ctx.db.get(args.conversationId);
+		if (!conversation) throw new Error("Conversation not found");
+
+		const hasAccess = await checkAccountAccess(
+			ctx,
+			userId,
+			conversation.accountId,
+		);
+		if (!hasAccess) throw new Error("Unauthorized");
+
+		await ctx.db.patch(args.conversationId, {
+			archivedAt: Date.now(),
+		});
+	},
+});
+
+// Unarchive conversation
+export const unarchive = mutation({
+	args: { conversationId: v.id("conversations") },
+	handler: async (ctx, args) => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Unauthorized");
+
+		const conversation = await ctx.db.get(args.conversationId);
+		if (!conversation) throw new Error("Conversation not found");
+
+		const hasAccess = await checkAccountAccess(
+			ctx,
+			userId,
+			conversation.accountId,
+		);
+		if (!hasAccess) throw new Error("Unauthorized");
+
+		await ctx.db.patch(args.conversationId, {
+			archivedAt: undefined,
 		});
 	},
 });

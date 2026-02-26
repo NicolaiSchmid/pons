@@ -1,9 +1,9 @@
 ---
 title: MCP Tools Reference
-description: Complete reference for all 10 MCP tools exposed by Pons.
+description: Complete reference for all 11 MCP tools exposed by Pons.
 ---
 
-Pons exposes 10 tools to MCP clients. Each tool requires an API key with the appropriate scope.
+Pons exposes 11 tools to MCP clients. Each tool requires an API key with the appropriate scope.
 
 ## Reading Tools
 
@@ -97,6 +97,19 @@ React to a message with an emoji.
 | `emoji` | string | Yes | Emoji to react with (e.g., 👍, ❤️, 😂) |
 
 **Returns:** Confirmation that the reaction was sent.
+
+---
+
+### updateConversation
+
+Update conversation metadata. Currently supports archiving and unarchiving chats.
+
+| Parameter | Type | Required | Description |
+|:----------|:-----|:---------|:------------|
+| `phone` | string | Yes | Recipient phone number in E.164 format (e.g., `+491234567890`) |
+| `archived` | boolean | Yes | `true` to archive, `false` to unarchive |
+
+**Returns:** Confirmation with conversation ID and the updated archived state.
 
 ---
 

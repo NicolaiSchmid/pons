@@ -14,7 +14,7 @@ Pons exposes a [Model Context Protocol](https://modelcontextprotocol.io/) server
 3. Click **Create Key**
 4. Choose a name and select the scopes you need:
    - **read** — list conversations, search messages, view templates
-   - **write** — mark messages as read, send reactions
+   - **write** — send reactions, archive/unarchive conversations
    - **send** — send text and template messages
 5. Copy the key — it won't be shown again
 
@@ -114,7 +114,7 @@ API keys are scoped to control what your AI can do:
 | Scope | Permissions |
 |:------|:-----------|
 | **read** | `list_conversations`, `list_unanswered`, `get_conversation`, `search_messages`, `list_templates` |
-| **write** | `mark_as_read`, `send_reaction` |
+| **write** | `send_reaction`, `updateConversation` |
 | **send** | `send_text`, `send_template`, `send_media` |
 
 Create separate keys with different scopes for different use cases. For example, a read-only key for monitoring dashboards, and a full-access key for your personal AI assistant.

@@ -525,6 +525,30 @@ export const resolveMessageByWaId = internalQuery({
 	},
 });
 
+// Update conversation metadata (archive state today, labels later)
+export const updateConversationInternal = internalMutation({
+	args: {
+		accountId: v.id("accounts"),
+		conversationId: v.id("conversations"),
+		archived: v.boolean(),
+	},
+	handler: async (ctx, args) => {
+		const conversation = await ctx.db.get(args.conversationId);
+		if (!conversation || conversation.accountId !== args.accountId) {
+			throw new Error("Conversation not found");
+		}
+
+		const archivedAt = args.archived ? Date.now() : undefined;
+		await ctx.db.patch(args.conversationId, { archivedAt });
+
+		return {
+			conversationId: conversation._id,
+			archived: args.archived,
+			archivedAt,
+		};
+	},
+});
+
 // ============================================
 // MCP Tool Queries (internal only — called via gateway actions)
 // ============================================
@@ -557,6 +581,7 @@ export const listConversationsInternal = internalQuery({
 					lastMessageAt: conv.lastMessageAt,
 					lastMessagePreview: conv.lastMessagePreview,
 					unreadCount: conv.unreadCount,
+					archived: Boolean(conv.archivedAt),
 					windowOpen: conv.windowExpiresAt
 						? conv.windowExpiresAt > Date.now()
 						: false,

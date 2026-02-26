@@ -144,9 +144,11 @@ export default defineSchema({
 		lastMessagePreview: v.optional(v.string()),
 		unreadCount: v.number(),
 		windowExpiresAt: v.optional(v.number()), // 24-hour customer service window
+		archivedAt: v.optional(v.number()), // Chat archived timestamp
 	})
 		.index("by_account", ["accountId"])
 		.index("by_account_last_message", ["accountId", "lastMessageAt"])
+		.index("by_account_archived", ["accountId", "archivedAt"])
 		.index("by_contact", ["contactId"]),
 
 	// Messages

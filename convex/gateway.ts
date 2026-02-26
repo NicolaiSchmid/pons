@@ -205,8 +205,13 @@ export const mcpTool = action({
 			"send_reaction",
 			"send_media",
 		];
+		const writeTools = ["updateConversation"];
 
-		if (!readTools.includes(args.tool) && !sendTools.includes(args.tool)) {
+		if (
+			!readTools.includes(args.tool) &&
+			!sendTools.includes(args.tool) &&
+			!writeTools.includes(args.tool)
+		) {
 			throw new Error(`Unknown tool: ${args.tool}`);
 		}
 
@@ -218,6 +223,11 @@ export const mcpTool = action({
 		if (sendTools.includes(args.tool) && !scopes.includes("send")) {
 			throw new Error(
 				`API key does not have "send" scope for tool: ${args.tool}`,
+			);
+		}
+		if (writeTools.includes(args.tool) && !scopes.includes("write")) {
+			throw new Error(
+				`API key does not have "write" scope for tool: ${args.tool}`,
 			);
 		}
 
@@ -678,6 +688,41 @@ export const mcpTool = action({
 						messageId: waMessageId,
 						emoji,
 					});
+				}
+
+				case "updateConversation": {
+					const recipient = await resolveRecipient(
+						ctx,
+						accountId,
+						toolArgs.phone as string | undefined,
+					);
+					if ("_disclosure" in recipient) return recipient;
+
+					if (!recipient.conversationId) {
+						return {
+							error: true,
+							message:
+								"Conversation not found for this phone number yet. The contact needs an existing chat before it can be updated.",
+						};
+					}
+
+					const archived = toolArgs.archived as boolean | undefined;
+					if (typeof archived !== "boolean") {
+						return disclosure(
+							"archived",
+							'Pass "archived": true to archive or false to unarchive.',
+							[{ archived: true }, { archived: false }],
+						);
+					}
+
+					return await ctx.runMutation(
+						internal.mcp.updateConversationInternal,
+						{
+							accountId,
+							conversationId: recipient.conversationId,
+							archived,
+						},
+					);
 				}
 
 				default:
