@@ -104,9 +104,11 @@ function MessageThreadContent({
 	const [attachedFile, setAttachedFile] = useState<File | null>(null);
 	const [attachedPreview, setAttachedPreview] = useState<string | null>(null);
 	const [uploading, setUploading] = useState(false);
+	const [dragging, setDragging] = useState(false);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const dragCounter = useRef(0);
 
 	// Mark conversation as read when opened
 	useEffect(() => {
@@ -176,18 +178,50 @@ function MessageThreadContent({
 		}
 	};
 
-	const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const file = e.target.files?.[0];
-		if (!file) return;
+	const attachFile = (file: File) => {
 		setAttachedFile(file);
-
-		// Generate preview for images
 		if (file.type.startsWith("image/")) {
-			const url = URL.createObjectURL(file);
-			setAttachedPreview(url);
+			setAttachedPreview(URL.createObjectURL(file));
 		} else {
 			setAttachedPreview(null);
 		}
+	};
+
+	const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (file) attachFile(file);
+	};
+
+	const handleDragEnter = (e: React.DragEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		dragCounter.current++;
+		if (e.dataTransfer.types.includes("Files")) {
+			setDragging(true);
+		}
+	};
+
+	const handleDragLeave = (e: React.DragEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		dragCounter.current--;
+		if (dragCounter.current === 0) {
+			setDragging(false);
+		}
+	};
+
+	const handleDragOver = (e: React.DragEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+	};
+
+	const handleDrop = (e: React.DragEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		dragCounter.current = 0;
+		setDragging(false);
+		const file = e.dataTransfer.files[0];
+		if (file) attachFile(file);
 	};
 
 	const clearAttachment = () => {
@@ -275,7 +309,25 @@ function MessageThreadContent({
 		: null;
 
 	return (
-		<div className="flex h-full flex-col">
+		// biome-ignore lint/a11y/noStaticElementInteractions: drag-and-drop file target
+		<div
+			className="relative flex h-full flex-col"
+			onDragEnter={handleDragEnter}
+			onDragLeave={handleDragLeave}
+			onDragOver={handleDragOver}
+			onDrop={handleDrop}
+			role="presentation"
+		>
+			{dragging && (
+				<div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+					<div className="flex flex-col items-center gap-2 rounded-xl border-2 border-pons-accent border-dashed px-8 py-6">
+						<Paperclip className="h-8 w-8 text-pons-accent" />
+						<p className="font-medium text-pons-accent text-sm">
+							Drop file to attach
+						</p>
+					</div>
+				</div>
+			)}
 			{/* Thread header */}
 			<div className="flex shrink-0 items-center justify-between border-b px-4 py-3">
 				<div className="flex items-center gap-3">
