@@ -99,7 +99,7 @@ function MessageThreadContent({
 		filename?: string;
 	} | null>(null);
 	const messagesEndRef = useRef<HTMLDivElement>(null);
-	const inputRef = useRef<HTMLInputElement>(null);
+	const inputRef = useRef<HTMLTextAreaElement>(null);
 
 	// Mark conversation as read when opened
 	useEffect(() => {
@@ -432,13 +432,26 @@ function MessageThreadContent({
 				)}
 				{windowOpen ? (
 					<form className="mx-auto flex max-w-2xl gap-2" onSubmit={handleSend}>
-						<input
-							className="h-10 flex-1 rounded-md border bg-muted px-3 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+						<textarea
+							className="max-h-32 min-h-10 flex-1 resize-none rounded-md border bg-muted px-3 py-2 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
 							disabled={sending}
-							onChange={(e) => setMessageText(e.target.value)}
+							onChange={(e) => {
+								setMessageText(e.target.value);
+								// Auto-resize
+								e.target.style.height = "auto";
+								e.target.style.height = `${e.target.scrollHeight}px`;
+							}}
+							onKeyDown={(e) => {
+								if (e.key === "Enter" && !e.shiftKey) {
+									e.preventDefault();
+									if (messageText.trim()) {
+										handleSend(e);
+									}
+								}
+							}}
 							placeholder="Type a message..."
 							ref={inputRef}
-							type="text"
+							rows={1}
 							value={messageText}
 						/>
 						<Button
