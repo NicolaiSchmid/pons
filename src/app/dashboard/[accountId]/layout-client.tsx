@@ -75,13 +75,23 @@ const PonsSidebarContent: FC<{
 	return (
 		<div className="flex h-full flex-col">
 			{/* Account selector aligned with fixed sidebar toggle */}
-			<div className="flex min-h-[calc(theme(spacing.3)*2+36px)] items-center px-3 pb-3 pl-11">
+			<div className="flex min-h-[calc(theme(spacing.3)*2+36px)] items-center justify-between px-3 pb-3 pl-11">
 				<AccountSelectorPreloaded
 					onAddAccount={() => router.push("/dashboard/setup")}
 					onSelectAccount={(id) => router.push(`/dashboard/${id}`)}
 					preloadedAccounts={preloadedAccounts}
 					selectedAccountId={accountId}
 				/>
+				<Link href={`/dashboard/${accountId}/settings`}>
+					<Button
+						className="h-7 w-7 text-muted-foreground hover:text-foreground"
+						size="icon"
+						variant="ghost"
+					>
+						<Settings className="h-3.5 w-3.5" />
+						<span className="sr-only">Settings</span>
+					</Button>
+				</Link>
 			</div>
 
 			{/* Scrollable content area */}
@@ -109,11 +119,6 @@ const PonsSidebarContent: FC<{
 							href: `/dashboard/${accountId}/templates`,
 							icon: FileText,
 							label: "Templates",
-						},
-						{
-							href: `/dashboard/${accountId}/settings`,
-							icon: Settings,
-							label: "Settings",
 						},
 						{
 							href: `/dashboard/${accountId}/keys`,
