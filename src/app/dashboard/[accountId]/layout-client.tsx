@@ -7,7 +7,6 @@ import {
 	AlertCircle,
 	FileText,
 	KeyRound,
-	LogOut,
 	MessageSquare,
 	PanelLeft,
 	Settings,
@@ -131,30 +130,31 @@ const PonsSidebarContent: FC<{
 							<span>{label}</span>
 						</Link>
 					))}
-					<button
-						className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sidebar-foreground text-sm transition-colors hover:bg-sidebar-accent"
-						onClick={() => void signOut()}
-						type="button"
-					>
-						<LogOut className="h-4 w-4 text-muted-foreground" />
-						<span>Sign out</span>
-					</button>
 				</div>
 
 				{/* Legal links */}
-				<div className="flex items-center gap-3 border-sidebar-border border-t px-3 py-2">
-					<Link
+				<div className="flex items-center justify-between border-sidebar-border border-t px-3 py-2">
+					<div className="flex items-center gap-3">
+						<Link
+							className="text-[11px] text-muted-foreground transition-colors hover:text-sidebar-foreground"
+							href="/imprint"
+						>
+							Imprint
+						</Link>
+						<Link
+							className="text-[11px] text-muted-foreground transition-colors hover:text-sidebar-foreground"
+							href="/privacy"
+						>
+							Privacy
+						</Link>
+					</div>
+					<button
 						className="text-[11px] text-muted-foreground transition-colors hover:text-sidebar-foreground"
-						href="/imprint"
+						onClick={() => void signOut()}
+						type="button"
 					>
-						Imprint
-					</Link>
-					<Link
-						className="text-[11px] text-muted-foreground transition-colors hover:text-sidebar-foreground"
-						href="/privacy"
-					>
-						Privacy
-					</Link>
+						Sign out
+					</button>
 				</div>
 			</div>
 		</div>
