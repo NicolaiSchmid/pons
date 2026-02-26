@@ -9,6 +9,7 @@ import {
 import type { FunctionReturnType } from "convex/server";
 import {
 	AlertTriangle,
+	ArrowDown,
 	Check,
 	CheckCheck,
 	Circle,
@@ -22,7 +23,8 @@ import {
 	X,
 } from "lucide-react";
 import NextImage from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
@@ -105,7 +107,6 @@ function MessageThreadContent({
 	const [attachedPreview, setAttachedPreview] = useState<string | null>(null);
 	const [uploading, setUploading] = useState(false);
 	const [dragging, setDragging] = useState(false);
-	const messagesEndRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const dragCounter = useRef(0);
@@ -116,13 +117,6 @@ function MessageThreadContent({
 			markAsRead({ conversationId });
 		}
 	}, [conversation, conversationId, markAsRead]);
-
-	// Scroll to bottom when new messages arrive
-	const messageCount = messagesResult?.messages.length ?? 0;
-	// biome-ignore lint/correctness/useExhaustiveDependencies: We want to scroll when messageCount changes
-	useEffect(() => {
-		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-	}, [messageCount]);
 
 	// Focus input when switching conversations
 	// biome-ignore lint/correctness/useExhaustiveDependencies: We want to re-focus when conversationId changes
@@ -359,8 +353,11 @@ function MessageThreadContent({
 			</div>
 
 			{/* Messages */}
-			<div className="flex-1 overflow-y-auto px-4 py-4">
-				<div className="mx-auto flex max-w-2xl flex-col gap-1.5">
+			<StickToBottom
+				className="relative flex-1 overflow-y-hidden"
+				resize="smooth"
+			>
+				<StickToBottom.Content className="mx-auto flex max-w-2xl flex-col gap-1.5 px-4 py-4">
 					{messages.map((msg, i) => {
 						const isOutbound = msg.direction === "outbound";
 						const prevMsg = i > 0 ? messages[i - 1] : null;
@@ -508,9 +505,9 @@ function MessageThreadContent({
 							</div>
 						);
 					})}
-					<div ref={messagesEndRef} />
-				</div>
-			</div>
+				</StickToBottom.Content>
+				<ScrollToBottomButton />
+			</StickToBottom>
 
 			<Dialog
 				onOpenChange={(open) => {
@@ -679,6 +676,25 @@ function MessageThreadContent({
 				)}
 			</div>
 		</div>
+	);
+}
+
+function ScrollToBottomButton() {
+	const { isAtBottom, scrollToBottom } = useStickToBottomContext();
+	const handleClick = useCallback(() => scrollToBottom(), [scrollToBottom]);
+
+	if (isAtBottom) return null;
+
+	return (
+		<Button
+			className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-full shadow-md"
+			onClick={handleClick}
+			size="icon"
+			type="button"
+			variant="outline"
+		>
+			<ArrowDown className="h-4 w-4" />
+		</Button>
 	);
 }
 
