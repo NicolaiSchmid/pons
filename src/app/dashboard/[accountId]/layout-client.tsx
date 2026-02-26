@@ -86,6 +86,7 @@ const PonsSidebarContent: FC<{
 			{/* Account selector aligned with fixed sidebar toggle */}
 			<div className="px-3 pt-3 pb-3 pl-11">
 				<AccountSelectorPreloaded
+					onAddAccount={() => router.push("/dashboard/setup")}
 					onSelectAccount={(id) => router.push(`/dashboard/${id}`)}
 					preloadedAccounts={preloadedAccounts}
 					selectedAccountId={accountId}
@@ -148,11 +149,6 @@ const PonsSidebarContent: FC<{
 							href: `/dashboard/${accountId}/keys`,
 							icon: KeyRound,
 							label: "API Keys",
-						},
-						{
-							href: "/dashboard/setup",
-							icon: Plus,
-							label: "Add Account",
 						},
 					].map(({ href, icon: NavIcon, label }) => (
 						<Link

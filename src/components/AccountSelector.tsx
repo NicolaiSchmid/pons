@@ -2,12 +2,20 @@
 
 import { type Preloaded, usePreloadedQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
-import { AlertCircle, Check, ChevronDown, Clock, Phone } from "lucide-react";
+import {
+	AlertCircle,
+	Check,
+	ChevronDown,
+	Clock,
+	Phone,
+	Plus,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { api } from "../../convex/_generated/api";
@@ -15,6 +23,7 @@ import type { api } from "../../convex/_generated/api";
 interface AccountSelectorPreloadedProps {
 	selectedAccountId?: string;
 	onSelectAccount: (accountId: string) => void;
+	onAddAccount?: () => void;
 	preloadedAccounts: Preloaded<typeof api.accounts.list>;
 }
 
@@ -39,10 +48,12 @@ function AccountSelectorContent({
 	accounts,
 	selectedAccountId,
 	onSelectAccount,
+	onAddAccount,
 }: {
 	accounts: FunctionReturnType<typeof api.accounts.list>;
 	selectedAccountId?: string;
 	onSelectAccount: (accountId: string) => void;
+	onAddAccount?: () => void;
 }) {
 	if (accounts.length === 0) {
 		return null;
@@ -50,35 +61,11 @@ function AccountSelectorContent({
 
 	const selected = accounts.find((a) => a?._id === selectedAccountId);
 
-	// Single account — clickable to navigate to account page
-	if (accounts.length === 1) {
-		const account = accounts[0];
-		if (!account) return null;
-		return (
-			<button
-				className="flex cursor-pointer items-center gap-2 transition-colors hover:opacity-80"
-				onClick={() => onSelectAccount(account._id)}
-				type="button"
-			>
-				<StatusDot status={account.status} />
-				<span className="font-display font-semibold text-sidebar-foreground text-sm tracking-tight">
-					{account.name}
-				</span>
-				{account.phoneNumber && (
-					<span className="font-mono text-[11px] text-muted-foreground/60">
-						{account.phoneNumber}
-					</span>
-				)}
-			</button>
-		);
-	}
-
-	// Multiple accounts — dropdown
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
 				<Button
-					className="h-7 gap-1.5 text-muted-foreground text-xs hover:text-foreground"
+					className="h-7 gap-1.5 px-2 text-muted-foreground text-xs hover:text-foreground"
 					size="sm"
 					variant="ghost"
 				>
@@ -111,6 +98,15 @@ function AccountSelectorContent({
 						</DropdownMenuItem>
 					) : null,
 				)}
+				{onAddAccount ? (
+					<>
+						<DropdownMenuSeparator />
+						<DropdownMenuItem onClick={onAddAccount}>
+							<Plus className="h-3.5 w-3.5" />
+							Add account
+						</DropdownMenuItem>
+					</>
+				) : null}
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);
@@ -123,6 +119,7 @@ function AccountSelectorContent({
 export function AccountSelectorPreloaded({
 	selectedAccountId,
 	onSelectAccount,
+	onAddAccount,
 	preloadedAccounts,
 }: AccountSelectorPreloadedProps) {
 	const accounts = usePreloadedQuery(preloadedAccounts);
@@ -130,6 +127,7 @@ export function AccountSelectorPreloaded({
 	return (
 		<AccountSelectorContent
 			accounts={accounts}
+			onAddAccount={onAddAccount}
 			onSelectAccount={onSelectAccount}
 			selectedAccountId={selectedAccountId}
 		/>
