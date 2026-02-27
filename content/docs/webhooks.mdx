@@ -1,0 +1,99 @@
+---
+title: Webhooks
+description: Configure per-number webhook forwarding and verify signed events.
+---
+
+Pons can forward WhatsApp activity to your own endpoint per account/number.
+
+## What gets forwarded
+
+You can subscribe each target to any combination of these events:
+
+- `message.inbound.received`
+- `message.outbound.sent`
+- `message.outbound.failed`
+- `message.status.updated`
+
+This covers inbound traffic from Meta webhooks and outbound traffic sent through Pons.
+
+## Configure a webhook target
+
+1. Go to **Dashboard → Account Settings → Webhook Forwarding**
+2. Add a target URL (HTTPS required, `http://localhost` allowed for local development)
+3. Select the event types you want
+4. Save and copy the generated signing secret
+
+Each target has its own signing secret and retry policy.
+
+## Delivery behavior
+
+- Pons sends `POST` requests with JSON payloads
+- A delivery is considered successful only on HTTP `200`
+- Non-`200`, timeout, or network errors are retried with exponential backoff
+- Max attempts and timeout are configurable per target
+
+## Request headers
+
+Each forwarded request includes:
+
+- `X-Pons-Event-Id`
+- `X-Pons-Event-Type`
+- `X-Pons-Delivery-Id`
+- `X-Pons-Attempt`
+- `X-Pons-Timestamp`
+- `X-Pons-Signature`
+
+## Signature verification
+
+`X-Pons-Signature` is an HMAC-SHA256 hex digest over:
+
+`<timestamp>.<raw request body>`
+
+using your target's signing secret.
+
+Example in Node.js:
+
+```ts
+import crypto from "node:crypto";
+
+export function verifyPonsWebhook({
+  timestamp,
+  signature,
+  rawBody,
+  secret,
+}: {
+  timestamp: string;
+  signature: string;
+  rawBody: string;
+  secret: string;
+}) {
+  const payload = `${timestamp}.${rawBody}`;
+  const expected = crypto.createHmac("sha256", secret).update(payload).digest("hex");
+
+  if (signature.length !== expected.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+}
+```
+
+Recommended hardening:
+
+- Reject old timestamps (for example older than 5 minutes)
+- Deduplicate using `X-Pons-Delivery-Id`
+- Return `200` only after you successfully process/persist the event
+
+## Payload shape
+
+Forwarded payloads are sent as an envelope:
+
+```json
+{
+  "id": "<event id>",
+  "type": "message.inbound.received",
+  "source": "meta_webhook",
+  "occurredAt": 1739999999999,
+  "accountId": "<account id>",
+  "payload": {
+    "...": "event specific fields"
+  }
+}
+```
