@@ -27,6 +27,11 @@ const Toaster = ({ ...props }: ToasterProps) => {
 				} as React.CSSProperties
 			}
 			theme="dark"
+			toastOptions={{
+				classNames: {
+					description: "text-muted-foreground",
+				},
+			}}
 			{...props}
 		/>
 	);
