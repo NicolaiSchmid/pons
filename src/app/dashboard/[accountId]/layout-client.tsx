@@ -7,13 +7,12 @@ import {
 	AlertCircle,
 	FileText,
 	KeyRound,
-	MessageSquare,
 	PanelLeft,
 	Settings,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import type { FC } from "react";
+import { type FC, useEffect } from "react";
 import { AccountSelectorPreloaded } from "@/components/AccountSelector";
 import { ConversationListPreloaded } from "@/components/ConversationList";
 import { Button } from "@/components/ui/button";
@@ -169,13 +168,14 @@ const PonsSidebarContent: FC<{
 /* ── Fixed sidebar toggle button ── */
 
 const FixedSidebarButton: FC = () => {
-	const { toggleSidebar, open } = useSidebar();
+	const { toggleSidebar, open, openMobile, isMobile } = useSidebar();
+	const isOpen = isMobile ? openMobile : open;
 
 	return (
-		<div className="fixed top-3 left-2 z-20">
+		<div className="fixed top-3 left-2 z-50">
 			<motion.div
 				animate={{
-					backgroundColor: open ? "transparent" : "var(--sidebar)",
+					backgroundColor: isOpen ? "transparent" : "var(--sidebar)",
 				}}
 				className="rounded-lg p-0.5"
 				transition={{ duration: 0.15, ease: EASE }}
@@ -211,7 +211,14 @@ const HybridLayout: FC<{
 	preloadedAccounts,
 	preloadedConversations,
 }) => {
-	const { open, isMobile } = useSidebar();
+	const { open, openMobile, setOpenMobile, isMobile } = useSidebar();
+	const pathname = usePathname();
+
+	useEffect(() => {
+		if (isMobile && pathname.length > 0) {
+			setOpenMobile(false);
+		}
+	}, [isMobile, pathname, setOpenMobile]);
 
 	const sidebarContent = (
 		<PonsSidebarContent
@@ -228,15 +235,37 @@ const HybridLayout: FC<{
 			<FixedSidebarButton />
 
 			{isMobile ? (
-				<div className="grid h-full w-full grid-cols-[auto,1fr]">
-					<div className="h-full overflow-y-auto bg-sidebar text-sidebar-foreground">
-						{sidebarContent}
-					</div>
-					<SidebarInset>
+				<div className="relative h-full w-full overflow-hidden">
+					<SidebarInset className="h-full">
 						<div className="relative flex h-full flex-1 flex-col">
 							<div className="h-dvh w-full">{children}</div>
 						</div>
 					</SidebarInset>
+
+					<AnimatePresence initial={false}>
+						{openMobile && (
+							<>
+								<motion.button
+									animate={{ opacity: 1 }}
+									aria-label="Close sidebar"
+									className="fixed inset-0 z-30 bg-black/35"
+									exit={{ opacity: 0 }}
+									initial={{ opacity: 0 }}
+									onClick={() => setOpenMobile(false)}
+									type="button"
+								/>
+								<motion.div
+									animate={{ x: 0 }}
+									className="fixed top-0 left-0 z-40 h-dvh w-[min(320px,85vw)] overflow-y-auto bg-sidebar text-sidebar-foreground shadow-2xl"
+									exit={{ x: "-100%" }}
+									initial={{ x: "-100%" }}
+									transition={{ duration: 0.2, ease: EASE }}
+								>
+									{sidebarContent}
+								</motion.div>
+							</>
+						)}
+					</AnimatePresence>
 				</div>
 			) : (
 				<div className="relative flex h-full justify-center overflow-hidden bg-sidebar">
@@ -373,8 +402,6 @@ export function AccountLayoutClient({
 	preloadedConversations: Preloaded<typeof api.conversations.list>;
 }) {
 	const params = useParams();
-	const pathname = usePathname();
-	const router = useRouter();
 	const conversationId = params.conversationId as
 		| Id<"conversations">
 		| undefined;
