@@ -70,7 +70,14 @@ const webhookMessageSchema = z
 		reaction: z
 			.object({ message_id: z.string(), emoji: z.string() })
 			.optional(),
-		context: z.object({ message_id: z.string() }).optional(),
+		context: z
+			.object({
+				id: z.string().optional(),
+				message_id: z.string().optional(),
+				from: z.string().optional(),
+			})
+			.passthrough()
+			.optional(),
 	})
 	.passthrough();
 

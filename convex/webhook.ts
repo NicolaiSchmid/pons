@@ -217,7 +217,7 @@ export const processWebhookLog = internalMutation({
 						list_reply?: { id: string; title: string };
 					};
 					reaction?: { message_id: string; emoji: string };
-					context?: { message_id: string };
+					context?: { id?: string; message_id?: string; from?: string };
 				}>;
 			};
 
@@ -340,7 +340,7 @@ export const processWebhookLog = internalMutation({
 						msg.interactive?.list_reply?.title,
 					reactionEmoji: msg.reaction?.emoji,
 					reactionToMessageId: msg.reaction?.message_id,
-					contextMessageId: msg.context?.message_id,
+					contextMessageId: msg.context?.id ?? msg.context?.message_id,
 				});
 
 				// Update conversation
@@ -363,12 +363,19 @@ export const processWebhookLog = internalMutation({
 
 				// 24h window starts from customer message
 				const windowExpiresAt = timestamp + 24 * 60 * 60 * 1000;
+				const shouldAdvanceConversation =
+					!conversation.lastMessageAt ||
+					timestamp >= conversation.lastMessageAt;
 
 				await ctx.db.patch(conversation._id, {
-					lastMessageAt: timestamp,
-					lastMessagePreview: preview.slice(0, 100),
 					unreadCount: conversation.unreadCount + 1,
-					windowExpiresAt,
+					...(shouldAdvanceConversation
+						? {
+								lastMessageAt: timestamp,
+								lastMessagePreview: preview.slice(0, 100),
+								windowExpiresAt,
+							}
+						: {}),
 				});
 
 				await ctx.runMutation(internal.forwarding.enqueueEvent, {
