@@ -187,6 +187,7 @@ export const mcpTool = action({
 		}
 
 		const { userId, scopes, keyId } = validation;
+		const scopeSet = new Set(scopes);
 
 		// Update last used (fire and forget)
 		void ctx.runMutation(internal.mcp.updateApiKeyLastUsed, { keyId });
@@ -215,19 +216,31 @@ export const mcpTool = action({
 			throw new Error(`Unknown tool: ${args.tool}`);
 		}
 
-		if (readTools.includes(args.tool) && !scopes.includes("read")) {
+		const hasScope = (...required: string[]) =>
+			required.some((scope) => scopeSet.has(scope));
+
+		if (
+			readTools.includes(args.tool) &&
+			((args.tool === "list_templates" &&
+				!hasScope("read", "templates:read")) ||
+				(args.tool !== "list_templates" &&
+					!hasScope("read", "messages:read", "conversations:read")))
+		) {
 			throw new Error(
-				`API key does not have "read" scope for tool: ${args.tool}`,
+				`API key does not have read permission for tool: ${args.tool}`,
 			);
 		}
-		if (sendTools.includes(args.tool) && !scopes.includes("send")) {
+		if (sendTools.includes(args.tool) && !hasScope("send", "messages:write")) {
 			throw new Error(
-				`API key does not have "send" scope for tool: ${args.tool}`,
+				`API key does not have send permission for tool: ${args.tool}`,
 			);
 		}
-		if (writeTools.includes(args.tool) && !scopes.includes("write")) {
+		if (
+			writeTools.includes(args.tool) &&
+			!hasScope("write", "messages:write")
+		) {
 			throw new Error(
-				`API key does not have "write" scope for tool: ${args.tool}`,
+				`API key does not have write permission for tool: ${args.tool}`,
 			);
 		}
 

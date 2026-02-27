@@ -18,6 +18,11 @@ import { auth } from "./auth";
 
 /** Allowed MCP API key scopes. Reject unknown scopes to prevent typos and future confusion. */
 const VALID_SCOPES = new Set([
+	// Legacy coarse scopes (currently used by dashboard UI)
+	"read",
+	"write",
+	"send",
+	// Granular scopes (supported for forward compatibility)
 	"messages:read",
 	"messages:write",
 	"conversations:read",
