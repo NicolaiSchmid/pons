@@ -118,20 +118,57 @@ async function callTool(
 /** Standard MCP text response. */
 const text = (t: string) => ({ content: [{ type: "text" as const, text: t }] });
 
+/** Standard MCP JSON response with structured content. */
+const json = (value: unknown) => {
+	const safe = value ?? null;
+	const structured = { data: safe };
+	return {
+		content: [
+			{
+				type: "text" as const,
+				text: JSON.stringify(structured),
+			},
+		],
+		structuredContent: structured,
+	};
+};
+
 /** Standard MCP error response. */
 const err = (msg: string) => ({
-	content: [{ type: "text" as const, text: msg }],
+	content: [
+		{
+			type: "text" as const,
+			text: JSON.stringify({ error: msg }),
+		},
+	],
+	structuredContent: { error: msg },
 	isError: true,
 });
 
 /** Wrap a tool handler — auto-formats disclosures and catches errors. */
 const handleResult = (
 	result: unknown,
-	formatter: (data: unknown) => string,
-): { content: Array<{ type: "text"; text: string }>; isError?: boolean } => {
-	if (isDisclosure(result)) return text(formatDisclosure(result));
+	_formatter: (data: unknown) => string,
+): {
+	content: Array<{ type: "text"; text: string }>;
+	isError?: boolean;
+	structuredContent?: Record<string, unknown>;
+} => {
+	if (isDisclosure(result)) {
+		const structured = { disclosure: result };
+		return {
+			content: [
+				{
+					type: "text" as const,
+					text: JSON.stringify(structured),
+				},
+			],
+			structuredContent: structured,
+			isError: true,
+		};
+	}
 	if (isGatewayError(result)) return err(result.message);
-	return text(formatter(result));
+	return json(result);
 };
 
 // ── Self-documenting tool descriptions ─────────────────────
