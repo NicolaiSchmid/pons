@@ -17,20 +17,27 @@ export default async function SettingsPage({
 	const token = await convexAuthNextjsToken();
 	const typedAccountId = accountId as Id<"accounts">;
 
-	const [preloadedAccount, preloadedMembers] = await Promise.all([
-		preloadQuery(api.accounts.get, { accountId: typedAccountId }, { token }),
-		preloadQuery(
-			api.accounts.listMembers,
-			{ accountId: typedAccountId },
-			{ token },
-		),
-	]);
+	const [preloadedAccount, preloadedMembers, preloadedWebhookTargets] =
+		await Promise.all([
+			preloadQuery(api.accounts.get, { accountId: typedAccountId }, { token }),
+			preloadQuery(
+				api.accounts.listMembers,
+				{ accountId: typedAccountId },
+				{ token },
+			),
+			preloadQuery(
+				api.webhookTargets.listByAccount,
+				{ accountId: typedAccountId },
+				{ token },
+			),
+		]);
 
 	return (
 		<SettingsPageClient
 			accountId={typedAccountId}
 			preloadedAccount={preloadedAccount}
 			preloadedMembers={preloadedMembers}
+			preloadedWebhookTargets={preloadedWebhookTargets}
 		/>
 	);
 }

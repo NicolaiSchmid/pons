@@ -44,7 +44,10 @@ Account (WhatsApp Business Account)
 │       └── Message (text, media, location, reaction...)
 ├── Template (pre-approved message templates)
 ├── ApiKey (scoped MCP authentication)
-└── WebhookLog (raw payloads for debugging)
+├── WebhookLog (raw payloads for debugging)
+├── WebhookTarget (per-number forwarding endpoints)
+├── WebhookEvent (immutable forwarded event envelope)
+└── WebhookDelivery (delivery attempts + retries)
 ```
 
 ### Key design decisions
@@ -53,6 +56,7 @@ Account (WhatsApp Business Account)
 - **Media in Convex storage:** Meta media URLs expire after 5 minutes, so media is downloaded immediately via a Convex action and stored permanently
 - **24h window tracking:** `conversation.windowExpiresAt` tracks when you can send free-form vs. template-only messages
 - **Webhook signature verification:** Each account has its own `appSecret`, verified per-request using HMAC-SHA256
+- **Durable webhook forwarding:** Forwarding is persisted and retried with Convex scheduler until a `200` response or max attempts
 
 ## Request Flows
 
@@ -75,6 +79,14 @@ Account (WhatsApp Business Account)
    - Calls Meta Graph API v22.0 to send
    - Updates message status to `sent`
 3. Meta sends webhook status updates (`delivered`, `read`) which update the message status
+
+### Webhook forwarding (inbound + outbound)
+
+1. Messages/status updates are emitted as forwarding events (`message.inbound.received`, `message.outbound.sent`, `message.outbound.failed`, `message.status.updated`)
+2. Enabled webhook targets subscribed to those events receive a delivery job
+3. Convex action sends an HTTP `POST` with signed headers (`X-Pons-Signature`, `X-Pons-Timestamp`)
+4. Any response other than `200` is retried with exponential backoff until max attempts
+5. Delivery health (`lastSuccessAt`, `lastFailureAt`, consecutive failures) is shown in account settings
 
 ### MCP tool call
 
@@ -107,7 +119,9 @@ pons/
 │   ├── messages.ts            # Message CRUD
 │   ├── mcp.ts                 # MCP queries + API key management
 │   ├── mcpNode.ts             # Crypto operations (Node.js runtime)
+│   ├── forwarding.ts          # Durable webhook forwarding + retries
 │   ├── webhook.ts             # Webhook ingestion + media download
+│   ├── webhookTargets.ts      # Webhook target configuration
 │   ├── whatsapp.ts            # Meta Graph API actions
 │   └── templates.ts           # Template queries
 ├── src/

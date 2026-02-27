@@ -34,6 +34,30 @@ export const hashApiKeyAction = internalAction({
 	},
 });
 
+// Generate a secret for outbound webhook signing
+export const generateWebhookSigningSecret = internalAction({
+	args: {},
+	handler: async () => {
+		return crypto.randomBytes(32).toString("hex");
+	},
+});
+
+// Sign forwarded webhook payload body using HMAC-SHA256
+export const signWebhookPayload = internalAction({
+	args: {
+		secret: v.string(),
+		payload: v.string(),
+		timestamp: v.string(),
+	},
+	handler: async (_ctx, args) => {
+		const signed = `${args.timestamp}.${args.payload}`;
+		return crypto
+			.createHmac("sha256", args.secret)
+			.update(signed)
+			.digest("hex");
+	},
+});
+
 // Verify webhook HMAC-SHA256 signature using FACEBOOK_APP_SECRET env var
 export const verifyWebhookSignature = internalAction({
 	args: {

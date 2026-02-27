@@ -135,6 +135,23 @@ export const ingestStatusUpdate = internalMutation({
 			errorMessage: args.errorMessage,
 		});
 
+		await ctx.runMutation(internal.forwarding.enqueueEvent, {
+			accountId: message.accountId,
+			eventType: "message.status.updated",
+			source: "meta_webhook",
+			occurredAt: args.timestamp,
+			dedupeKey: `${args.waMessageId}:${args.status}:${args.timestamp}`,
+			payload: {
+				messageId: message._id,
+				waMessageId: args.waMessageId,
+				direction: message.direction,
+				status: newStatus,
+				timestamp: args.timestamp,
+				errorCode: args.errorCode,
+				errorMessage: args.errorMessage,
+			},
+		});
+
 		return { found: true, updated: true };
 	},
 });
@@ -352,6 +369,26 @@ export const processWebhookLog = internalMutation({
 					lastMessagePreview: preview.slice(0, 100),
 					unreadCount: conversation.unreadCount + 1,
 					windowExpiresAt,
+				});
+
+				await ctx.runMutation(internal.forwarding.enqueueEvent, {
+					accountId: args.accountId,
+					eventType: "message.inbound.received",
+					source: "meta_webhook",
+					occurredAt: timestamp,
+					dedupeKey: msg.id,
+					payload: {
+						messageId,
+						waMessageId: msg.id,
+						conversationId: conversation._id,
+						contactId: contact._id,
+						from: msg.from,
+						type: messageType,
+						text: msg.text?.body,
+						caption: (media as { caption?: string })?.caption,
+						timestamp,
+						raw: msg,
+					},
 				});
 
 				// Schedule media download if present

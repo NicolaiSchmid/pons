@@ -9,16 +9,19 @@ export function SettingsPageClient({
 	accountId,
 	preloadedAccount,
 	preloadedMembers,
+	preloadedWebhookTargets,
 }: {
 	accountId: Id<"accounts">;
 	preloadedAccount: Preloaded<typeof api.accounts.get>;
 	preloadedMembers: Preloaded<typeof api.accounts.listMembers>;
+	preloadedWebhookTargets: Preloaded<typeof api.webhookTargets.listByAccount>;
 }) {
 	return (
 		<AccountSettingsPreloaded
 			accountId={accountId}
 			preloadedAccount={preloadedAccount}
 			preloadedMembers={preloadedMembers}
+			preloadedWebhookTargets={preloadedWebhookTargets}
 		/>
 	);
 }

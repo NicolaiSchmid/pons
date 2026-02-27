@@ -14,6 +14,7 @@ import type * as contacts from "../contacts.js";
 import type * as conversations from "../conversations.js";
 import type * as crons from "../crons.js";
 import type * as email from "../email.js";
+import type * as forwarding from "../forwarding.js";
 import type * as gateway from "../gateway.js";
 import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
@@ -26,6 +27,7 @@ import type * as phoneRegistration from "../phoneRegistration.js";
 import type * as tokenExpiry from "../tokenExpiry.js";
 import type * as twilioConnect from "../twilioConnect.js";
 import type * as webhook from "../webhook.js";
+import type * as webhookTargets from "../webhookTargets.js";
 import type * as whatsapp from "../whatsapp.js";
 import type * as whatsappDiscovery from "../whatsappDiscovery.js";
 
@@ -42,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   conversations: typeof conversations;
   crons: typeof crons;
   email: typeof email;
+  forwarding: typeof forwarding;
   gateway: typeof gateway;
   helpers: typeof helpers;
   http: typeof http;
@@ -54,6 +57,7 @@ declare const fullApi: ApiFromModules<{
   tokenExpiry: typeof tokenExpiry;
   twilioConnect: typeof twilioConnect;
   webhook: typeof webhook;
+  webhookTargets: typeof webhookTargets;
   whatsapp: typeof whatsapp;
   whatsappDiscovery: typeof whatsappDiscovery;
 }>;

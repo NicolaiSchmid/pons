@@ -152,6 +152,22 @@ export const sendTextMessage = internalAction({
 				);
 			}
 
+			await ctx.runMutation(internal.forwarding.enqueueEvent, {
+				accountId: args.accountId,
+				eventType: "message.outbound.sent",
+				source: "pons_send",
+				dedupeKey: waMessageId,
+				payload: {
+					messageId,
+					waMessageId,
+					conversationId: args.conversationId,
+					to: args.to,
+					type: "text",
+					text: args.text,
+					timestamp: Date.now(),
+				},
+			});
+
 			return { messageId, waMessageId };
 		} catch (error) {
 			const errorMessage =
@@ -166,6 +182,22 @@ export const sendTextMessage = internalAction({
 				status: "failed",
 				errorCode,
 				errorMessage,
+			});
+
+			await ctx.runMutation(internal.forwarding.enqueueEvent, {
+				accountId: args.accountId,
+				eventType: "message.outbound.failed",
+				source: "pons_send",
+				payload: {
+					messageId,
+					conversationId: args.conversationId,
+					to: args.to,
+					type: "text",
+					text: args.text,
+					errorCode,
+					errorMessage,
+					timestamp: Date.now(),
+				},
 			});
 			throw error;
 		}
@@ -334,6 +366,24 @@ export const sendMediaMessage = internalAction({
 				);
 			}
 
+			await ctx.runMutation(internal.forwarding.enqueueEvent, {
+				accountId: args.accountId,
+				eventType: "message.outbound.sent",
+				source: "pons_send",
+				dedupeKey: waMessageId,
+				payload: {
+					messageId,
+					waMessageId,
+					conversationId: args.conversationId,
+					to: args.to,
+					type: mediaType,
+					caption: args.caption,
+					filename: args.filename,
+					mimeType: args.mimeType,
+					timestamp: Date.now(),
+				},
+			});
+
 			return { messageId, waMessageId };
 		} catch (error) {
 			const errorMessage =
@@ -348,6 +398,24 @@ export const sendMediaMessage = internalAction({
 				status: "failed",
 				errorCode,
 				errorMessage,
+			});
+
+			await ctx.runMutation(internal.forwarding.enqueueEvent, {
+				accountId: args.accountId,
+				eventType: "message.outbound.failed",
+				source: "pons_send",
+				payload: {
+					messageId,
+					conversationId: args.conversationId,
+					to: args.to,
+					type: mediaType,
+					caption: args.caption,
+					filename: args.filename,
+					mimeType: args.mimeType,
+					errorCode,
+					errorMessage,
+					timestamp: Date.now(),
+				},
 			});
 			throw error;
 		}
@@ -467,6 +535,24 @@ export const sendTemplateMessage = internalAction({
 				);
 			}
 
+			await ctx.runMutation(internal.forwarding.enqueueEvent, {
+				accountId: args.accountId,
+				eventType: "message.outbound.sent",
+				source: "pons_send",
+				dedupeKey: waMessageId,
+				payload: {
+					messageId,
+					waMessageId,
+					conversationId: args.conversationId,
+					to: args.to,
+					type: "template",
+					templateName: args.templateName,
+					templateLanguage: args.templateLanguage,
+					text: args.text,
+					timestamp: Date.now(),
+				},
+			});
+
 			return { messageId, waMessageId };
 		} catch (error) {
 			const errorMessage =
@@ -481,6 +567,23 @@ export const sendTemplateMessage = internalAction({
 				status: "failed",
 				errorCode,
 				errorMessage,
+			});
+
+			await ctx.runMutation(internal.forwarding.enqueueEvent, {
+				accountId: args.accountId,
+				eventType: "message.outbound.failed",
+				source: "pons_send",
+				payload: {
+					messageId,
+					conversationId: args.conversationId,
+					to: args.to,
+					type: "template",
+					templateName: args.templateName,
+					templateLanguage: args.templateLanguage,
+					errorCode,
+					errorMessage,
+					timestamp: Date.now(),
+				},
 			});
 			throw error;
 		}
@@ -621,6 +724,22 @@ export const sendReaction = internalAction({
 				tokenInBody: false,
 			},
 		);
+
+		await ctx.runMutation(internal.forwarding.enqueueEvent, {
+			accountId: args.accountId,
+			eventType: "message.outbound.sent",
+			source: "pons_send",
+			dedupeKey: `${args.messageId}:${args.emoji}:${data.messages?.[0]?.id ?? "reaction"}`,
+			payload: {
+				waMessageId: data.messages?.[0]?.id,
+				conversationId: args.conversationId,
+				to: args.to,
+				type: "reaction",
+				reactionTo: args.messageId,
+				emoji: args.emoji,
+				timestamp: Date.now(),
+			},
+		});
 
 		return { waMessageId: data.messages?.[0]?.id };
 	},

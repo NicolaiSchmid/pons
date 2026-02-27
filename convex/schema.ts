@@ -28,6 +28,18 @@ export const registrationStep = v.union(
 	v.literal("registering"),
 );
 
+export const webhookForwardEventType = v.union(
+	v.literal("message.inbound.received"),
+	v.literal("message.outbound.sent"),
+	v.literal("message.outbound.failed"),
+	v.literal("message.status.updated"),
+);
+
+export const webhookForwardSource = v.union(
+	v.literal("meta_webhook"),
+	v.literal("pons_send"),
+);
+
 export default defineSchema({
 	...authTables,
 
@@ -244,6 +256,65 @@ export default defineSchema({
 	})
 		.index("by_account", ["accountId"])
 		.index("by_processed", ["processed"]),
+
+	// Configurable outbound webhook targets per account
+	webhookTargets: defineTable({
+		accountId: v.id("accounts"),
+		name: v.string(),
+		url: v.string(),
+		enabled: v.boolean(),
+		subscribedEvents: v.array(webhookForwardEventType),
+		signingSecret: v.string(),
+		maxAttempts: v.number(),
+		timeoutMs: v.number(),
+		lastDeliveryAt: v.optional(v.number()),
+		lastSuccessAt: v.optional(v.number()),
+		lastFailureAt: v.optional(v.number()),
+		consecutiveFailures: v.number(),
+		lastError: v.optional(v.string()),
+		createdBy: v.id("users"),
+		updatedAt: v.number(),
+	})
+		.index("by_account", ["accountId"])
+		.index("by_account_enabled", ["accountId", "enabled"]),
+
+	// Immutable events emitted by inbound/outbound flows
+	webhookEvents: defineTable({
+		accountId: v.id("accounts"),
+		eventType: webhookForwardEventType,
+		source: webhookForwardSource,
+		occurredAt: v.number(),
+		payload: v.any(),
+		dedupeKey: v.optional(v.string()),
+	})
+		.index("by_account", ["accountId"])
+		.index("by_account_occurred", ["accountId", "occurredAt"])
+		.index("by_account_dedupe", ["accountId", "dedupeKey"]),
+
+	// Delivery attempts for each event+target pair
+	webhookDeliveries: defineTable({
+		accountId: v.id("accounts"),
+		eventId: v.id("webhookEvents"),
+		targetId: v.id("webhookTargets"),
+		status: v.union(
+			v.literal("pending"),
+			v.literal("succeeded"),
+			v.literal("failed"),
+		),
+		attemptCount: v.number(),
+		maxAttempts: v.number(),
+		lastAttemptAt: v.optional(v.number()),
+		nextAttemptAt: v.optional(v.number()),
+		lastStatusCode: v.optional(v.number()),
+		lastError: v.optional(v.string()),
+		lastResponseSnippet: v.optional(v.string()),
+		deliveredAt: v.optional(v.number()),
+	})
+		.index("by_account", ["accountId"])
+		.index("by_target", ["targetId"])
+		.index("by_event", ["eventId"])
+		.index("by_event_target", ["eventId", "targetId"])
+		.index("by_status_next_attempt", ["status", "nextAttemptAt"]),
 
 	// API keys for MCP authentication — scoped to user, not account.
 	// A single key grants access to ALL accounts the user is a member of.

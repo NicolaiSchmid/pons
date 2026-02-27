@@ -8,7 +8,9 @@ import {
 	Clock,
 	Crown,
 	ExternalLink,
+	Link2,
 	Loader2,
+	RefreshCcw,
 	Settings,
 	Shield,
 	Trash2,
@@ -21,7 +23,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-
+import { Checkbox } from "@/components/ui/checkbox";
 import {
 	Dialog,
 	DialogClose,
@@ -43,7 +45,19 @@ interface AccountSettingsPreloadedProps {
 	accountId: Id<"accounts">;
 	preloadedAccount: Preloaded<typeof api.accounts.get>;
 	preloadedMembers: Preloaded<typeof api.accounts.listMembers>;
+	preloadedWebhookTargets: Preloaded<typeof api.webhookTargets.listByAccount>;
 }
+
+type WebhookTargetItem = FunctionReturnType<
+	typeof api.webhookTargets.listByAccount
+>[number];
+
+const WEBHOOK_EVENT_OPTIONS = [
+	{ key: "message.inbound.received", label: "Inbound messages" },
+	{ key: "message.outbound.sent", label: "Outbound sent" },
+	{ key: "message.outbound.failed", label: "Outbound failed" },
+	{ key: "message.status.updated", label: "Status updates" },
+] as const;
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 	adding_number: { label: "Adding number", color: "text-yellow-600" },
@@ -64,9 +78,11 @@ export function AccountSettingsPreloaded({
 	accountId,
 	preloadedAccount,
 	preloadedMembers,
+	preloadedWebhookTargets,
 }: AccountSettingsPreloadedProps) {
 	const account = usePreloadedQuery(preloadedAccount);
 	const members = usePreloadedQuery(preloadedMembers);
+	const webhookTargets = usePreloadedQuery(preloadedWebhookTargets);
 
 	if (!account) {
 		return (
@@ -81,6 +97,7 @@ export function AccountSettingsPreloaded({
 			account={account}
 			accountId={accountId}
 			members={members ?? []}
+			webhookTargets={webhookTargets ?? []}
 		/>
 	);
 }
@@ -90,16 +107,22 @@ function AccountSettingsContent({
 	accountId,
 	account,
 	members,
+	webhookTargets,
 }: {
 	accountId: Id<"accounts">;
 	account: NonNullable<FunctionReturnType<typeof api.accounts.get>>;
 	members: FunctionReturnType<typeof api.accounts.listMembers>;
+	webhookTargets: FunctionReturnType<typeof api.webhookTargets.listByAccount>;
 }) {
 	const updateAccount = useMutation(api.accounts.update);
 	const deleteAccount = useMutation(api.accounts.remove);
 	const addMemberByEmail = useMutation(api.accounts.addMemberByEmail);
 	const removeMember = useMutation(api.accounts.removeMember);
 	const updateRole = useMutation(api.accounts.updateMemberRole);
+	const createWebhookTarget = useMutation(api.webhookTargets.create);
+	const updateWebhookTarget = useMutation(api.webhookTargets.update);
+	const removeWebhookTarget = useMutation(api.webhookTargets.remove);
+	const rotateWebhookSecret = useMutation(api.webhookTargets.rotateSecret);
 	const router = useRouter();
 
 	const [saving, setSaving] = useState(false);
@@ -112,6 +135,13 @@ function AccountSettingsContent({
 	const [inviting, setInviting] = useState(false);
 	const [inviteError, setInviteError] = useState<string | null>(null);
 	const [roleDropdownOpen, setRoleDropdownOpen] = useState<string | null>(null);
+	const [newTargetName, setNewTargetName] = useState("Primary webhook");
+	const [newTargetUrl, setNewTargetUrl] = useState("");
+	const [newTargetEvents, setNewTargetEvents] = useState<string[]>(
+		WEBHOOK_EVENT_OPTIONS.map((event) => event.key),
+	);
+	const [creatingTarget, setCreatingTarget] = useState(false);
+	const [webhookError, setWebhookError] = useState<string | null>(null);
 
 	const [formData, setFormData] = useState({
 		name: "",
@@ -191,6 +221,94 @@ function AccountSettingsContent({
 
 	const updateField = (field: string, value: string) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));
+	};
+
+	const toggleEvent = (eventKey: string) => {
+		setNewTargetEvents((prev) =>
+			prev.includes(eventKey)
+				? prev.filter((value) => value !== eventKey)
+				: [...prev, eventKey],
+		);
+	};
+
+	const handleCreateTarget = async (e: React.FormEvent) => {
+		e.preventDefault();
+		setWebhookError(null);
+		if (!newTargetUrl.trim()) {
+			setWebhookError("Webhook URL is required");
+			return;
+		}
+		if (newTargetEvents.length === 0) {
+			setWebhookError("Select at least one event type");
+			return;
+		}
+
+		setCreatingTarget(true);
+		try {
+			const result = await createWebhookTarget({
+				accountId,
+				name: newTargetName.trim() || "Webhook target",
+				url: newTargetUrl.trim(),
+				subscribedEvents: newTargetEvents as Array<
+					| "message.inbound.received"
+					| "message.outbound.sent"
+					| "message.outbound.failed"
+					| "message.status.updated"
+				>,
+			});
+			setNewTargetUrl("");
+			setNewTargetName("Primary webhook");
+			setNewTargetEvents(WEBHOOK_EVENT_OPTIONS.map((event) => event.key));
+			toast.success("Webhook target created", {
+				description: `Signing secret: ${result.signingSecret}`,
+			});
+		} catch (err) {
+			setWebhookError(
+				err instanceof Error ? err.message : "Failed to create webhook target",
+			);
+		} finally {
+			setCreatingTarget(false);
+		}
+	};
+
+	const handleToggleTarget = async (
+		targetId: Id<"webhookTargets">,
+		enabled: boolean,
+	) => {
+		setWebhookError(null);
+		try {
+			await updateWebhookTarget({ targetId, enabled: !enabled });
+		} catch (err) {
+			setWebhookError(
+				err instanceof Error ? err.message : "Failed to update webhook target",
+			);
+		}
+	};
+
+	const handleRotateSecret = async (targetId: Id<"webhookTargets">) => {
+		setWebhookError(null);
+		try {
+			const result = await rotateWebhookSecret({ targetId });
+			toast.success("Signing secret rotated", {
+				description: `New secret: ${result.signingSecret}`,
+			});
+		} catch (err) {
+			setWebhookError(
+				err instanceof Error ? err.message : "Failed to rotate signing secret",
+			);
+		}
+	};
+
+	const handleDeleteTarget = async (targetId: Id<"webhookTargets">) => {
+		setWebhookError(null);
+		try {
+			await removeWebhookTarget({ targetId });
+			toast.success("Webhook target deleted");
+		} catch (err) {
+			setWebhookError(
+				err instanceof Error ? err.message : "Failed to delete webhook target",
+			);
+		}
 	};
 
 	const statusInfo = STATUS_LABELS[account.status] ?? {
@@ -466,6 +584,178 @@ function AccountSettingsContent({
 					<p className="text-muted-foreground text-xs">
 						Users must have signed in at least once before they can be invited.
 					</p>
+				</div>
+
+				<Separator />
+
+				<div className="space-y-4">
+					<p className="font-medium text-sm">Webhook Forwarding</p>
+					<p className="text-muted-foreground text-xs">
+						Forward inbound and outbound events for this number to external
+						webhook targets. Retries are automatic on non-200 responses.
+					</p>
+
+					<div className="space-y-2">
+						{webhookTargets.length === 0 ? (
+							<div className="rounded-lg border border-dashed px-3 py-4 text-center text-muted-foreground text-xs">
+								No webhook targets configured yet.
+							</div>
+						) : (
+							webhookTargets.map((target: WebhookTargetItem) => (
+								<div
+									className="space-y-2 rounded-lg border bg-card px-3 py-3"
+									key={target._id}
+								>
+									<div className="flex items-start justify-between gap-3">
+										<div className="min-w-0">
+											<p className="truncate font-medium text-sm">
+												{target.name}
+											</p>
+											<p className="truncate font-mono text-muted-foreground text-xs">
+												{target.url}
+											</p>
+										</div>
+										<button
+											className={cn(
+												"rounded-md px-2 py-1 text-xs",
+												target.enabled
+													? "bg-emerald-500/10 text-emerald-600"
+													: "bg-muted text-muted-foreground",
+											)}
+											onClick={() =>
+												handleToggleTarget(
+													target._id as Id<"webhookTargets">,
+													target.enabled,
+												)
+											}
+											type="button"
+										>
+											{target.enabled ? "Enabled" : "Disabled"}
+										</button>
+									</div>
+
+									<div className="flex flex-wrap gap-1.5">
+										{target.subscribedEvents.map((event: string) => (
+											<span
+												className="rounded-md bg-muted px-1.5 py-0.5 text-[11px]"
+												key={event}
+											>
+												{event}
+											</span>
+										))}
+									</div>
+
+									<div className="grid gap-1 text-[11px] text-muted-foreground">
+										<span>
+											Secret:{" "}
+											<span className="font-mono">
+												{target.signingSecretPreview}
+											</span>
+										</span>
+										<span>
+											Attempts/timeout: {target.maxAttempts} /{" "}
+											{target.timeoutMs}ms
+										</span>
+										{target.lastSuccessAt && (
+											<span>
+												Last success:{" "}
+												{new Date(target.lastSuccessAt).toLocaleString()}
+											</span>
+										)}
+										{target.lastFailureAt && (
+											<span>
+												Last failure:{" "}
+												{new Date(target.lastFailureAt).toLocaleString()} (
+												{target.consecutiveFailures} consecutive)
+											</span>
+										)}
+									</div>
+
+									<div className="flex gap-2">
+										<Button
+											onClick={() =>
+												handleRotateSecret(target._id as Id<"webhookTargets">)
+											}
+											size="sm"
+											variant="secondary"
+										>
+											<RefreshCcw className="mr-1.5 h-3.5 w-3.5" />
+											Rotate secret
+										</Button>
+										<Button
+											onClick={() =>
+												handleDeleteTarget(target._id as Id<"webhookTargets">)
+											}
+											size="sm"
+											variant="destructive"
+										>
+											<Trash2 className="mr-1.5 h-3.5 w-3.5" />
+											Delete
+										</Button>
+									</div>
+								</div>
+							))
+						)}
+					</div>
+
+					<form
+						className="space-y-3 rounded-lg border bg-card p-3"
+						onSubmit={handleCreateTarget}
+					>
+						<div className="grid gap-2">
+							<Label htmlFor="webhook-target-name">Target name</Label>
+							<Input
+								id="webhook-target-name"
+								onChange={(e) => setNewTargetName(e.target.value)}
+								placeholder="Primary webhook"
+								value={newTargetName}
+							/>
+						</div>
+						<div className="grid gap-2">
+							<Label htmlFor="webhook-target-url">Target URL</Label>
+							<Input
+								id="webhook-target-url"
+								onChange={(e) => setNewTargetUrl(e.target.value)}
+								placeholder="https://example.com/webhooks/pons"
+								value={newTargetUrl}
+							/>
+						</div>
+
+						<div className="grid gap-2">
+							<p className="font-medium text-xs">Events</p>
+							<div className="grid gap-1.5">
+								{WEBHOOK_EVENT_OPTIONS.map(
+									(event: (typeof WEBHOOK_EVENT_OPTIONS)[number]) => (
+										<div
+											className="flex items-center gap-2 text-xs"
+											key={event.key}
+										>
+											<Checkbox
+												checked={newTargetEvents.includes(event.key)}
+												onCheckedChange={() => toggleEvent(event.key)}
+											/>
+											<span>{event.label}</span>
+										</div>
+									),
+								)}
+							</div>
+						</div>
+
+						{webhookError && (
+							<div className="rounded-md bg-destructive/10 px-3 py-2 text-destructive text-xs">
+								{webhookError}
+							</div>
+						)}
+
+						<Button disabled={creatingTarget} type="submit" variant="secondary">
+							{creatingTarget ? (
+								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+							) : (
+								<Link2 className="mr-2 h-4 w-4" />
+							)}
+							Add webhook target
+						</Button>
+					</form>
 				</div>
 
 				<Separator />

@@ -593,6 +593,9 @@ export const remove = mutation({
 			"contacts",
 			"accountMembers",
 			"webhookLogs",
+			"webhookDeliveries",
+			"webhookEvents",
+			"webhookTargets",
 		] as const;
 
 		for (const table of tables) {
