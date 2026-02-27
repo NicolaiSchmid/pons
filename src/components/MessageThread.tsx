@@ -323,7 +323,7 @@ function MessageThreadContent({
 				</div>
 			)}
 			{/* Thread header */}
-			<div className="flex shrink-0 items-center justify-between border-b px-4 py-3">
+			<div className="flex shrink-0 items-center justify-between border-b py-3 pr-4 pl-14 sm:px-4">
 				<div className="flex items-center gap-3">
 					<div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted font-medium text-muted-foreground text-xs uppercase">
 						{getInitials(
