@@ -193,15 +193,43 @@ export const update = mutation({
 			throw new Error("timeoutMs must be between 1000 and 60000");
 		}
 
-		await ctx.db.patch(args.targetId, {
-			name: args.name?.trim(),
-			url: args.url?.trim(),
-			enabled: args.enabled,
-			subscribedEvents: args.subscribedEvents,
-			maxAttempts: args.maxAttempts,
-			timeoutMs: args.timeoutMs,
+		const patch: {
+			updatedAt: number;
+			name?: string;
+			url?: string;
+			enabled?: boolean;
+			subscribedEvents?: Array<
+				| "message.inbound.received"
+				| "message.outbound.sent"
+				| "message.outbound.failed"
+				| "message.status.updated"
+			>;
+			maxAttempts?: number;
+			timeoutMs?: number;
+		} = {
 			updatedAt: Date.now(),
-		});
+		};
+
+		if (args.name !== undefined) {
+			patch.name = args.name.trim();
+		}
+		if (args.url !== undefined) {
+			patch.url = args.url.trim();
+		}
+		if (args.enabled !== undefined) {
+			patch.enabled = args.enabled;
+		}
+		if (args.subscribedEvents !== undefined) {
+			patch.subscribedEvents = args.subscribedEvents;
+		}
+		if (args.maxAttempts !== undefined) {
+			patch.maxAttempts = args.maxAttempts;
+		}
+		if (args.timeoutMs !== undefined) {
+			patch.timeoutMs = args.timeoutMs;
+		}
+
+		await ctx.db.patch(args.targetId, patch);
 	},
 });
 
