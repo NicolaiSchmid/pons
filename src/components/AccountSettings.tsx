@@ -142,6 +142,10 @@ function AccountSettingsContent({
 	);
 	const [creatingTarget, setCreatingTarget] = useState(false);
 	const [webhookError, setWebhookError] = useState<string | null>(null);
+	const [editingTargetId, setEditingTargetId] =
+		useState<Id<"webhookTargets"> | null>(null);
+	const [editingTargetEvents, setEditingTargetEvents] = useState<string[]>([]);
+	const [updatingTargetEvents, setUpdatingTargetEvents] = useState(false);
 
 	const [formData, setFormData] = useState({
 		name: "",
@@ -231,6 +235,14 @@ function AccountSettingsContent({
 		);
 	};
 
+	const toggleEditingTargetEvent = (eventKey: string) => {
+		setEditingTargetEvents((prev) =>
+			prev.includes(eventKey)
+				? prev.filter((value) => value !== eventKey)
+				: [...prev, eventKey],
+		);
+	};
+
 	const handleCreateTarget = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setWebhookError(null);
@@ -303,11 +315,56 @@ function AccountSettingsContent({
 		setWebhookError(null);
 		try {
 			await removeWebhookTarget({ targetId });
+			if (editingTargetId === targetId) {
+				setEditingTargetId(null);
+				setEditingTargetEvents([]);
+			}
 			toast.success("Webhook target deleted");
 		} catch (err) {
 			setWebhookError(
 				err instanceof Error ? err.message : "Failed to delete webhook target",
 			);
+		}
+	};
+
+	const handleStartEditingTargetEvents = (target: WebhookTargetItem) => {
+		setWebhookError(null);
+		setEditingTargetId(target._id as Id<"webhookTargets">);
+		setEditingTargetEvents([...target.subscribedEvents]);
+	};
+
+	const handleCancelEditingTargetEvents = () => {
+		setEditingTargetId(null);
+		setEditingTargetEvents([]);
+	};
+
+	const handleSaveTargetEvents = async (targetId: Id<"webhookTargets">) => {
+		setWebhookError(null);
+		if (editingTargetEvents.length === 0) {
+			setWebhookError("Select at least one event type");
+			return;
+		}
+
+		setUpdatingTargetEvents(true);
+		try {
+			await updateWebhookTarget({
+				targetId,
+				subscribedEvents: editingTargetEvents as Array<
+					| "message.inbound.received"
+					| "message.outbound.sent"
+					| "message.outbound.failed"
+					| "message.status.updated"
+				>,
+			});
+			setEditingTargetId(null);
+			setEditingTargetEvents([]);
+			toast.success("Webhook events updated");
+		} catch (err) {
+			setWebhookError(
+				err instanceof Error ? err.message : "Failed to update webhook events",
+			);
+		} finally {
+			setUpdatingTargetEvents(false);
 		}
 	};
 
@@ -673,6 +730,14 @@ function AccountSettingsContent({
 
 									<div className="flex gap-2">
 										<Button
+											onClick={() => handleStartEditingTargetEvents(target)}
+											size="sm"
+											type="button"
+											variant="outline"
+										>
+											Edit events
+										</Button>
+										<Button
 											onClick={() =>
 												handleRotateSecret(target._id as Id<"webhookTargets">)
 											}
@@ -693,6 +758,61 @@ function AccountSettingsContent({
 											Delete
 										</Button>
 									</div>
+
+									{editingTargetId === target._id && (
+										<div className="space-y-2 rounded-md border bg-muted/30 p-2">
+											<p className="font-medium text-xs">
+												Edit subscribed events
+											</p>
+											<div className="grid gap-1.5">
+												{WEBHOOK_EVENT_OPTIONS.map(
+													(event: (typeof WEBHOOK_EVENT_OPTIONS)[number]) => (
+														<div
+															className="flex items-center gap-2 text-xs"
+															key={event.key}
+														>
+															<Checkbox
+																checked={editingTargetEvents.includes(
+																	event.key,
+																)}
+																onCheckedChange={() =>
+																	toggleEditingTargetEvent(event.key)
+																}
+															/>
+															<span>{event.label}</span>
+														</div>
+													),
+												)}
+											</div>
+											<div className="flex gap-2">
+												<Button
+													disabled={updatingTargetEvents}
+													onClick={() =>
+														handleSaveTargetEvents(
+															target._id as Id<"webhookTargets">,
+														)
+													}
+													size="sm"
+													type="button"
+													variant="secondary"
+												>
+													{updatingTargetEvents && (
+														<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+													)}
+													Save events
+												</Button>
+												<Button
+													disabled={updatingTargetEvents}
+													onClick={handleCancelEditingTargetEvents}
+													size="sm"
+													type="button"
+													variant="ghost"
+												>
+													Cancel
+												</Button>
+											</div>
+										</div>
+									)}
 								</div>
 							))
 						)}
