@@ -54,21 +54,39 @@ export const enqueueEvent = internalMutation({
 			dedupeKey: args.dedupeKey,
 		});
 
+		await ctx.scheduler.runAfter(0, internal.forwarding.prepareDeliveries, {
+			eventId,
+		});
+
+		return { eventId, deliveries: 0, deduped: false, queued: true };
+	},
+});
+
+export const prepareDeliveries = internalMutation({
+	args: {
+		eventId: v.id("webhookEvents"),
+	},
+	handler: async (ctx, args) => {
+		const event = await ctx.db.get(args.eventId);
+		if (!event) {
+			return { deliveries: 0 };
+		}
+
 		const targets = await ctx.db
 			.query("webhookTargets")
 			.withIndex("by_account_enabled", (q) =>
-				q.eq("accountId", args.accountId).eq("enabled", true),
+				q.eq("accountId", event.accountId).eq("enabled", true),
 			)
 			.collect();
 
 		let deliveries = 0;
 		for (const target of targets) {
-			if (!target.subscribedEvents.includes(args.eventType)) continue;
+			if (!target.subscribedEvents.includes(event.eventType)) continue;
 
 			deliveries += 1;
 			const deliveryId = await ctx.db.insert("webhookDeliveries", {
-				accountId: args.accountId,
-				eventId,
+				accountId: event.accountId,
+				eventId: event._id,
 				targetId: target._id,
 				status: "pending",
 				attemptCount: 0,
@@ -81,7 +99,7 @@ export const enqueueEvent = internalMutation({
 			});
 		}
 
-		return { eventId, deliveries, deduped: false };
+		return { deliveries };
 	},
 });
 
