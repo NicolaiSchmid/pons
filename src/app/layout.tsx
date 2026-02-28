@@ -12,7 +12,30 @@ export const metadata: Metadata = {
 	title: "Pons — WhatsApp Business API Bridge",
 	description:
 		"WhatsApp in your terminal. Messages in your AI. Bridge the WhatsApp Business Cloud API to any MCP-compatible client.",
+	keywords: [
+		"WhatsApp Business API",
+		"MCP",
+		"Model Context Protocol",
+		"AI agent tools",
+		"WhatsApp MCP server",
+		"open source WhatsApp",
+	],
+	authors: [{ name: "Nicolai Schmid", url: "https://nicolaischmid.com" }],
+	creator: "Nicolai Schmid",
+	publisher: "Pons",
+	category: "developer tools",
 	icons: [{ rel: "icon", url: "/favicon.ico" }],
+	robots: {
+		index: true,
+		follow: true,
+		googleBot: {
+			index: true,
+			follow: true,
+			"max-image-preview": "large",
+			"max-snippet": -1,
+			"max-video-preview": -1,
+		},
+	},
 	openGraph: {
 		title: "Pons — WhatsApp Business API Bridge",
 		description:
@@ -20,14 +43,23 @@ export const metadata: Metadata = {
 		url: "https://pons.chat",
 		siteName: "Pons",
 		type: "website",
-		// Image auto-injected by opengraph-image.tsx
+		images: [
+			{
+				url: "/api/og?title=WhatsApp%20Business%20API%20Bridge&subtitle=Open-source%20bridge%20for%20the%20WhatsApp%20Cloud%20API.%20Connect%20AI%20agents%20via%20MCP.",
+				width: 1200,
+				height: 630,
+				alt: "Pons — WhatsApp Business API Bridge",
+			},
+		],
 	},
 	twitter: {
 		card: "summary_large_image",
 		title: "Pons — WhatsApp Business API Bridge",
 		description:
 			"WhatsApp in your terminal. Messages in your AI. Open-source bridge with MCP support.",
-		// Image auto-injected by twitter-image.tsx
+		images: [
+			"/api/og?title=WhatsApp%20Business%20API%20Bridge&subtitle=Open-source%20bridge%20for%20the%20WhatsApp%20Cloud%20API.%20Connect%20AI%20agents%20via%20MCP.",
+		],
 	},
 	alternates: {
 		canonical: "https://pons.chat",

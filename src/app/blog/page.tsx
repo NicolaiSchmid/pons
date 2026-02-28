@@ -7,6 +7,33 @@ export const metadata: Metadata = {
 	title: "Blog — Pons",
 	description:
 		"Guides, tutorials, and insights about WhatsApp Business API, MCP integration, and AI-powered messaging.",
+	alternates: {
+		canonical: "https://pons.chat/blog",
+	},
+	openGraph: {
+		title: "Pons Blog",
+		description:
+			"Guides, tutorials, and insights about WhatsApp Business API, MCP integration, and AI-powered messaging.",
+		url: "https://pons.chat/blog",
+		type: "website",
+		images: [
+			{
+				url: "/api/og?title=Pons%20Blog&subtitle=Guides%2C%20tutorials%2C%20and%20engineering%20notes%20for%20WhatsApp%20Business%20API%20and%20MCP%20tooling.",
+				width: 1200,
+				height: 630,
+				alt: "Pons Blog",
+			},
+		],
+	},
+	twitter: {
+		card: "summary_large_image",
+		title: "Pons Blog",
+		description:
+			"Guides, tutorials, and insights about WhatsApp Business API, MCP integration, and AI-powered messaging.",
+		images: [
+			"/api/og?title=Pons%20Blog&subtitle=Guides%2C%20tutorials%2C%20and%20engineering%20notes%20for%20WhatsApp%20Business%20API%20and%20MCP%20tooling.",
+		],
+	},
 };
 
 export default function BlogIndex() {
