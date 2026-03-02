@@ -882,7 +882,7 @@ function AccountSettingsContent({
 
 				<Separator />
 
-				<div className="space-y-4">
+				<div className="space-y-4" id="meta-connection">
 					<p className="font-medium text-sm">Webhook Forwarding</p>
 					<p className="text-muted-foreground text-xs">
 						Forward inbound and outbound events for this number to external

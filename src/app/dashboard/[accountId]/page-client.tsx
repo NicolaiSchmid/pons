@@ -183,6 +183,12 @@ export function AccountPageClient({
 						)}
 						Check Again
 					</Button>
+					<Link href={`/dashboard/${accountId}/settings#meta-connection`}>
+						<Button className="gap-1.5" size="sm" variant="secondary">
+							<Settings className="h-3.5 w-3.5" />
+							Reconnect Number
+						</Button>
+					</Link>
 					<Link href={`/dashboard/${accountId}/settings`}>
 						<Button className="gap-1.5" size="sm" variant="outline">
 							<Settings className="h-3.5 w-3.5" />
