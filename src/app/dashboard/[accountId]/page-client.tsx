@@ -200,6 +200,31 @@ export function AccountPageClient({
 		);
 	}
 
+	if (account.status === "detached") {
+		return (
+			<div className="flex h-full flex-col items-center justify-center gap-4 p-8">
+				<div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-500/10">
+					<XCircle className="h-6 w-6 text-orange-500" />
+				</div>
+				<div className="text-center">
+					<p className="font-display font-semibold text-foreground">
+						WhatsApp Cloud Detached
+					</p>
+					<p className="mt-1 max-w-sm text-muted-foreground text-sm">
+						This account is intentionally disconnected from Meta Cloud.
+						Re-attach it from settings to resume messaging.
+					</p>
+				</div>
+				<Link href={`/dashboard/${accountId}/settings#meta-connection`}>
+					<Button className="gap-1.5" size="sm" variant="secondary">
+						<Settings className="h-3.5 w-3.5" />
+						Attach to WhatsApp Cloud
+					</Button>
+				</Link>
+			</div>
+		);
+	}
+
 	// In-progress states
 	const IN_PROGRESS_LABELS: Record<string, string> = {
 		adding_number: "Adding phone number to your WABA...",

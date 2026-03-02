@@ -72,6 +72,7 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 	pending_name_review: ["active", "name_declined"],
 	// Terminal states — no transitions out (except retry from failed)
 	active: [],
+	detached: [],
 	name_declined: ["pending_name_review", "active"],
 	failed: ["adding_number", "code_requested", "verifying_code", "registering"],
 };
@@ -565,6 +566,50 @@ export const update = mutation({
 
 		await ctx.db.patch(accountId, filteredUpdates);
 		return accountId;
+	},
+});
+
+/**
+ * Detach an account from its current WhatsApp Cloud configuration.
+ * Keeps account data (messages, contacts, webhook targets, members) intact.
+ */
+export const detachCloudConfiguration = mutation({
+	args: {
+		accountId: v.id("accounts"),
+	},
+	handler: async (ctx, args) => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Unauthorized");
+
+		const membership = await ctx.db
+			.query("accountMembers")
+			.withIndex("by_account_user", (q) =>
+				q.eq("accountId", args.accountId).eq("userId", userId),
+			)
+			.first();
+
+		if (!membership || membership.role === "member") {
+			throw new Error("Unauthorized");
+		}
+
+		const account = await ctx.db.get(args.accountId);
+		if (!account) throw new Error("Account not found");
+
+		await ctx.db.patch(args.accountId, {
+			status: "detached",
+			phoneNumberId: undefined,
+			verificationCode: undefined,
+			twoStepPin: undefined,
+			failedAtStep: undefined,
+			failedError: undefined,
+			failedAt: undefined,
+			nameReviewLastCheckedAt: undefined,
+			nameReviewCheckCount: undefined,
+			nameReviewMaxChecks: undefined,
+			nameReviewScheduledJobId: undefined,
+		});
+
+		return args.accountId;
 	},
 });
 

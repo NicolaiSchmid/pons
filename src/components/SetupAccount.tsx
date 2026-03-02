@@ -34,6 +34,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 
 interface SetupAccountProps {
 	onComplete: () => void;
+	reattachAccountId?: Id<"accounts">;
 }
 
 // ── Types ──
@@ -83,7 +84,10 @@ type WizardStep =
 // ROOT COMPONENT
 // ════════════════════════════════════════════════════════════════════════════
 
-export function SetupAccount({ onComplete }: SetupAccountProps) {
+export function SetupAccount({
+	onComplete,
+	reattachAccountId,
+}: SetupAccountProps) {
 	const [mode, setMode] = useState<"loading" | "auto" | "manual">("loading");
 	const existingAccounts = useQuery(api.accounts.list);
 
@@ -117,7 +121,10 @@ export function SetupAccount({ onComplete }: SetupAccountProps) {
 
 	// Filter out numbers already configured as accounts
 	const configuredPhoneNumberIds = new Set(
-		(existingAccounts ?? []).map((a) => a.phoneNumberId).filter(Boolean),
+		(existingAccounts ?? [])
+			.filter((a) => a._id !== reattachAccountId)
+			.map((a) => a.phoneNumberId)
+			.filter(Boolean),
 	);
 	const availableNumbers = discoveredNumbers.filter(
 		(n) => !configuredPhoneNumberIds.has(n.id),
@@ -143,7 +150,11 @@ export function SetupAccount({ onComplete }: SetupAccountProps) {
 
 	if (mode === "auto") {
 		return (
-			<AutoSetup discoveredNumbers={availableNumbers} onComplete={onComplete} />
+			<AutoSetup
+				discoveredNumbers={availableNumbers}
+				onComplete={onComplete}
+				reattachAccountId={reattachAccountId}
+			/>
 		);
 	}
 
@@ -152,6 +163,7 @@ export function SetupAccount({ onComplete }: SetupAccountProps) {
 			discoveryError={discoveryError}
 			onComplete={onComplete}
 			onRetryDiscovery={() => setMode("loading")}
+			reattachAccountId={reattachAccountId}
 		/>
 	);
 }
@@ -215,13 +227,19 @@ const PURCHASE_POLL_INTERVAL = 5_000; // 5 seconds
 function AutoSetup({
 	discoveredNumbers,
 	onComplete,
+	reattachAccountId,
 }: {
 	discoveredNumbers: DiscoveredNumber[];
 	onComplete: () => void;
+	reattachAccountId?: Id<"accounts">;
 }) {
 	const createExisting = useMutation(api.accounts.createExisting);
 	const createByon = useMutation(api.accounts.createByon);
 	const createTwilio = useMutation(api.accounts.createTwilio);
+	const attachExistingConnection = useMutation(
+		api.accounts.attachExistingConnection,
+	);
+	const prepareReattachByon = useMutation(api.accounts.prepareReattachByon);
 	const registerAppWebhook = useAction(
 		api.whatsappDiscovery.registerAppWebhook,
 	);
@@ -248,6 +266,7 @@ function AutoSetup({
 
 	// Wizard state
 	const [step, setStep] = useState<WizardStep>("pick-number");
+	const isReattachFlow = !!reattachAccountId;
 	const [newNumberPanel, setNewNumberPanel] = useState<
 		null | "byon" | "twilio"
 	>(null);
@@ -488,14 +507,23 @@ function AutoSetup({
 		try {
 			await registerAppWebhook();
 			await subscribeWaba({ wabaId: selectedNumber.wabaId });
-			const accountId = await createExisting({
-				name: selectedNumber.verified_name || selectedNumber.wabaName,
-				wabaId: selectedNumber.wabaId,
-				phoneNumberId: selectedNumber.id,
-				phoneNumber: selectedNumber.display_phone_number,
-				displayName: selectedNumber.verified_name,
-				isRegistered: !needsRegistration,
-			});
+			const accountId = reattachAccountId
+				? await attachExistingConnection({
+						accountId: reattachAccountId,
+						wabaId: selectedNumber.wabaId,
+						phoneNumberId: selectedNumber.id,
+						phoneNumber: selectedNumber.display_phone_number,
+						displayName: selectedNumber.verified_name,
+						isRegistered: !needsRegistration,
+					})
+				: await createExisting({
+						name: selectedNumber.verified_name || selectedNumber.wabaName,
+						wabaId: selectedNumber.wabaId,
+						phoneNumberId: selectedNumber.id,
+						phoneNumber: selectedNumber.display_phone_number,
+						displayName: selectedNumber.verified_name,
+						isRegistered: !needsRegistration,
+					});
 
 			// If the number isn't registered with Cloud API, register it now
 			if (needsRegistration) {
@@ -526,13 +554,21 @@ function AutoSetup({
 			await registerAppWebhook();
 			await subscribeWaba({ wabaId: byonWabaId });
 
-			const accountId = await createByon({
-				name: byonDisplayName,
-				wabaId: byonWabaId,
-				phoneNumber: byonPhone,
-				displayName: byonDisplayName,
-				countryCode: byonCountryCode,
-			});
+			const accountId = reattachAccountId
+				? await prepareReattachByon({
+						accountId: reattachAccountId,
+						wabaId: byonWabaId,
+						phoneNumber: byonPhone,
+						displayName: byonDisplayName,
+						countryCode: byonCountryCode,
+					})
+				: await createByon({
+						name: byonDisplayName,
+						wabaId: byonWabaId,
+						phoneNumber: byonPhone,
+						displayName: byonDisplayName,
+						countryCode: byonCountryCode,
+					});
 			setCreatedAccountId(accountId);
 			setPhoneSourceForVerify("byon");
 			setVerifyPhoneNumber(byonPhone);
@@ -772,7 +808,7 @@ function AutoSetup({
 	};
 
 	return (
-		<SetupShell>
+		<SetupShell reattachMode={isReattachFlow}>
 			{error && (
 				<div className="mb-4 flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm">
 					<AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -927,190 +963,194 @@ function AutoSetup({
 						)}
 
 						{/* Buy via Twilio */}
-						{newNumberPanel !== "twilio" ? (
-							<Item
-								className="cursor-pointer hover:border-pons-accent/40 hover:bg-card/70"
-								onClick={() => setNewNumberPanel("twilio")}
-								variant="outline"
-							>
-								<ItemMedia>
-									<ShoppingCart className="size-5 text-pons-accent" />
-								</ItemMedia>
-								<ItemContent>
-									<ItemTitle>Buy a number via Twilio</ItemTitle>
-									<ItemDescription className="text-xs">
-										Purchase a new phone number for ~$1/mo
-									</ItemDescription>
-								</ItemContent>
-								<ItemActions>
-									<ChevronRight className="size-4 text-muted-foreground" />
-								</ItemActions>
-							</Item>
-						) : (
-							<div className="space-y-4 rounded-md border border-pons-accent/40 p-4">
-								<div className="flex items-center justify-between">
-									<div className="flex items-center gap-2">
-										<ShoppingCart className="size-4 text-pons-accent" />
-										<span className="font-medium text-sm">Buy via Twilio</span>
-										<span className="text-muted-foreground text-xs">
-											~$1/mo
-										</span>
-									</div>
-									<button
-										className="text-muted-foreground text-xs hover:text-foreground"
-										onClick={() => setNewNumberPanel(null)}
-										type="button"
-									>
-										Cancel
-									</button>
-								</div>
-
-								{twilioCredentials ? (
-									<div className="space-y-3">
-										<div className="flex items-center gap-2 text-muted-foreground text-xs">
-											<Check className="h-3.5 w-3.5 text-pons-accent" />
-											Connected as{" "}
-											<span className="font-medium text-foreground">
-												{twilioCredentials.friendlyName ??
-													twilioCredentials.accountSid.slice(0, 12)}
+						{!isReattachFlow &&
+							(newNumberPanel !== "twilio" ? (
+								<Item
+									className="cursor-pointer hover:border-pons-accent/40 hover:bg-card/70"
+									onClick={() => setNewNumberPanel("twilio")}
+									variant="outline"
+								>
+									<ItemMedia>
+										<ShoppingCart className="size-5 text-pons-accent" />
+									</ItemMedia>
+									<ItemContent>
+										<ItemTitle>Buy a number via Twilio</ItemTitle>
+										<ItemDescription className="text-xs">
+											Purchase a new phone number for ~$1/mo
+										</ItemDescription>
+									</ItemContent>
+									<ItemActions>
+										<ChevronRight className="size-4 text-muted-foreground" />
+									</ItemActions>
+								</Item>
+							) : (
+								<div className="space-y-4 rounded-md border border-pons-accent/40 p-4">
+									<div className="flex items-center justify-between">
+										<div className="flex items-center gap-2">
+											<ShoppingCart className="size-4 text-pons-accent" />
+											<span className="font-medium text-sm">
+												Buy via Twilio
+											</span>
+											<span className="text-muted-foreground text-xs">
+												~$1/mo
 											</span>
 										</div>
+										<button
+											className="text-muted-foreground text-xs hover:text-foreground"
+											onClick={() => setNewNumberPanel(null)}
+											type="button"
+										>
+											Cancel
+										</button>
+									</div>
 
-										{/* Inline owned numbers */}
-										{twilioInlineLoading && (
-											<div className="flex items-center gap-2 py-3 text-muted-foreground text-xs">
-												<Loader2 className="h-3.5 w-3.5 animate-spin" />
-												Loading your numbers...
-											</div>
-										)}
-
-										{!twilioInlineLoading && twilioOwnedNumbers.length > 0 && (
-											<div className="space-y-1.5">
-												{twilioOwnedNumbers.map((num) => (
-													<Item
-														className="cursor-pointer hover:border-pons-accent/40 hover:bg-card/70"
-														key={num.sid}
-														onClick={() => {
-															setTwilioSelectedNumber(num);
-															setTwilioRegulatoryError(null);
-															setStep("twilio-confirm");
-														}}
-														size="sm"
-														variant="outline"
-													>
-														<ItemMedia>
-															<Phone className="size-4 text-pons-accent" />
-														</ItemMedia>
-														<ItemContent>
-															<ItemTitle className="font-mono text-sm">
-																{num.phoneNumber}
-															</ItemTitle>
-															<ItemDescription className="text-xs">
-																{num.friendlyName}
-															</ItemDescription>
-														</ItemContent>
-														<ItemActions>
-															{num.capabilities.sms && (
-																<span className="rounded-full border border-emerald-500/15 bg-emerald-500/8 px-1.5 py-0.5 text-[10px] text-emerald-600">
-																	SMS
-																</span>
-															)}
-															<ChevronRight className="size-4 text-muted-foreground" />
-														</ItemActions>
-													</Item>
-												))}
-											</div>
-										)}
-
-										{!twilioInlineLoading &&
-											twilioOwnedNumbers.length === 0 && (
-												<p className="py-1 text-muted-foreground text-xs">
-													No numbers on this account yet.
-												</p>
-											)}
-
-										{/* Divider + browse for new numbers */}
-										<div className="relative">
-											<div className="absolute inset-0 flex items-center">
-												<span className="w-full border-t" />
-											</div>
-											<div className="relative flex justify-center text-xs">
-												<span className="bg-background px-2 text-muted-foreground">
-													or
+									{twilioCredentials ? (
+										<div className="space-y-3">
+											<div className="flex items-center gap-2 text-muted-foreground text-xs">
+												<Check className="h-3.5 w-3.5 text-pons-accent" />
+												Connected as{" "}
+												<span className="font-medium text-foreground">
+													{twilioCredentials.friendlyName ??
+														twilioCredentials.accountSid.slice(0, 12)}
 												</span>
 											</div>
-										</div>
 
-										<Button
-											className="w-full"
-											disabled={loading}
-											onClick={handleBrowseTwilio}
-											size="sm"
-											variant="outline"
-										>
-											{loading ? (
-												<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-											) : (
-												<ShoppingCart className="mr-2 h-3.5 w-3.5" />
+											{/* Inline owned numbers */}
+											{twilioInlineLoading && (
+												<div className="flex items-center gap-2 py-3 text-muted-foreground text-xs">
+													<Loader2 className="h-3.5 w-3.5 animate-spin" />
+													Loading your numbers...
+												</div>
 											)}
-											Browse &amp; buy a new number
-										</Button>
-									</div>
-								) : (
-									<div className="space-y-3">
-										<p className="text-muted-foreground text-xs">
-											Paste your Account SID and Auth Token from the{" "}
-											<a
-												className="inline-flex items-center gap-1 text-pons-accent underline underline-offset-2 hover:text-pons-accent-bright"
-												href="https://console.twilio.com/"
-												rel="noopener noreferrer"
-												target="_blank"
+
+											{!twilioInlineLoading &&
+												twilioOwnedNumbers.length > 0 && (
+													<div className="space-y-1.5">
+														{twilioOwnedNumbers.map((num) => (
+															<Item
+																className="cursor-pointer hover:border-pons-accent/40 hover:bg-card/70"
+																key={num.sid}
+																onClick={() => {
+																	setTwilioSelectedNumber(num);
+																	setTwilioRegulatoryError(null);
+																	setStep("twilio-confirm");
+																}}
+																size="sm"
+																variant="outline"
+															>
+																<ItemMedia>
+																	<Phone className="size-4 text-pons-accent" />
+																</ItemMedia>
+																<ItemContent>
+																	<ItemTitle className="font-mono text-sm">
+																		{num.phoneNumber}
+																	</ItemTitle>
+																	<ItemDescription className="text-xs">
+																		{num.friendlyName}
+																	</ItemDescription>
+																</ItemContent>
+																<ItemActions>
+																	{num.capabilities.sms && (
+																		<span className="rounded-full border border-emerald-500/15 bg-emerald-500/8 px-1.5 py-0.5 text-[10px] text-emerald-600">
+																			SMS
+																		</span>
+																	)}
+																	<ChevronRight className="size-4 text-muted-foreground" />
+																</ItemActions>
+															</Item>
+														))}
+													</div>
+												)}
+
+											{!twilioInlineLoading &&
+												twilioOwnedNumbers.length === 0 && (
+													<p className="py-1 text-muted-foreground text-xs">
+														No numbers on this account yet.
+													</p>
+												)}
+
+											{/* Divider + browse for new numbers */}
+											<div className="relative">
+												<div className="absolute inset-0 flex items-center">
+													<span className="w-full border-t" />
+												</div>
+												<div className="relative flex justify-center text-xs">
+													<span className="bg-background px-2 text-muted-foreground">
+														or
+													</span>
+												</div>
+											</div>
+
+											<Button
+												className="w-full"
+												disabled={loading}
+												onClick={handleBrowseTwilio}
+												size="sm"
+												variant="outline"
 											>
-												Twilio Console
-												<ExternalLink className="h-3 w-3" />
-											</a>
-										</p>
-										<div className="space-y-2">
-											<Input
-												onChange={(e) => setTwilioSid(e.target.value)}
-												placeholder="Account SID (AC...)"
-												value={twilioSid}
-											/>
-											<Input
-												onChange={(e) => setTwilioToken(e.target.value)}
-												placeholder="Auth Token"
-												type="password"
-												value={twilioToken}
-											/>
-										</div>
-										{twilioSaveError && (
-											<p className="text-destructive text-xs">
-												{twilioSaveError}
-											</p>
-										)}
-										<Button
-											className="w-full bg-pons-accent text-primary-foreground hover:bg-pons-accent-bright"
-											disabled={
-												twilioValidating ||
-												!twilioSid.startsWith("AC") ||
-												!twilioToken
-											}
-											onClick={handleSaveTwilio}
-											size="sm"
-										>
-											{twilioValidating ? (
-												<>
+												{loading ? (
 													<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-													Validating...
-												</>
-											) : (
-												"Connect Twilio"
+												) : (
+													<ShoppingCart className="mr-2 h-3.5 w-3.5" />
+												)}
+												Browse &amp; buy a new number
+											</Button>
+										</div>
+									) : (
+										<div className="space-y-3">
+											<p className="text-muted-foreground text-xs">
+												Paste your Account SID and Auth Token from the{" "}
+												<a
+													className="inline-flex items-center gap-1 text-pons-accent underline underline-offset-2 hover:text-pons-accent-bright"
+													href="https://console.twilio.com/"
+													rel="noopener noreferrer"
+													target="_blank"
+												>
+													Twilio Console
+													<ExternalLink className="h-3 w-3" />
+												</a>
+											</p>
+											<div className="space-y-2">
+												<Input
+													onChange={(e) => setTwilioSid(e.target.value)}
+													placeholder="Account SID (AC...)"
+													value={twilioSid}
+												/>
+												<Input
+													onChange={(e) => setTwilioToken(e.target.value)}
+													placeholder="Auth Token"
+													type="password"
+													value={twilioToken}
+												/>
+											</div>
+											{twilioSaveError && (
+												<p className="text-destructive text-xs">
+													{twilioSaveError}
+												</p>
 											)}
-										</Button>
-									</div>
-								)}
-							</div>
-						)}
+											<Button
+												className="w-full bg-pons-accent text-primary-foreground hover:bg-pons-accent-bright"
+												disabled={
+													twilioValidating ||
+													!twilioSid.startsWith("AC") ||
+													!twilioToken
+												}
+												onClick={handleSaveTwilio}
+												size="sm"
+											>
+												{twilioValidating ? (
+													<>
+														<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+														Validating...
+													</>
+												) : (
+													"Connect Twilio"
+												)}
+											</Button>
+										</div>
+									)}
+								</div>
+							))}
 					</div>
 
 					{/* ── Existing WABA numbers ── */}
@@ -1861,14 +1901,24 @@ function ManualSetup({
 	onComplete,
 	discoveryError,
 	onRetryDiscovery,
+	reattachAccountId,
 }: {
 	onComplete: () => void;
 	discoveryError: string | null;
 	onRetryDiscovery: () => void;
+	reattachAccountId?: Id<"accounts">;
 }) {
 	const createExisting = useMutation(api.accounts.createExisting);
+	const attachExistingConnection = useMutation(
+		api.accounts.attachExistingConnection,
+	);
+	const registerAppWebhook = useAction(
+		api.whatsappDiscovery.registerAppWebhook,
+	);
+	const subscribeWaba = useAction(api.whatsappDiscovery.subscribeWaba);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const isReattachFlow = !!reattachAccountId;
 
 	const [formData, setFormData] = useState({
 		name: "",
@@ -1884,13 +1934,27 @@ function ManualSetup({
 		setError(null);
 
 		try {
-			await createExisting({
-				name: formData.name,
-				wabaId: formData.wabaId,
-				phoneNumberId: formData.phoneNumberId,
-				phoneNumber: formData.phoneNumber,
-				displayName: formData.displayName || formData.name,
-			});
+			await registerAppWebhook();
+			await subscribeWaba({ wabaId: formData.wabaId });
+
+			if (reattachAccountId) {
+				await attachExistingConnection({
+					accountId: reattachAccountId,
+					wabaId: formData.wabaId,
+					phoneNumberId: formData.phoneNumberId,
+					phoneNumber: formData.phoneNumber,
+					displayName: formData.displayName || formData.name,
+					isRegistered: true,
+				});
+			} else {
+				await createExisting({
+					name: formData.name,
+					wabaId: formData.wabaId,
+					phoneNumberId: formData.phoneNumberId,
+					phoneNumber: formData.phoneNumber,
+					displayName: formData.displayName || formData.name,
+				});
+			}
 			onComplete();
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to create account");
@@ -1904,7 +1968,7 @@ function ManualSetup({
 	};
 
 	return (
-		<SetupShell>
+		<SetupShell reattachMode={isReattachFlow}>
 			{discoveryError && (
 				<div className="mb-4 rounded-md bg-muted/50 px-3 py-2">
 					<div className="flex items-start gap-2 text-muted-foreground text-xs">
@@ -1927,9 +1991,9 @@ function ManualSetup({
 			<form className="space-y-5" onSubmit={handleSubmit}>
 				<FormField
 					id="name"
-					label="Account Name"
+					label={isReattachFlow ? "Label" : "Account Name"}
 					onChange={(v) => updateField("name", v)}
-					placeholder="My Business"
+					placeholder={isReattachFlow ? "My Business Number" : "My Business"}
 					value={formData.name}
 				/>
 				<FormField
@@ -1997,6 +2061,8 @@ function ManualSetup({
 							<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 							Connecting...
 						</>
+					) : isReattachFlow ? (
+						"Attach to WhatsApp Cloud"
 					) : (
 						"Connect Account"
 					)}
@@ -2010,7 +2076,13 @@ function ManualSetup({
 // SHARED COMPONENTS
 // ════════════════════════════════════════════════════════════════════════════
 
-function SetupShell({ children }: { children: React.ReactNode }) {
+function SetupShell({
+	children,
+	reattachMode = false,
+}: {
+	children: React.ReactNode;
+	reattachMode?: boolean;
+}) {
 	return (
 		<div className="mx-auto w-full max-w-lg px-6 py-12">
 			<div className="mb-8 flex flex-col items-center gap-4 text-center">
@@ -2019,10 +2091,14 @@ function SetupShell({ children }: { children: React.ReactNode }) {
 				</div>
 				<div>
 					<h2 className="font-display font-semibold text-xl tracking-tight">
-						Connect WhatsApp Business
+						{reattachMode
+							? "Attach to WhatsApp Cloud"
+							: "Connect WhatsApp Business"}
 					</h2>
 					<p className="mt-1 text-muted-foreground text-sm">
-						Select a phone number from your Meta Business account.
+						{reattachMode
+							? "Re-use this account and connect a new Meta phone configuration."
+							: "Select a phone number from your Meta Business account."}
 					</p>
 				</div>
 			</div>

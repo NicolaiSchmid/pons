@@ -27,6 +27,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { SetupAccount } from "@/components/SetupAccount";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -74,6 +75,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 		color: "text-yellow-600",
 	},
 	active: { label: "Active", color: "text-emerald-600" },
+	detached: { label: "Detached", color: "text-orange-500" },
 	name_declined: { label: "Name declined", color: "text-red-400" },
 	failed: { label: "Failed", color: "text-red-400" },
 };
@@ -129,19 +131,8 @@ function AccountSettingsContent({
 	const removeWebhookTarget = useMutation(api.webhookTargets.remove);
 	const rotateWebhookSecret = useMutation(api.webhookTargets.rotateSecret);
 	const recheckNameStatus = useAction(api.nameReview.recheckNameStatus);
-	const prepareReattachByon = useMutation(api.accounts.prepareReattachByon);
-	const attachExistingConnection = useMutation(
-		api.accounts.attachExistingConnection,
-	);
-	const registerAppWebhook = useAction(
-		api.whatsappDiscovery.registerAppWebhook,
-	);
-	const subscribeWaba = useAction(api.whatsappDiscovery.subscribeWaba);
-	const addPhoneToWaba = useAction(api.phoneRegistration.addPhoneToWaba);
-	const submitCode = useAction(api.phoneRegistration.submitCode);
-	const resendCode = useAction(api.phoneRegistration.resendCode);
-	const registerExistingNumber = useAction(
-		api.phoneRegistration.registerExistingNumber,
+	const detachCloudConfiguration = useMutation(
+		api.accounts.detachCloudConfiguration,
 	);
 	const router = useRouter();
 
@@ -167,26 +158,8 @@ function AccountSettingsContent({
 	const [editingTargetEvents, setEditingTargetEvents] = useState<string[]>([]);
 	const [updatingTargetEvents, setUpdatingTargetEvents] = useState(false);
 	const [recheckingNameStatus, setRecheckingNameStatus] = useState(false);
-	const [reattachError, setReattachError] = useState<string | null>(null);
-	const [reattaching, setReattaching] = useState(false);
-	const [resendingCode, setResendingCode] = useState(false);
-	const [submittingCode, setSubmittingCode] = useState(false);
-	const [reattachByon, setReattachByon] = useState({
-		wabaId: "",
-		phoneNumber: "",
-		displayName: "",
-		countryCode: "",
-	});
-	const [verificationCode, setVerificationCode] = useState("");
-	const [verificationPin, setVerificationPin] = useState("");
-	const [existingAttach, setExistingAttach] = useState({
-		wabaId: "",
-		phoneNumberId: "",
-		phoneNumber: "",
-		displayName: "",
-		requiresRegistration: false,
-		twoStepPin: "",
-	});
+	const [detachingCloud, setDetachingCloud] = useState(false);
+	const [showAttachFlow, setShowAttachFlow] = useState(false);
 
 	const [formData, setFormData] = useState({
 		name: "",
@@ -198,18 +171,6 @@ function AccountSettingsContent({
 			setFormData({
 				name: account.name,
 			});
-			setReattachByon({
-				wabaId: account.wabaId,
-				phoneNumber: account.phoneNumber,
-				displayName: account.displayName,
-				countryCode: "",
-			});
-			setExistingAttach((prev) => ({
-				...prev,
-				wabaId: account.wabaId,
-				phoneNumber: account.phoneNumber,
-				displayName: account.displayName,
-			}));
 		}
 	}, [account?._id]);
 
@@ -440,130 +401,20 @@ function AccountSettingsContent({
 		}
 	};
 
-	const handleStartByonReattach = async (e: React.FormEvent) => {
-		e.preventDefault();
-		setReattachError(null);
-		if (
-			!reattachByon.wabaId.trim() ||
-			!reattachByon.phoneNumber.trim() ||
-			!reattachByon.displayName.trim() ||
-			!reattachByon.countryCode.trim()
-		) {
-			setReattachError("Please fill all fields before starting re-attachment");
-			return;
-		}
-
-		setReattaching(true);
+	const handleDetachCloud = async () => {
+		setDetachingCloud(true);
 		try {
-			await registerAppWebhook();
-			await subscribeWaba({ wabaId: reattachByon.wabaId.trim() });
-			await prepareReattachByon({
-				accountId,
-				wabaId: reattachByon.wabaId.trim(),
-				phoneNumber: reattachByon.phoneNumber.trim(),
-				displayName: reattachByon.displayName.trim(),
-				countryCode: reattachByon.countryCode.trim(),
-			});
-			await addPhoneToWaba({ accountId });
-			setVerificationCode("");
-			setVerificationPin("");
-			toast.success("Verification code requested");
+			await detachCloudConfiguration({ accountId });
+			setShowAttachFlow(false);
+			toast.success("Detached from WhatsApp Cloud configuration");
 		} catch (err) {
-			setReattachError(
-				err instanceof Error ? err.message : "Failed to start re-attachment",
+			toast.error(
+				err instanceof Error
+					? err.message
+					: "Failed to detach WhatsApp Cloud configuration",
 			);
 		} finally {
-			setReattaching(false);
-		}
-	};
-
-	const handleSubmitReattachCode = async (e: React.FormEvent) => {
-		e.preventDefault();
-		setReattachError(null);
-		if (verificationCode.length !== 6 || verificationPin.length !== 6) {
-			setReattachError("Enter a 6-digit verification code and 6-digit PIN");
-			return;
-		}
-
-		setSubmittingCode(true);
-		try {
-			await submitCode({
-				accountId,
-				code: verificationCode,
-				twoStepPin: verificationPin,
-			});
-			toast.success("Number re-attached. Waiting for Meta name review.");
-		} catch (err) {
-			setReattachError(
-				err instanceof Error ? err.message : "Failed to verify code",
-			);
-		} finally {
-			setSubmittingCode(false);
-		}
-	};
-
-	const handleResendReattachCode = async () => {
-		setReattachError(null);
-		setResendingCode(true);
-		try {
-			await resendCode({ accountId });
-			toast.success("Verification code re-sent");
-		} catch (err) {
-			setReattachError(
-				err instanceof Error ? err.message : "Failed to resend code",
-			);
-		} finally {
-			setResendingCode(false);
-		}
-	};
-
-	const handleAttachExisting = async (e: React.FormEvent) => {
-		e.preventDefault();
-		setReattachError(null);
-		if (
-			!existingAttach.wabaId.trim() ||
-			!existingAttach.phoneNumberId.trim() ||
-			!existingAttach.phoneNumber.trim() ||
-			!existingAttach.displayName.trim()
-		) {
-			setReattachError("Please fill all required existing-number fields");
-			return;
-		}
-		if (
-			existingAttach.requiresRegistration &&
-			existingAttach.twoStepPin.trim().length !== 6
-		) {
-			setReattachError("Enter a 6-digit two-step PIN to complete registration");
-			return;
-		}
-
-		setReattaching(true);
-		try {
-			await registerAppWebhook();
-			await subscribeWaba({ wabaId: existingAttach.wabaId.trim() });
-			await attachExistingConnection({
-				accountId,
-				wabaId: existingAttach.wabaId.trim(),
-				phoneNumberId: existingAttach.phoneNumberId.trim(),
-				phoneNumber: existingAttach.phoneNumber.trim(),
-				displayName: existingAttach.displayName.trim(),
-				isRegistered: !existingAttach.requiresRegistration,
-			});
-
-			if (existingAttach.requiresRegistration) {
-				await registerExistingNumber({
-					accountId,
-					twoStepPin: existingAttach.twoStepPin.trim(),
-				});
-			}
-
-			toast.success("Existing number attached successfully");
-		} catch (err) {
-			setReattachError(
-				err instanceof Error ? err.message : "Failed to attach existing number",
-			);
-		} finally {
-			setReattaching(false);
+			setDetachingCloud(false);
 		}
 	};
 
@@ -882,7 +733,7 @@ function AccountSettingsContent({
 
 				<Separator />
 
-				<div className="space-y-4" id="meta-connection">
+				<div className="space-y-4">
 					<p className="font-medium text-sm">Webhook Forwarding</p>
 					<p className="text-muted-foreground text-xs">
 						Forward inbound and outbound events for this number to external
@@ -1117,210 +968,58 @@ function AccountSettingsContent({
 
 				<Separator />
 
-				<div className="space-y-4">
-					<p className="font-medium text-sm">
-						Detach / Reattach Meta Connection
-					</p>
+				<div className="space-y-4" id="meta-connection">
+					<p className="font-medium text-sm">WhatsApp Cloud Connection</p>
 					<p className="text-muted-foreground text-xs">
-						Swap the underlying Meta number connection without deleting this
-						account or losing conversations, contacts, members, and webhook
-						configuration.
+						Detach and re-attach the Meta Cloud configuration while keeping this
+						account&apos;s conversations, contacts, members, API keys, and
+						webhook targets.
 					</p>
 
 					<div className="rounded-lg border bg-card p-3">
-						<p className="mb-2 font-medium text-xs">
-							Re-attach via OTP verification
-						</p>
-						<form className="grid gap-2" onSubmit={handleStartByonReattach}>
-							<Input
-								onChange={(e) =>
-									setReattachByon((prev) => ({
-										...prev,
-										wabaId: e.target.value,
-									}))
-								}
-								placeholder="WABA ID"
-								value={reattachByon.wabaId}
-							/>
-							<Input
-								onChange={(e) =>
-									setReattachByon((prev) => ({
-										...prev,
-										phoneNumber: e.target.value,
-									}))
-								}
-								placeholder="Phone number (E.164, e.g. +4917612345678)"
-								value={reattachByon.phoneNumber}
-							/>
-							<Input
-								onChange={(e) =>
-									setReattachByon((prev) => ({
-										...prev,
-										displayName: e.target.value,
-									}))
-								}
-								placeholder="Display name"
-								value={reattachByon.displayName}
-							/>
-							<Input
-								onChange={(e) =>
-									setReattachByon((prev) => ({
-										...prev,
-										countryCode: e.target.value.replace(/\D/g, ""),
-									}))
-								}
-								placeholder="Country code (digits, e.g. 49)"
-								value={reattachByon.countryCode}
-							/>
-							<Button
-								disabled={reattaching}
-								size="sm"
-								type="submit"
-								variant="secondary"
-							>
-								{reattaching ? (
-									<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-								) : null}
-								Start re-attachment
-							</Button>
-						</form>
-
-						{account.status === "code_requested" && (
-							<form
-								className="mt-3 grid gap-2 border-t pt-3"
-								onSubmit={handleSubmitReattachCode}
-							>
-								<p className="font-medium text-xs">Complete verification</p>
-								<Input
-									onChange={(e) =>
-										setVerificationCode(e.target.value.replace(/\D/g, ""))
-									}
-									placeholder="6-digit SMS code"
-									value={verificationCode}
-								/>
-								<Input
-									onChange={(e) =>
-										setVerificationPin(e.target.value.replace(/\D/g, ""))
-									}
-									placeholder="6-digit two-step PIN"
-									value={verificationPin}
-								/>
-								<div className="flex gap-2">
-									<Button
-										disabled={submittingCode}
-										size="sm"
-										type="submit"
-										variant="secondary"
-									>
-										{submittingCode ? (
-											<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-										) : null}
-										Verify and register
-									</Button>
-									<Button
-										disabled={resendingCode}
-										onClick={handleResendReattachCode}
-										size="sm"
-										type="button"
-										variant="outline"
-									>
-										{resendingCode ? (
-											<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-										) : null}
-										Resend code
-									</Button>
-								</div>
-							</form>
+						{account.status === "detached" ? (
+							<div className="space-y-3">
+								<p className="text-muted-foreground text-xs">
+									This account is currently detached from WhatsApp Cloud.
+								</p>
+								<Button
+									onClick={() => setShowAttachFlow((prev) => !prev)}
+									size="sm"
+									variant="secondary"
+								>
+									Attach to WhatsApp Cloud
+								</Button>
+							</div>
+						) : (
+							<div className="space-y-3">
+								<p className="text-muted-foreground text-xs">
+									Disconnect this account from the current Meta Cloud number.
+									Messaging stops until you attach again.
+								</p>
+								<Button
+									disabled={detachingCloud}
+									onClick={handleDetachCloud}
+									size="sm"
+									variant="destructive"
+								>
+									{detachingCloud ? (
+										<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+									) : null}
+									Detach from WhatsApp Cloud Configuration
+								</Button>
+							</div>
 						)}
 					</div>
 
-					<div className="rounded-lg border bg-card p-3">
-						<p className="mb-2 font-medium text-xs">
-							Attach already-added number (known phone number ID)
-						</p>
-						<form className="grid gap-2" onSubmit={handleAttachExisting}>
-							<Input
-								onChange={(e) =>
-									setExistingAttach((prev) => ({
-										...prev,
-										wabaId: e.target.value,
-									}))
-								}
-								placeholder="WABA ID"
-								value={existingAttach.wabaId}
+					{account.status === "detached" && showAttachFlow && (
+						<div className="rounded-lg border bg-card">
+							<SetupAccount
+								onComplete={() => {
+									setShowAttachFlow(false);
+									toast.success("WhatsApp Cloud attached");
+								}}
+								reattachAccountId={accountId}
 							/>
-							<Input
-								onChange={(e) =>
-									setExistingAttach((prev) => ({
-										...prev,
-										phoneNumberId: e.target.value,
-									}))
-								}
-								placeholder="Phone number ID"
-								value={existingAttach.phoneNumberId}
-							/>
-							<Input
-								onChange={(e) =>
-									setExistingAttach((prev) => ({
-										...prev,
-										phoneNumber: e.target.value,
-									}))
-								}
-								placeholder="Phone number (E.164)"
-								value={existingAttach.phoneNumber}
-							/>
-							<Input
-								onChange={(e) =>
-									setExistingAttach((prev) => ({
-										...prev,
-										displayName: e.target.value,
-									}))
-								}
-								placeholder="Display name"
-								value={existingAttach.displayName}
-							/>
-							<label className="flex items-center gap-2 text-xs">
-								<input
-									checked={existingAttach.requiresRegistration}
-									onChange={(e) =>
-										setExistingAttach((prev) => ({
-											...prev,
-											requiresRegistration: e.target.checked,
-										}))
-									}
-									type="checkbox"
-								/>
-								<span>Number still needs Cloud API registration</span>
-							</label>
-							{existingAttach.requiresRegistration && (
-								<Input
-									onChange={(e) =>
-										setExistingAttach((prev) => ({
-											...prev,
-											twoStepPin: e.target.value.replace(/\D/g, ""),
-										}))
-									}
-									placeholder="6-digit two-step PIN"
-									value={existingAttach.twoStepPin}
-								/>
-							)}
-							<Button
-								disabled={reattaching}
-								size="sm"
-								type="submit"
-								variant="outline"
-							>
-								{reattaching ? (
-									<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-								) : null}
-								Attach existing number
-							</Button>
-						</form>
-					</div>
-
-					{reattachError && (
-						<div className="rounded-md bg-destructive/10 px-3 py-2 text-destructive text-xs">
-							{reattachError}
 						</div>
 					)}
 				</div>

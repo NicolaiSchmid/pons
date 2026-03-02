@@ -11,6 +11,7 @@ export const accountStatus = v.union(
 	v.literal("registering"), // POST /register in flight
 	v.literal("pending_name_review"), // Registered, display name under Meta review
 	v.literal("active"), // Fully operational
+	v.literal("detached"), // Intentionally disconnected from WhatsApp Cloud
 	v.literal("name_declined"), // Meta rejected display name
 	v.literal("failed"), // Something broke (see failedAtStep)
 );
@@ -60,6 +61,7 @@ export default defineSchema({
 	//   existing path:  → active (skip everything)
 	//   byon/twilio:    adding_number → code_requested → verifying_code
 	//                     → registering → pending_name_review → active
+	//   detached state: disconnected intentionally; can be re-attached via setup
 	//   any step can  → failed (retryable from failedAtStep)
 	//   name review   → name_declined (terminal unless user re-submits)
 	//
@@ -73,6 +75,7 @@ export default defineSchema({
 	// │ registering         │ set          │ cleared  │ set        │ —           │
 	// │ pending_name_review │ set          │ cleared  │ set        │ —           │
 	// │ active              │ set          │ cleared  │ set        │ —           │
+	// │ detached            │ maybe        │ —        │ —          │ —           │
 	// │ name_declined       │ set          │ cleared  │ set        │ —           │
 	// │ failed              │ maybe        │ maybe    │ maybe      │ set         │
 	// └─────────────────────┴──────────────┴──────────┴────────────┴─────────────┘
