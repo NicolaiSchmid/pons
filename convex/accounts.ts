@@ -568,6 +568,135 @@ export const update = mutation({
 	},
 });
 
+/**
+ * Prepare an existing account for re-attaching a number via OTP verification.
+ *
+ * This keeps all conversations/messages/contacts but resets the Meta connection
+ * fields so the same account can be linked to a newly recreated number.
+ */
+export const prepareReattachByon = mutation({
+	args: {
+		accountId: v.id("accounts"),
+		wabaId: v.string(),
+		phoneNumber: v.string(),
+		displayName: v.string(),
+		countryCode: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Unauthorized");
+
+		const membership = await ctx.db
+			.query("accountMembers")
+			.withIndex("by_account_user", (q) =>
+				q.eq("accountId", args.accountId).eq("userId", userId),
+			)
+			.first();
+
+		if (!membership || membership.role === "member") {
+			throw new Error("Unauthorized");
+		}
+
+		const account = await ctx.db.get(args.accountId);
+		if (!account) throw new Error("Account not found");
+
+		await ctx.db.patch(args.accountId, {
+			wabaId: args.wabaId,
+			phoneNumber: args.phoneNumber,
+			displayName: args.displayName,
+			countryCode: args.countryCode,
+			status: "adding_number",
+			numberProvider: "byon",
+			phoneNumberId: undefined,
+			twilioCredentialsId: undefined,
+			twilioPhoneNumberSid: undefined,
+			verificationCode: undefined,
+			twoStepPin: undefined,
+			failedAtStep: undefined,
+			failedError: undefined,
+			failedAt: undefined,
+			nameReviewLastCheckedAt: undefined,
+			nameReviewCheckCount: undefined,
+			nameReviewMaxChecks: undefined,
+			nameReviewScheduledJobId: undefined,
+			nameReviewNotifiedAt: undefined,
+		});
+
+		return args.accountId;
+	},
+});
+
+/**
+ * Attach an existing phone number ID to an existing account without creating
+ * a brand new account record.
+ */
+export const attachExistingConnection = mutation({
+	args: {
+		accountId: v.id("accounts"),
+		wabaId: v.string(),
+		phoneNumberId: v.string(),
+		phoneNumber: v.string(),
+		displayName: v.string(),
+		isRegistered: v.optional(v.boolean()),
+	},
+	handler: async (ctx, args) => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Unauthorized");
+
+		const membership = await ctx.db
+			.query("accountMembers")
+			.withIndex("by_account_user", (q) =>
+				q.eq("accountId", args.accountId).eq("userId", userId),
+			)
+			.first();
+
+		if (!membership || membership.role === "member") {
+			throw new Error("Unauthorized");
+		}
+
+		const account = await ctx.db.get(args.accountId);
+		if (!account) throw new Error("Account not found");
+
+		const existing = await ctx.db
+			.query("accounts")
+			.withIndex("by_phone_number_id", (q) =>
+				q.eq("phoneNumberId", args.phoneNumberId),
+			)
+			.first();
+		if (existing && existing._id !== args.accountId) {
+			throw new Error(
+				"This phone number ID is already connected to another account",
+			);
+		}
+
+		const needsRegistration = args.isRegistered === false;
+
+		await ctx.db.patch(args.accountId, {
+			wabaId: args.wabaId,
+			phoneNumberId: args.phoneNumberId,
+			phoneNumber: args.phoneNumber,
+			displayName: args.displayName,
+			status: needsRegistration ? "registering" : "active",
+			numberProvider: "existing",
+			countryCode: undefined,
+			twilioCredentialsId: undefined,
+			twilioPhoneNumberSid: undefined,
+			verificationCode: undefined,
+			twoStepPin: undefined,
+			failedAtStep: undefined,
+			failedError: undefined,
+			failedAt: undefined,
+			nameReviewLastCheckedAt: undefined,
+			nameReviewCheckCount: undefined,
+			nameReviewMaxChecks: undefined,
+			nameReviewScheduledJobId: undefined,
+			nameReviewNotifiedAt: needsRegistration ? undefined : Date.now(),
+		});
+
+		return args.accountId;
+	},
+});
+
 /** Delete an account (cascade deletes all related data) */
 export const remove = mutation({
 	args: { accountId: v.id("accounts") },

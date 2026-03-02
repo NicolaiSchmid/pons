@@ -164,7 +164,9 @@ export function AccountPageClient({
 						>
 							Meta Business Suite
 						</a>
-						.
+						. If Meta forces you to recreate the number, use Detach / Reattach
+						Meta Connection in settings to swap the connection without losing
+						data.
 					</p>
 				</div>
 				<div className="flex items-center gap-2">
