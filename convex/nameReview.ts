@@ -13,7 +13,8 @@
  */
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { internalAction } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
+import { auth } from "./auth";
 import { metaFetch } from "./metaFetch";
 
 const POLL_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
@@ -33,8 +34,12 @@ export const checkNameStatus = internalAction({
 		});
 		if (!account) return;
 
-		// Only poll for accounts in pending_name_review
-		if (account.status !== "pending_name_review") return;
+		// Only poll for accounts in states tied to name review lifecycle
+		if (
+			account.status !== "pending_name_review" &&
+			account.status !== "name_declined"
+		)
+			return;
 
 		if (!account.phoneNumberId) {
 			console.error(
@@ -92,11 +97,19 @@ export const checkNameStatus = internalAction({
 			}
 
 			if (nameStatus === "declined" || nameStatus === "rejected") {
-				await ctx.runMutation(internal.accounts.transitionToNameDeclined, {
-					accountId: args.accountId,
-				});
+				if (account.status !== "name_declined") {
+					await ctx.runMutation(internal.accounts.transitionToNameDeclined, {
+						accountId: args.accountId,
+					});
+				}
 				// TODO: Send email notification to user
 				return;
+			}
+
+			if (account.status === "name_declined") {
+				await ctx.runMutation(internal.accounts.transitionToPendingNameReview, {
+					accountId: args.accountId,
+				});
 			}
 
 			// Still pending — schedule next check
@@ -162,5 +175,45 @@ export const retriggerNameReview = internalAction({
 		await ctx.scheduler.runAfter(0, internal.nameReview.checkNameStatus, {
 			accountId: args.accountId,
 		});
+	},
+});
+
+/**
+ * User-triggered immediate name status check.
+ * Useful after re-submitting a display name in Meta Business Suite.
+ */
+export const recheckNameStatus = action({
+	args: {
+		accountId: v.id("accounts"),
+	},
+	handler: async (ctx, args) => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Unauthorized");
+
+		const account = await ctx.runQuery(internal.accounts.getInternal, {
+			accountId: args.accountId,
+		});
+		if (!account) throw new Error("Account not found");
+
+		const isMember = await ctx.runQuery(internal.accounts.checkMembership, {
+			accountId: args.accountId,
+			userId,
+		});
+		if (!isMember) throw new Error("Unauthorized");
+
+		if (
+			account.status !== "pending_name_review" &&
+			account.status !== "name_declined"
+		) {
+			throw new Error(
+				`Cannot re-check name status in status: ${account.status}`,
+			);
+		}
+
+		await ctx.runAction(internal.nameReview.checkNameStatus, {
+			accountId: args.accountId,
+		});
+
+		return { success: true };
 	},
 });

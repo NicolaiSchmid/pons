@@ -1,6 +1,11 @@
 "use client";
 
-import { type Preloaded, useMutation, usePreloadedQuery } from "convex/react";
+import {
+	type Preloaded,
+	useAction,
+	useMutation,
+	usePreloadedQuery,
+} from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import {
 	Check,
@@ -123,6 +128,7 @@ function AccountSettingsContent({
 	const updateWebhookTarget = useMutation(api.webhookTargets.update);
 	const removeWebhookTarget = useMutation(api.webhookTargets.remove);
 	const rotateWebhookSecret = useMutation(api.webhookTargets.rotateSecret);
+	const recheckNameStatus = useAction(api.nameReview.recheckNameStatus);
 	const router = useRouter();
 
 	const [saving, setSaving] = useState(false);
@@ -146,6 +152,7 @@ function AccountSettingsContent({
 		useState<Id<"webhookTargets"> | null>(null);
 	const [editingTargetEvents, setEditingTargetEvents] = useState<string[]>([]);
 	const [updatingTargetEvents, setUpdatingTargetEvents] = useState(false);
+	const [recheckingNameStatus, setRecheckingNameStatus] = useState(false);
 
 	const [formData, setFormData] = useState({
 		name: "",
@@ -373,6 +380,20 @@ function AccountSettingsContent({
 		color: "text-muted-foreground",
 	};
 
+	const handleRecheckNameStatus = async () => {
+		setRecheckingNameStatus(true);
+		try {
+			await recheckNameStatus({ accountId });
+			toast.success("Checked Meta name status");
+		} catch (err) {
+			toast.error(
+				err instanceof Error ? err.message : "Failed to check name status",
+			);
+		} finally {
+			setRecheckingNameStatus(false);
+		}
+	};
+
 	return (
 		<div className="mx-auto h-full max-w-lg overflow-y-auto p-6">
 			<div className="mb-6">
@@ -417,6 +438,49 @@ function AccountSettingsContent({
 								Meta typically takes 1-3 days to review. Check{" "}
 								{account.nameReviewCheckCount ?? 0} of 72 completed.
 							</p>
+							<Button
+								className="mt-2 h-7 gap-1.5"
+								disabled={recheckingNameStatus}
+								onClick={handleRecheckNameStatus}
+								size="sm"
+								variant="outline"
+							>
+								<RefreshCcw
+									className={cn(
+										"h-3.5 w-3.5",
+										recheckingNameStatus && "animate-spin",
+									)}
+								/>
+								Check now
+							</Button>
+						</div>
+					</div>
+				)}
+
+				{account.status === "name_declined" && (
+					<div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm">
+						<XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+						<div>
+							<p className="font-medium">Display name declined by Meta</p>
+							<p className="mt-0.5 text-xs opacity-80">
+								After submitting a new name in Meta Business Suite, use Check
+								now to refresh this status.
+							</p>
+							<Button
+								className="mt-2 h-7 gap-1.5"
+								disabled={recheckingNameStatus}
+								onClick={handleRecheckNameStatus}
+								size="sm"
+								variant="outline"
+							>
+								<RefreshCcw
+									className={cn(
+										"h-3.5 w-3.5",
+										recheckingNameStatus && "animate-spin",
+									)}
+								/>
+								Check now
+							</Button>
 						</div>
 					</div>
 				)}

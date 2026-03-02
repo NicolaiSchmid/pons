@@ -1,6 +1,11 @@
 "use client";
 
-import { type Preloaded, useMutation, usePreloadedQuery } from "convex/react";
+import {
+	type Preloaded,
+	useAction,
+	useMutation,
+	usePreloadedQuery,
+} from "convex/react";
 import {
 	Clock,
 	MessageSquare,
@@ -27,7 +32,9 @@ export function AccountPageClient({
 }) {
 	const accounts = usePreloadedQuery(preloadedAccounts);
 	const retryFromFailed = useMutation(apiRef.accounts.retryFromFailed);
+	const recheckNameStatus = useAction(apiRef.nameReview.recheckNameStatus);
 	const [retrying, setRetrying] = useState(false);
+	const [recheckingNameStatus, setRecheckingNameStatus] = useState(false);
 
 	const account = accounts?.find((a) => a?._id === accountId);
 
@@ -72,6 +79,17 @@ export function AccountPageClient({
 			// Error surfaces via reactive query
 		} finally {
 			setRetrying(false);
+		}
+	};
+
+	const handleRecheckNameStatus = async () => {
+		setRecheckingNameStatus(true);
+		try {
+			await recheckNameStatus({ accountId });
+		} catch {
+			// Error surfaces via reactive query
+		} finally {
+			setRecheckingNameStatus(false);
 		}
 	};
 
@@ -149,12 +167,27 @@ export function AccountPageClient({
 						.
 					</p>
 				</div>
-				<Link href={`/dashboard/${accountId}/settings`}>
-					<Button className="gap-1.5" size="sm" variant="outline">
-						<Settings className="h-3.5 w-3.5" />
-						View Details
+				<div className="flex items-center gap-2">
+					<Button
+						className="gap-1.5 bg-pons-accent text-primary-foreground hover:bg-pons-accent-bright"
+						disabled={recheckingNameStatus}
+						onClick={handleRecheckNameStatus}
+						size="sm"
+					>
+						{recheckingNameStatus ? (
+							<RefreshCw className="h-3.5 w-3.5 animate-spin" />
+						) : (
+							<RefreshCw className="h-3.5 w-3.5" />
+						)}
+						Check Again
 					</Button>
-				</Link>
+					<Link href={`/dashboard/${accountId}/settings`}>
+						<Button className="gap-1.5" size="sm" variant="outline">
+							<Settings className="h-3.5 w-3.5" />
+							View Details
+						</Button>
+					</Link>
+				</div>
 			</div>
 		);
 	}

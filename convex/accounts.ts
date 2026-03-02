@@ -72,7 +72,7 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 	pending_name_review: ["active", "name_declined"],
 	// Terminal states — no transitions out (except retry from failed)
 	active: [],
-	name_declined: [],
+	name_declined: ["pending_name_review", "active"],
 	failed: ["adding_number", "code_requested", "verifying_code", "registering"],
 };
 
