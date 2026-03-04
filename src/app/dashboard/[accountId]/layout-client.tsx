@@ -70,7 +70,7 @@ const PonsSidebarContent: FC<{
 	return (
 		<div className="flex h-full flex-col">
 			{/* Account selector aligned with fixed sidebar toggle */}
-			<div className="flex h-11 items-center justify-between px-3 pl-11">
+			<div className="mt-1.5 flex h-11 items-center justify-between px-3 pl-11">
 				<AccountSelectorPreloaded
 					onAddAccount={() => router.push("/dashboard/setup")}
 					onSelectAccount={(id) => router.push(`/dashboard/${id}`)}
@@ -168,7 +168,7 @@ const FixedSidebarButton: FC = () => {
 	const isOpen = isMobile ? openMobile : open;
 
 	return (
-		<div className="fixed top-1.5 left-2 z-50">
+		<div className="fixed top-3 left-2 z-50">
 			<motion.div
 				animate={{
 					backgroundColor: isOpen ? "transparent" : "var(--sidebar)",
@@ -177,12 +177,12 @@ const FixedSidebarButton: FC = () => {
 				transition={{ duration: 0.15, ease: EASE }}
 			>
 				<Button
-					className="h-8 w-8 p-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+					className="h-10 w-10 p-1.5 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
 					onClick={toggleSidebar}
 					size="icon"
 					variant="ghost"
 				>
-					<PonsMark className="h-[18px] w-[18px]" />
+					<PonsMark className="h-6 w-6" />
 					<span className="sr-only">Toggle Sidebar</span>
 				</Button>
 			</motion.div>
