@@ -75,7 +75,7 @@ const PonsSidebarContent: FC<{
 	return (
 		<div className="flex h-full flex-col">
 			{/* Account selector aligned with fixed sidebar toggle */}
-			<div className="flex min-h-11 items-center justify-between px-3 py-3 pl-11">
+			<div className="flex h-11 items-center justify-between px-3 pl-11">
 				<AccountSelectorPreloaded
 					onAddAccount={() => router.push("/dashboard/setup")}
 					onSelectAccount={(id) => router.push(`/dashboard/${id}`)}
@@ -84,7 +84,7 @@ const PonsSidebarContent: FC<{
 				/>
 				<Link href={`/dashboard/${accountId}/settings`}>
 					<Button
-						className="h-7 w-7 text-muted-foreground hover:text-foreground"
+						className="h-8 w-8 text-muted-foreground hover:text-foreground"
 						size="icon"
 						variant="ghost"
 					>

@@ -42,7 +42,7 @@ function AccountSelectorContent({
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
 				<Button
-					className="h-7 gap-1.5 px-2 text-muted-foreground text-xs hover:text-foreground"
+					className="h-8 gap-1.5 px-2.5 text-muted-foreground text-xs hover:text-foreground"
 					size="sm"
 					variant="ghost"
 				>
