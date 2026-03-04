@@ -484,6 +484,16 @@ function AccountSettingsContent({
 					? { text: "Needs attention", color: "text-yellow-600" }
 					: { text: "Unchecked", color: "text-muted-foreground" };
 
+	const recommendedActions = account.connectionHealthActions ?? [];
+	const showRepairSubscriptions = recommendedActions.includes(
+		"repair_subscriptions",
+	);
+	const showReauth = recommendedActions.includes("reauth");
+	const showBusinessVerification = recommendedActions.includes(
+		"check_business_verification",
+	);
+	const showAssetTasks = recommendedActions.includes("check_asset_tasks");
+
 	return (
 		<div className="mx-auto h-full max-w-lg overflow-y-auto p-6">
 			<div className="mb-6">
@@ -1077,26 +1087,54 @@ function AccountSettingsContent({
 								)}
 								Check now
 							</Button>
-							<Button
-								disabled={repairingConnectionHealth}
-								onClick={handleRepairConnectionHealth}
-								size="sm"
-								variant="secondary"
-							>
-								{repairingConnectionHealth ? (
-									<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-								) : null}
-								Repair subscriptions
-							</Button>
-							<Button
-								onClick={() => {
-									window.location.href = "/reauth";
-								}}
-								size="sm"
-								variant="ghost"
-							>
-								Re-auth with Meta
-							</Button>
+							{showRepairSubscriptions && (
+								<Button
+									disabled={repairingConnectionHealth}
+									onClick={handleRepairConnectionHealth}
+									size="sm"
+									variant="secondary"
+								>
+									{repairingConnectionHealth ? (
+										<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+									) : null}
+									Repair subscriptions
+								</Button>
+							)}
+							{showReauth && (
+								<Button
+									onClick={() => {
+										window.location.href = "/reauth";
+									}}
+									size="sm"
+									variant="ghost"
+								>
+									Re-auth with Meta
+								</Button>
+							)}
+							{showBusinessVerification && (
+								<Button asChild size="sm" variant="ghost">
+									<a
+										href="https://business.facebook.com/settings/security"
+										rel="noreferrer"
+										target="_blank"
+									>
+										Complete business verification
+										<ExternalLink className="ml-2 h-3.5 w-3.5" />
+									</a>
+								</Button>
+							)}
+							{showAssetTasks && (
+								<Button asChild size="sm" variant="ghost">
+									<a
+										href="https://business.facebook.com/settings/whatsapp-business-accounts"
+										rel="noreferrer"
+										target="_blank"
+									>
+										Review asset tasks
+										<ExternalLink className="ml-2 h-3.5 w-3.5" />
+									</a>
+								</Button>
+							)}
 						</div>
 					</div>
 
