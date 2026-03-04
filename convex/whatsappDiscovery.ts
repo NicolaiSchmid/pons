@@ -269,6 +269,41 @@ export const subscribeWaba = action({
 });
 
 /**
+ * Unsubscribe the app from a WABA's webhook stream.
+ *
+ * Meta's endpoint expects the app id together with an access token.
+ */
+export const unsubscribeWaba = action({
+	args: { wabaId: v.string() },
+	handler: async (ctx, { wabaId }): Promise<{ success: boolean }> => {
+		const userId = await auth.getUserId(ctx);
+		if (!userId) throw new Error("Not authenticated");
+
+		const token = await ctx.runQuery(
+			internal.whatsappDiscovery.getFacebookToken,
+			{ userId },
+		);
+		if (!token)
+			throw new Error("No Facebook token found. Please sign in again.");
+
+		const appId = process.env.FACEBOOK_APP_ID;
+		if (!appId) throw new Error("Missing env var: FACEBOOK_APP_ID");
+
+		const data = await metaFetch<{ success: boolean }>(
+			`${wabaId}/subscribed_apps`,
+			token,
+			{
+				method: "DELETE",
+				body: { app_id: appId },
+				tokenInBody: true,
+			},
+		);
+
+		return { success: data.success === true };
+	},
+});
+
+/**
  * Register the app-level webhook endpoint with Meta.
  * Uses an App Access Token (app_id|app_secret) to call POST /{app-id}/subscriptions.
  * This sets the callback URL and verify token for whatsapp_business_account webhooks.

@@ -131,6 +131,7 @@ function AccountSettingsContent({
 	const removeWebhookTarget = useMutation(api.webhookTargets.remove);
 	const rotateWebhookSecret = useMutation(api.webhookTargets.rotateSecret);
 	const recheckNameStatus = useAction(api.nameReview.recheckNameStatus);
+	const unsubscribeWaba = useAction(api.whatsappDiscovery.unsubscribeWaba);
 	const detachCloudConfiguration = useMutation(
 		api.accounts.detachCloudConfiguration,
 	);
@@ -404,6 +405,19 @@ function AccountSettingsContent({
 	const handleDetachCloud = async () => {
 		setDetachingCloud(true);
 		try {
+			if (account.wabaId) {
+				try {
+					await unsubscribeWaba({ wabaId: account.wabaId });
+				} catch (err) {
+					console.warn("Failed to unsubscribe WABA on detach", err);
+					toast.error(
+						err instanceof Error
+							? err.message
+							: "Failed to unsubscribe app from WABA",
+					);
+				}
+			}
+
 			await detachCloudConfiguration({ accountId });
 			setShowAttachFlow(false);
 			toast.success("Detached from WhatsApp Cloud configuration");
