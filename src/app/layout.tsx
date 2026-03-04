@@ -25,6 +25,7 @@ export const metadata: Metadata = {
 	publisher: "Pons",
 	category: "developer tools",
 	icons: [
+		{ rel: "icon", type: "image/svg+xml", url: "/favicon.svg" },
 		{ rel: "icon", type: "image/svg+xml", url: "/pons-icon.svg" },
 		{ rel: "icon", url: "/favicon.ico" },
 	],
