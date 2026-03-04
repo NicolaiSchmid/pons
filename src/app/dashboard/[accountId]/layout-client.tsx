@@ -27,6 +27,7 @@ import type { Id } from "../../../../convex/_generated/dataModel";
 
 /** Statuses that allow normal messaging */
 const USABLE_STATUSES = new Set(["active", "pending_name_review"]);
+const LAST_ACCOUNT_COOKIE = "pons_last_account_id";
 
 const SIDEBAR_WIDTH = 320;
 const EASE = [0.23, 1, 0.32, 1] as const;
@@ -410,6 +411,10 @@ export function AccountLayoutClient({
 	const isUsable = selectedAccount
 		? USABLE_STATUSES.has(selectedAccount.status)
 		: false;
+
+	useEffect(() => {
+		document.cookie = `${LAST_ACCOUNT_COOKIE}=${accountId}; Path=/; Max-Age=31536000; SameSite=Lax`;
+	}, [accountId]);
 
 	return (
 		<SidebarProvider

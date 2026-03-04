@@ -5,10 +5,18 @@ import {
 } from "@convex-dev/auth/nextjs/server";
 
 const isProtectedRoute = createRouteMatcher(["/dashboard(.*)"]);
+const LAST_ACCOUNT_COOKIE = "pons_last_account_id";
 
 export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
 	if (isProtectedRoute(request) && !(await convexAuth.isAuthenticated())) {
 		return nextjsMiddlewareRedirect(request, "/");
+	}
+
+	if (request.nextUrl.pathname === "/dashboard") {
+		const lastAccountId = request.cookies.get(LAST_ACCOUNT_COOKIE)?.value;
+		if (lastAccountId && !lastAccountId.includes("/")) {
+			return nextjsMiddlewareRedirect(request, `/dashboard/${lastAccountId}`);
+		}
 	}
 });
 
