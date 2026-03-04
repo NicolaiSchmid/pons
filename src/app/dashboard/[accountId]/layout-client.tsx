@@ -168,7 +168,7 @@ const FixedSidebarButton: FC = () => {
 	const isOpen = isMobile ? openMobile : open;
 
 	return (
-		<div className="fixed top-3 left-2 z-50">
+		<div className="fixed top-1.5 left-2 z-50">
 			<motion.div
 				animate={{
 					backgroundColor: isOpen ? "transparent" : "var(--sidebar)",
