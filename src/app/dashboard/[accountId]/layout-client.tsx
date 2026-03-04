@@ -15,7 +15,6 @@ import { useParams, usePathname, useRouter } from "next/navigation";
 import { type FC, useEffect } from "react";
 import { AccountSelectorPreloaded } from "@/components/AccountSelector";
 import { ConversationListPreloaded } from "@/components/ConversationList";
-import { PonsMark } from "@/components/PonsMark";
 import { Button } from "@/components/ui/button";
 import {
 	SidebarInset,
@@ -76,16 +75,13 @@ const PonsSidebarContent: FC<{
 	return (
 		<div className="flex h-full flex-col">
 			{/* Account selector aligned with fixed sidebar toggle */}
-			<div className="mt-2.5 flex h-11 items-center justify-between px-3 pl-11">
-				<div className="flex min-w-0 items-center gap-2">
-					<PonsMark className="h-6 w-6" />
-					<AccountSelectorPreloaded
-						onAddAccount={() => router.push("/dashboard/setup")}
-						onSelectAccount={(id) => router.push(`/dashboard/${id}`)}
-						preloadedAccounts={preloadedAccounts}
-						selectedAccountId={accountId}
-					/>
-				</div>
+			<div className="mt-2 flex h-11 items-center justify-between px-3 pl-11">
+				<AccountSelectorPreloaded
+					onAddAccount={() => router.push("/dashboard/setup")}
+					onSelectAccount={(id) => router.push(`/dashboard/${id}`)}
+					preloadedAccounts={preloadedAccounts}
+					selectedAccountId={accountId}
+				/>
 				<Link href={`/dashboard/${accountId}/settings`}>
 					<Button
 						className="h-8 w-8 text-muted-foreground hover:text-foreground"
