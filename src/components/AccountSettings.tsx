@@ -42,7 +42,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -52,6 +51,7 @@ interface AccountSettingsPreloadedProps {
 	preloadedAccount: Preloaded<typeof api.accounts.get>;
 	preloadedMembers: Preloaded<typeof api.accounts.listMembers>;
 	preloadedWebhookTargets: Preloaded<typeof api.webhookTargets.listByAccount>;
+	section: "general" | "webhooks" | "whatsapp_settings" | "danger";
 }
 
 type WebhookTargetItem = FunctionReturnType<
@@ -80,12 +80,20 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 	failed: { label: "Failed", color: "text-red-400" },
 };
 
+const SECTION_LABELS = {
+	general: "General",
+	webhooks: "Webhooks",
+	whatsapp_settings: "WhatsApp Settings",
+	danger: "Danger",
+} as const;
+
 /** SSR version: uses usePreloadedQuery for instant render with real-time takeover */
 export function AccountSettingsPreloaded({
 	accountId,
 	preloadedAccount,
 	preloadedMembers,
 	preloadedWebhookTargets,
+	section,
 }: AccountSettingsPreloadedProps) {
 	const account = usePreloadedQuery(preloadedAccount);
 	const members = usePreloadedQuery(preloadedMembers);
@@ -104,6 +112,7 @@ export function AccountSettingsPreloaded({
 			account={account}
 			accountId={accountId}
 			members={members ?? []}
+			section={section}
 			webhookTargets={webhookTargets ?? []}
 		/>
 	);
@@ -114,11 +123,13 @@ function AccountSettingsContent({
 	accountId,
 	account,
 	members,
+	section,
 	webhookTargets,
 }: {
 	accountId: Id<"accounts">;
 	account: NonNullable<FunctionReturnType<typeof api.accounts.get>>;
 	members: FunctionReturnType<typeof api.accounts.listMembers>;
+	section: "general" | "webhooks" | "whatsapp_settings" | "danger";
 	webhookTargets: FunctionReturnType<typeof api.webhookTargets.listByAccount>;
 }) {
 	const updateAccount = useMutation(api.accounts.update);
@@ -499,7 +510,7 @@ function AccountSettingsContent({
 			<div className="mb-6">
 				<h1 className="flex items-center gap-2 font-display font-semibold text-lg">
 					<Settings className="h-4 w-4 text-pons-accent" />
-					Account Settings
+					{SECTION_LABELS[section]}
 				</h1>
 				<p className="mt-1 text-muted-foreground text-sm">
 					View and update your WhatsApp Business account configuration.
@@ -507,764 +518,768 @@ function AccountSettingsContent({
 			</div>
 
 			<div className="space-y-6">
-				{/* Status badge */}
-				<div className="flex items-center gap-2 rounded-lg border bg-card p-3">
-					<span className="text-muted-foreground text-xs">Status</span>
-					<span className={cn("ml-auto font-medium text-xs", statusInfo.color)}>
-						{statusInfo.label}
-					</span>
-				</div>
-
-				{/* Failure info */}
-				{account.status === "failed" && account.failedError && (
-					<div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm">
-						<XCircle className="mt-0.5 h-4 w-4 shrink-0" />
-						<div>
-							<p className="font-medium">
-								Failed at: {account.failedAtStep?.replace(/_/g, " ")}
-							</p>
-							<p className="mt-0.5 text-xs opacity-80">{account.failedError}</p>
-						</div>
-					</div>
-				)}
-
-				{/* Name review progress */}
-				{account.status === "pending_name_review" && (
-					<div className="flex items-start gap-2 rounded-md bg-yellow-500/10 px-3 py-2 text-sm text-yellow-600">
-						<Clock className="mt-0.5 h-4 w-4 shrink-0" />
-						<div>
-							<p className="font-medium">Display name under review</p>
-							<p className="mt-0.5 text-xs opacity-80">
-								Meta typically takes 1-3 days to review. Check{" "}
-								{account.nameReviewCheckCount ?? 0} of 72 completed.
-							</p>
-							<Button
-								className="mt-2 h-7 gap-1.5"
-								disabled={recheckingNameStatus}
-								onClick={handleRecheckNameStatus}
-								size="sm"
-								variant="outline"
+				{section === "general" && (
+					<>
+						<div className="flex items-center gap-2 rounded-lg border bg-card p-3">
+							<span className="text-muted-foreground text-xs">Status</span>
+							<span
+								className={cn("ml-auto font-medium text-xs", statusInfo.color)}
 							>
-								<RefreshCcw
-									className={cn(
-										"h-3.5 w-3.5",
-										recheckingNameStatus && "animate-spin",
-									)}
-								/>
-								Check now
-							</Button>
+								{statusInfo.label}
+							</span>
 						</div>
-					</div>
-				)}
 
-				{account.status === "name_declined" && (
-					<div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm">
-						<XCircle className="mt-0.5 h-4 w-4 shrink-0" />
-						<div>
-							<p className="font-medium">Display name declined by Meta</p>
-							<p className="mt-0.5 text-xs opacity-80">
-								After submitting a new name in Meta Business Suite, use Check
-								now to refresh this status.
-							</p>
-							<Button
-								className="mt-2 h-7 gap-1.5"
-								disabled={recheckingNameStatus}
-								onClick={handleRecheckNameStatus}
-								size="sm"
-								variant="outline"
-							>
-								<RefreshCcw
-									className={cn(
-										"h-3.5 w-3.5",
-										recheckingNameStatus && "animate-spin",
-									)}
-								/>
-								Check now
-							</Button>
-						</div>
-					</div>
-				)}
-
-				{/* Read-only identifiers */}
-				<div className="grid gap-3 rounded-lg border bg-card p-4">
-					<ReadOnlyField label="WABA ID" mono value={account.wabaId} />
-					{account.phoneNumberId && (
-						<ReadOnlyField
-							label="Phone Number ID"
-							mono
-							value={account.phoneNumberId}
-						/>
-					)}
-					<ReadOnlyField
-						href={`https://business.facebook.com/latest/whatsapp_manager/phone_numbers?asset_id=${account.wabaId}`}
-						label="Phone Number"
-						value={account.phoneNumber}
-					/>
-					<ReadOnlyField label="Display Name" value={account.displayName} />
-					<ReadOnlyField label="Provider" value={account.numberProvider} />
-				</div>
-
-				<Separator />
-
-				{/* Editable fields */}
-				<form className="space-y-4" onSubmit={handleSave}>
-					<div className="space-y-2">
-						<Label htmlFor="settings-name">Account Name</Label>
-						<Input
-							id="settings-name"
-							onChange={(e) => updateField("name", e.target.value)}
-							value={formData.name}
-						/>
-					</div>
-
-					{error && (
-						<div className="rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm">
-							{error}
-						</div>
-					)}
-
-					<Button
-						className="w-full bg-pons-accent text-primary-foreground hover:bg-pons-accent-bright"
-						disabled={saving}
-						size="default"
-						type="submit"
-					>
-						{saving ? (
-							<>
-								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-								Saving...
-							</>
-						) : saved ? (
-							<>
-								<Check className="mr-2 h-4 w-4" />
-								Saved
-							</>
-						) : (
-							"Save Changes"
-						)}
-					</Button>
-				</form>
-
-				<Separator />
-
-				{/* Members section */}
-				<div className="space-y-4">
-					<Label className="text-sm">Members</Label>
-
-					<div className="space-y-2">
-						{members?.map((member) => (
-							<div
-								className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5"
-								key={member.userId}
-							>
-								{member.image ? (
-									<Image
-										alt=""
-										className="h-7 w-7 rounded-full"
-										height={28}
-										src={member.image}
-										width={28}
-									/>
-								) : (
-									<div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground">
-										<User className="h-3.5 w-3.5" />
-									</div>
-								)}
-								<div className="min-w-0 flex-1">
-									<p className="truncate text-foreground text-sm leading-none">
-										{member.name ?? "Unknown"}
+						{account.status === "failed" && account.failedError && (
+							<div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm">
+								<XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+								<div>
+									<p className="font-medium">
+										Failed at: {account.failedAtStep?.replace(/_/g, " ")}
 									</p>
-									{member.email && (
-										<p className="mt-0.5 truncate text-muted-foreground text-xs">
-											{member.email}
-										</p>
-									)}
+									<p className="mt-0.5 text-xs opacity-80">
+										{account.failedError}
+									</p>
 								</div>
+							</div>
+						)}
 
-								{member.role === "owner" ? (
-									<span className="flex shrink-0 items-center gap-1 rounded-md bg-pons-accent-surface px-2 py-1 text-pons-accent text-xs">
-										<Crown className="h-3 w-3" />
-										Owner
-									</span>
-								) : (
-									<div className="relative flex shrink-0 items-center gap-1">
-										<button
+						{account.status === "pending_name_review" && (
+							<div className="flex items-start gap-2 rounded-md bg-yellow-500/10 px-3 py-2 text-sm text-yellow-600">
+								<Clock className="mt-0.5 h-4 w-4 shrink-0" />
+								<div>
+									<p className="font-medium">Display name under review</p>
+									<p className="mt-0.5 text-xs opacity-80">
+										Meta typically takes 1-3 days to review. Check{" "}
+										{account.nameReviewCheckCount ?? 0} of 72 completed.
+									</p>
+									<Button
+										className="mt-2 h-7 gap-1.5"
+										disabled={recheckingNameStatus}
+										onClick={handleRecheckNameStatus}
+										size="sm"
+										variant="outline"
+									>
+										<RefreshCcw
 											className={cn(
-												"flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors",
-												member.role === "admin"
-													? "bg-muted text-foreground"
-													: "bg-muted text-muted-foreground",
-												"hover:bg-accent",
+												"h-3.5 w-3.5",
+												recheckingNameStatus && "animate-spin",
 											)}
-											onClick={() =>
-												setRoleDropdownOpen(
-													roleDropdownOpen === member.userId
-														? null
-														: member.userId,
-												)
-											}
-											type="button"
-										>
-											{member.role === "admin" ? (
-												<Shield className="h-3 w-3" />
-											) : (
-												<User className="h-3 w-3" />
-											)}
-											{member.role === "admin" ? "Admin" : "Member"}
-											<ChevronDown className="h-3 w-3" />
-										</button>
+										/>
+										Check now
+									</Button>
+								</div>
+							</div>
+						)}
 
-										{roleDropdownOpen === member.userId && (
-											<div className="absolute top-full right-0 z-10 mt-1 w-36 rounded-md border bg-popover p-1 shadow-md">
+						{account.status === "name_declined" && (
+							<div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm">
+								<XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+								<div>
+									<p className="font-medium">Display name declined by Meta</p>
+									<p className="mt-0.5 text-xs opacity-80">
+										After submitting a new name in Meta Business Suite, use
+										Check now to refresh this status.
+									</p>
+									<Button
+										className="mt-2 h-7 gap-1.5"
+										disabled={recheckingNameStatus}
+										onClick={handleRecheckNameStatus}
+										size="sm"
+										variant="outline"
+									>
+										<RefreshCcw
+											className={cn(
+												"h-3.5 w-3.5",
+												recheckingNameStatus && "animate-spin",
+											)}
+										/>
+										Check now
+									</Button>
+								</div>
+							</div>
+						)}
+
+						<div className="grid gap-3 rounded-lg border bg-card p-4">
+							<ReadOnlyField label="WABA ID" mono value={account.wabaId} />
+							{account.phoneNumberId && (
+								<ReadOnlyField
+									label="Phone Number ID"
+									mono
+									value={account.phoneNumberId}
+								/>
+							)}
+							<ReadOnlyField
+								href={`https://business.facebook.com/latest/whatsapp_manager/phone_numbers?asset_id=${account.wabaId}`}
+								label="Phone Number"
+								value={account.phoneNumber}
+							/>
+							<ReadOnlyField label="Display Name" value={account.displayName} />
+							<ReadOnlyField label="Provider" value={account.numberProvider} />
+						</div>
+
+						<form className="space-y-4" onSubmit={handleSave}>
+							<div className="space-y-2">
+								<Label htmlFor="settings-name">Account Name</Label>
+								<Input
+									id="settings-name"
+									onChange={(e) => updateField("name", e.target.value)}
+									value={formData.name}
+								/>
+							</div>
+
+							{error && (
+								<div className="rounded-md bg-destructive/10 px-3 py-2 text-destructive text-sm">
+									{error}
+								</div>
+							)}
+
+							<Button
+								className="w-full bg-pons-accent text-primary-foreground hover:bg-pons-accent-bright"
+								disabled={saving}
+								size="default"
+								type="submit"
+							>
+								{saving ? (
+									<>
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+										Saving...
+									</>
+								) : saved ? (
+									<>
+										<Check className="mr-2 h-4 w-4" />
+										Saved
+									</>
+								) : (
+									"Save Changes"
+								)}
+							</Button>
+						</form>
+
+						<div className="space-y-4">
+							<Label className="text-sm">Members</Label>
+
+							<div className="space-y-2">
+								{members?.map((member) => (
+									<div
+										className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5"
+										key={member.userId}
+									>
+										{member.image ? (
+											<Image
+												alt=""
+												className="h-7 w-7 rounded-full"
+												height={28}
+												src={member.image}
+												width={28}
+											/>
+										) : (
+											<div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground">
+												<User className="h-3.5 w-3.5" />
+											</div>
+										)}
+										<div className="min-w-0 flex-1">
+											<p className="truncate text-foreground text-sm leading-none">
+												{member.name ?? "Unknown"}
+											</p>
+											{member.email && (
+												<p className="mt-0.5 truncate text-muted-foreground text-xs">
+													{member.email}
+												</p>
+											)}
+										</div>
+
+										{member.role === "owner" ? (
+											<span className="flex shrink-0 items-center gap-1 rounded-md bg-pons-accent-surface px-2 py-1 text-pons-accent text-xs">
+												<Crown className="h-3 w-3" />
+												Owner
+											</span>
+										) : (
+											<div className="relative flex shrink-0 items-center gap-1">
 												<button
-													className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
+													className={cn(
+														"flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors",
+														member.role === "admin"
+															? "bg-muted text-foreground"
+															: "bg-muted text-muted-foreground",
+														"hover:bg-accent",
+													)}
 													onClick={() =>
-														handleRoleChange(
-															member.userId as Id<"users">,
-															member.role === "admin" ? "member" : "admin",
+														setRoleDropdownOpen(
+															roleDropdownOpen === member.userId
+																? null
+																: member.userId,
 														)
 													}
 													type="button"
 												>
 													{member.role === "admin" ? (
-														<>
-															<User className="h-3.5 w-3.5" />
-															Make Member
-														</>
+														<Shield className="h-3 w-3" />
 													) : (
-														<>
-															<Shield className="h-3.5 w-3.5" />
-															Make Admin
-														</>
+														<User className="h-3 w-3" />
 													)}
+													{member.role === "admin" ? "Admin" : "Member"}
+													<ChevronDown className="h-3 w-3" />
 												</button>
-												<button
-													className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-destructive text-sm hover:bg-destructive/10"
-													onClick={() =>
-														handleRemoveMember(member.userId as Id<"users">)
-													}
-													type="button"
-												>
-													<Trash2 className="h-3.5 w-3.5" />
-													Remove
-												</button>
-											</div>
-										)}
-									</div>
-								)}
-							</div>
-						))}
-					</div>
 
-					<form
-						className="flex items-start gap-2"
-						onSubmit={handleInviteByEmail}
-					>
-						<div className="min-w-0 flex-1 space-y-1">
-							<div className="flex gap-2">
-								<Input
-									className="flex-1"
-									onChange={(e) => {
-										setInviteEmail(e.target.value);
-										setInviteError(null);
-									}}
-									placeholder="Email address"
-									type="email"
-									value={inviteEmail}
-								/>
-								<select
-									className="h-10 rounded-md border bg-muted px-2 text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-									onChange={(e) =>
-										setInviteRole(e.target.value as "admin" | "member")
-									}
-									value={inviteRole}
-								>
-									<option value="member">Member</option>
-									<option value="admin">Admin</option>
-								</select>
-							</div>
-							{inviteError && (
-								<p className="text-destructive text-xs">{inviteError}</p>
-							)}
-						</div>
-						<Button
-							className="shrink-0 gap-1.5"
-							disabled={inviting || !inviteEmail.trim()}
-							size="default"
-							type="submit"
-							variant="secondary"
-						>
-							{inviting ? (
-								<Loader2 className="h-3.5 w-3.5 animate-spin" />
-							) : (
-								<UserPlus className="h-3.5 w-3.5" />
-							)}
-							Invite
-						</Button>
-					</form>
-					<p className="text-muted-foreground text-xs">
-						Users must have signed in at least once before they can be invited.
-					</p>
-				</div>
-
-				<Separator />
-
-				<div className="space-y-4">
-					<p className="font-medium text-sm">Webhook Forwarding</p>
-					<p className="text-muted-foreground text-xs">
-						Forward inbound and outbound events for this number to external
-						webhook targets. Retries are automatic on non-200 responses.
-					</p>
-
-					<div className="space-y-2">
-						{webhookTargets.length === 0 ? (
-							<div className="rounded-lg border border-dashed px-3 py-4 text-center text-muted-foreground text-xs">
-								No webhook targets configured yet.
-							</div>
-						) : (
-							webhookTargets.map((target: WebhookTargetItem) => (
-								<div
-									className="space-y-2 rounded-lg border bg-card px-3 py-3"
-									key={target._id}
-								>
-									<div className="flex items-start justify-between gap-3">
-										<div className="min-w-0">
-											<p className="truncate font-medium text-sm">
-												{target.name}
-											</p>
-											<p className="truncate font-mono text-muted-foreground text-xs">
-												{target.url}
-											</p>
-										</div>
-										<button
-											className={cn(
-												"rounded-md px-2 py-1 text-xs",
-												target.enabled
-													? "bg-emerald-500/10 text-emerald-600"
-													: "bg-muted text-muted-foreground",
-											)}
-											onClick={() =>
-												handleToggleTarget(
-													target._id as Id<"webhookTargets">,
-													target.enabled,
-												)
-											}
-											type="button"
-										>
-											{target.enabled ? "Enabled" : "Disabled"}
-										</button>
-									</div>
-
-									<div className="flex flex-wrap gap-1.5">
-										{target.subscribedEvents.map((event: string) => (
-											<span
-												className="rounded-md bg-muted px-1.5 py-0.5 text-[11px]"
-												key={event}
-											>
-												{event}
-											</span>
-										))}
-									</div>
-
-									<div className="grid gap-1 text-[11px] text-muted-foreground">
-										<span>
-											Secret:{" "}
-											<span className="font-mono">
-												{target.signingSecretPreview}
-											</span>
-										</span>
-										<span>
-											Attempts/timeout: {target.maxAttempts} /{" "}
-											{target.timeoutMs}ms
-										</span>
-										{target.lastSuccessAt && (
-											<span>
-												Last success:{" "}
-												{new Date(target.lastSuccessAt).toLocaleString()}
-											</span>
-										)}
-										{target.lastFailureAt && (
-											<span>
-												Last failure:{" "}
-												{new Date(target.lastFailureAt).toLocaleString()} (
-												{target.consecutiveFailures} consecutive)
-											</span>
-										)}
-									</div>
-
-									<div className="flex gap-2">
-										<Button
-											onClick={() => handleStartEditingTargetEvents(target)}
-											size="sm"
-											type="button"
-											variant="outline"
-										>
-											Edit events
-										</Button>
-										<Button
-											onClick={() =>
-												handleRotateSecret(target._id as Id<"webhookTargets">)
-											}
-											size="sm"
-											variant="secondary"
-										>
-											<RefreshCcw className="mr-1.5 h-3.5 w-3.5" />
-											Rotate secret
-										</Button>
-										<Button
-											onClick={() =>
-												handleDeleteTarget(target._id as Id<"webhookTargets">)
-											}
-											size="sm"
-											variant="destructive"
-										>
-											<Trash2 className="mr-1.5 h-3.5 w-3.5" />
-											Delete
-										</Button>
-									</div>
-
-									{editingTargetId === target._id && (
-										<div className="space-y-2 rounded-md border bg-muted/30 p-2">
-											<p className="font-medium text-xs">
-												Edit subscribed events
-											</p>
-											<div className="grid gap-1.5">
-												{WEBHOOK_EVENT_OPTIONS.map(
-													(event: (typeof WEBHOOK_EVENT_OPTIONS)[number]) => (
-														<div
-															className="flex items-center gap-2 text-xs"
-															key={event.key}
+												{roleDropdownOpen === member.userId && (
+													<div className="absolute top-full right-0 z-10 mt-1 w-36 rounded-md border bg-popover p-1 shadow-md">
+														<button
+															className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
+															onClick={() =>
+																handleRoleChange(
+																	member.userId as Id<"users">,
+																	member.role === "admin" ? "member" : "admin",
+																)
+															}
+															type="button"
 														>
-															<Checkbox
-																checked={editingTargetEvents.includes(
-																	event.key,
-																)}
-																onCheckedChange={() =>
-																	toggleEditingTargetEvent(event.key)
-																}
-															/>
-															<span>{event.label}</span>
-														</div>
-													),
+															{member.role === "admin" ? (
+																<>
+																	<User className="h-3.5 w-3.5" />
+																	Make Member
+																</>
+															) : (
+																<>
+																	<Shield className="h-3.5 w-3.5" />
+																	Make Admin
+																</>
+															)}
+														</button>
+														<button
+															className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-destructive text-sm hover:bg-destructive/10"
+															onClick={() =>
+																handleRemoveMember(member.userId as Id<"users">)
+															}
+															type="button"
+														>
+															<Trash2 className="h-3.5 w-3.5" />
+															Remove
+														</button>
+													</div>
 												)}
 											</div>
-											<div className="flex gap-2">
-												<Button
-													disabled={updatingTargetEvents}
-													onClick={() =>
-														handleSaveTargetEvents(
-															target._id as Id<"webhookTargets">,
-														)
-													}
-													size="sm"
-													type="button"
-													variant="secondary"
-												>
-													{updatingTargetEvents && (
-														<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-													)}
-													Save events
-												</Button>
-												<Button
-													disabled={updatingTargetEvents}
-													onClick={handleCancelEditingTargetEvents}
-													size="sm"
-													type="button"
-													variant="ghost"
-												>
-													Cancel
-												</Button>
-											</div>
-										</div>
+										)}
+									</div>
+								))}
+							</div>
+
+							<form
+								className="flex items-start gap-2"
+								onSubmit={handleInviteByEmail}
+							>
+								<div className="min-w-0 flex-1 space-y-1">
+									<div className="flex gap-2">
+										<Input
+											className="flex-1"
+											onChange={(e) => {
+												setInviteEmail(e.target.value);
+												setInviteError(null);
+											}}
+											placeholder="Email address"
+											type="email"
+											value={inviteEmail}
+										/>
+										<select
+											className="h-10 rounded-md border bg-muted px-2 text-foreground text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+											onChange={(e) =>
+												setInviteRole(e.target.value as "admin" | "member")
+											}
+											value={inviteRole}
+										>
+											<option value="member">Member</option>
+											<option value="admin">Admin</option>
+										</select>
+									</div>
+									{inviteError && (
+										<p className="text-destructive text-xs">{inviteError}</p>
 									)}
 								</div>
-							))
-						)}
-					</div>
-
-					<form
-						className="space-y-3 rounded-lg border bg-card p-3"
-						onSubmit={handleCreateTarget}
-					>
-						<div className="grid gap-2">
-							<Label htmlFor="webhook-target-name">Target name</Label>
-							<Input
-								id="webhook-target-name"
-								onChange={(e) => setNewTargetName(e.target.value)}
-								placeholder="Primary webhook"
-								value={newTargetName}
-							/>
-						</div>
-						<div className="grid gap-2">
-							<Label htmlFor="webhook-target-url">Target URL</Label>
-							<Input
-								id="webhook-target-url"
-								onChange={(e) => setNewTargetUrl(e.target.value)}
-								placeholder="https://example.com/webhooks/pons"
-								value={newTargetUrl}
-							/>
-						</div>
-
-						<div className="grid gap-2">
-							<p className="font-medium text-xs">Events</p>
-							<div className="grid gap-1.5">
-								{WEBHOOK_EVENT_OPTIONS.map(
-									(event: (typeof WEBHOOK_EVENT_OPTIONS)[number]) => (
-										<div
-											className="flex items-center gap-2 text-xs"
-											key={event.key}
-										>
-											<Checkbox
-												checked={newTargetEvents.includes(event.key)}
-												onCheckedChange={() => toggleEvent(event.key)}
-											/>
-											<span>{event.label}</span>
-										</div>
-									),
-								)}
-							</div>
-						</div>
-
-						{webhookError && (
-							<div className="rounded-md bg-destructive/10 px-3 py-2 text-destructive text-xs">
-								{webhookError}
-							</div>
-						)}
-
-						<Button disabled={creatingTarget} type="submit" variant="secondary">
-							{creatingTarget ? (
-								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-							) : (
-								<Link2 className="mr-2 h-4 w-4" />
-							)}
-							Add webhook target
-						</Button>
-					</form>
-				</div>
-
-				<Separator />
-
-				<div className="space-y-4" id="meta-connection">
-					<p className="font-medium text-sm">WhatsApp Cloud Connection</p>
-					<p className="text-muted-foreground text-xs">
-						Detach and re-attach the Meta Cloud configuration while keeping this
-						account&apos;s conversations, contacts, members, API keys, and
-						webhook targets.
-					</p>
-
-					<div className="rounded-lg border bg-card p-3">
-						<div className="flex items-center gap-2">
-							<p className="font-medium text-xs">Connection health</p>
-							<span
-								className={cn(
-									"ml-auto font-medium text-xs",
-									connectionHealthLabel.color,
-								)}
-							>
-								{connectionHealthLabel.text}
-							</span>
-						</div>
-						<p className="mt-2 text-muted-foreground text-xs">
-							{account.connectionHealthSummary ??
-								"Run checks after attach/reattach to validate Meta grants and subscriptions."}
-						</p>
-						{(account.connectionHealthIssues?.length ?? 0) > 0 && (
-							<p className="mt-1 text-muted-foreground text-xs">
-								Issues: {account.connectionHealthIssues?.join(", ")}
+								<Button
+									className="shrink-0 gap-1.5"
+									disabled={inviting || !inviteEmail.trim()}
+									size="default"
+									type="submit"
+									variant="secondary"
+								>
+									{inviting ? (
+										<Loader2 className="h-3.5 w-3.5 animate-spin" />
+									) : (
+										<UserPlus className="h-3.5 w-3.5" />
+									)}
+									Invite
+								</Button>
+							</form>
+							<p className="text-muted-foreground text-xs">
+								Users must have signed in at least once before they can be
+								invited.
 							</p>
-						)}
-						<div className="mt-3 flex flex-wrap gap-2">
+						</div>
+					</>
+				)}
+
+				{section === "webhooks" && (
+					<div className="space-y-4">
+						<p className="font-medium text-sm">Webhook Forwarding</p>
+						<p className="text-muted-foreground text-xs">
+							Forward inbound and outbound events for this number to external
+							webhook targets. Retries are automatic on non-200 responses.
+						</p>
+
+						<div className="space-y-2">
+							{webhookTargets.length === 0 ? (
+								<div className="rounded-lg border border-dashed px-3 py-4 text-center text-muted-foreground text-xs">
+									No webhook targets configured yet.
+								</div>
+							) : (
+								webhookTargets.map((target: WebhookTargetItem) => (
+									<div
+										className="space-y-2 rounded-lg border bg-card px-3 py-3"
+										key={target._id}
+									>
+										<div className="flex items-start justify-between gap-3">
+											<div className="min-w-0">
+												<p className="truncate font-medium text-sm">
+													{target.name}
+												</p>
+												<p className="truncate font-mono text-muted-foreground text-xs">
+													{target.url}
+												</p>
+											</div>
+											<button
+												className={cn(
+													"rounded-md px-2 py-1 text-xs",
+													target.enabled
+														? "bg-emerald-500/10 text-emerald-600"
+														: "bg-muted text-muted-foreground",
+												)}
+												onClick={() =>
+													handleToggleTarget(
+														target._id as Id<"webhookTargets">,
+														target.enabled,
+													)
+												}
+												type="button"
+											>
+												{target.enabled ? "Enabled" : "Disabled"}
+											</button>
+										</div>
+
+										<div className="flex flex-wrap gap-1.5">
+											{target.subscribedEvents.map((event: string) => (
+												<span
+													className="rounded-md bg-muted px-1.5 py-0.5 text-[11px]"
+													key={event}
+												>
+													{event}
+												</span>
+											))}
+										</div>
+
+										<div className="grid gap-1 text-[11px] text-muted-foreground">
+											<span>
+												Secret:{" "}
+												<span className="font-mono">
+													{target.signingSecretPreview}
+												</span>
+											</span>
+											<span>
+												Attempts/timeout: {target.maxAttempts} /{" "}
+												{target.timeoutMs}ms
+											</span>
+											{target.lastSuccessAt && (
+												<span>
+													Last success:{" "}
+													{new Date(target.lastSuccessAt).toLocaleString()}
+												</span>
+											)}
+											{target.lastFailureAt && (
+												<span>
+													Last failure:{" "}
+													{new Date(target.lastFailureAt).toLocaleString()} (
+													{target.consecutiveFailures} consecutive)
+												</span>
+											)}
+										</div>
+
+										<div className="flex gap-2">
+											<Button
+												onClick={() => handleStartEditingTargetEvents(target)}
+												size="sm"
+												type="button"
+												variant="outline"
+											>
+												Edit events
+											</Button>
+											<Button
+												onClick={() =>
+													handleRotateSecret(target._id as Id<"webhookTargets">)
+												}
+												size="sm"
+												variant="secondary"
+											>
+												<RefreshCcw className="mr-1.5 h-3.5 w-3.5" />
+												Rotate secret
+											</Button>
+											<Button
+												onClick={() =>
+													handleDeleteTarget(target._id as Id<"webhookTargets">)
+												}
+												size="sm"
+												variant="destructive"
+											>
+												<Trash2 className="mr-1.5 h-3.5 w-3.5" />
+												Delete
+											</Button>
+										</div>
+
+										{editingTargetId === target._id && (
+											<div className="space-y-2 rounded-md border bg-muted/30 p-2">
+												<p className="font-medium text-xs">
+													Edit subscribed events
+												</p>
+												<div className="grid gap-1.5">
+													{WEBHOOK_EVENT_OPTIONS.map(
+														(event: (typeof WEBHOOK_EVENT_OPTIONS)[number]) => (
+															<div
+																className="flex items-center gap-2 text-xs"
+																key={event.key}
+															>
+																<Checkbox
+																	checked={editingTargetEvents.includes(
+																		event.key,
+																	)}
+																	onCheckedChange={() =>
+																		toggleEditingTargetEvent(event.key)
+																	}
+																/>
+																<span>{event.label}</span>
+															</div>
+														),
+													)}
+												</div>
+												<div className="flex gap-2">
+													<Button
+														disabled={updatingTargetEvents}
+														onClick={() =>
+															handleSaveTargetEvents(
+																target._id as Id<"webhookTargets">,
+															)
+														}
+														size="sm"
+														type="button"
+														variant="secondary"
+													>
+														{updatingTargetEvents && (
+															<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+														)}
+														Save events
+													</Button>
+													<Button
+														disabled={updatingTargetEvents}
+														onClick={handleCancelEditingTargetEvents}
+														size="sm"
+														type="button"
+														variant="ghost"
+													>
+														Cancel
+													</Button>
+												</div>
+											</div>
+										)}
+									</div>
+								))
+							)}
+						</div>
+
+						<form
+							className="space-y-3 rounded-lg border bg-card p-3"
+							onSubmit={handleCreateTarget}
+						>
+							<div className="grid gap-2">
+								<Label htmlFor="webhook-target-name">Target name</Label>
+								<Input
+									id="webhook-target-name"
+									onChange={(e) => setNewTargetName(e.target.value)}
+									placeholder="Primary webhook"
+									value={newTargetName}
+								/>
+							</div>
+							<div className="grid gap-2">
+								<Label htmlFor="webhook-target-url">Target URL</Label>
+								<Input
+									id="webhook-target-url"
+									onChange={(e) => setNewTargetUrl(e.target.value)}
+									placeholder="https://example.com/webhooks/pons"
+									value={newTargetUrl}
+								/>
+							</div>
+
+							<div className="grid gap-2">
+								<p className="font-medium text-xs">Events</p>
+								<div className="grid gap-1.5">
+									{WEBHOOK_EVENT_OPTIONS.map(
+										(event: (typeof WEBHOOK_EVENT_OPTIONS)[number]) => (
+											<div
+												className="flex items-center gap-2 text-xs"
+												key={event.key}
+											>
+												<Checkbox
+													checked={newTargetEvents.includes(event.key)}
+													onCheckedChange={() => toggleEvent(event.key)}
+												/>
+												<span>{event.label}</span>
+											</div>
+										),
+									)}
+								</div>
+							</div>
+
+							{webhookError && (
+								<div className="rounded-md bg-destructive/10 px-3 py-2 text-destructive text-xs">
+									{webhookError}
+								</div>
+							)}
+
 							<Button
-								disabled={checkingConnectionHealth}
-								onClick={handleCheckConnectionHealth}
-								size="sm"
-								variant="outline"
+								disabled={creatingTarget}
+								type="submit"
+								variant="secondary"
 							>
-								{checkingConnectionHealth ? (
-									<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+								{creatingTarget ? (
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 								) : (
-									<RefreshCcw className="mr-2 h-3.5 w-3.5" />
+									<Link2 className="mr-2 h-4 w-4" />
 								)}
-								Check now
+								Add webhook target
 							</Button>
-							{showRepairSubscriptions && (
-								<Button
-									disabled={repairingConnectionHealth}
-									onClick={handleRepairConnectionHealth}
-									size="sm"
-									variant="secondary"
-								>
-									{repairingConnectionHealth ? (
-										<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-									) : null}
-									Repair subscriptions
-								</Button>
-							)}
-							{showReauth && (
-								<Button
-									onClick={() => {
-										window.location.href = "/reauth";
-									}}
-									size="sm"
-									variant="ghost"
-								>
-									Re-auth with Meta
-								</Button>
-							)}
-							{showBusinessVerification && (
-								<Button asChild size="sm" variant="ghost">
-									<a
-										href="https://business.facebook.com/settings/security"
-										rel="noreferrer"
-										target="_blank"
-									>
-										Complete business verification
-										<ExternalLink className="ml-2 h-3.5 w-3.5" />
-									</a>
-								</Button>
-							)}
-							{showAssetTasks && (
-								<Button asChild size="sm" variant="ghost">
-									<a
-										href="https://business.facebook.com/settings/whatsapp-business-accounts"
-										rel="noreferrer"
-										target="_blank"
-									>
-										Review asset tasks
-										<ExternalLink className="ml-2 h-3.5 w-3.5" />
-									</a>
-								</Button>
-							)}
-						</div>
+						</form>
 					</div>
+				)}
 
-					<div className="rounded-lg border bg-card p-3">
-						{account.status === "detached" ? (
-							<div className="space-y-3">
-								<p className="text-muted-foreground text-xs">
-									This account is currently detached from WhatsApp Cloud.
-								</p>
-								<Button
-									onClick={() => setShowAttachFlow((prev) => !prev)}
-									size="sm"
-									variant="secondary"
+				{section === "whatsapp_settings" && (
+					<div className="space-y-4" id="meta-connection">
+						<p className="font-medium text-sm">WhatsApp Cloud Connection</p>
+						<p className="text-muted-foreground text-xs">
+							Detach and re-attach the Meta Cloud configuration while keeping
+							this account&apos;s conversations, contacts, members, API keys,
+							and webhook targets.
+						</p>
+
+						<div className="rounded-lg border bg-card p-3">
+							<div className="flex items-center gap-2">
+								<p className="font-medium text-xs">Connection health</p>
+								<span
+									className={cn(
+										"ml-auto font-medium text-xs",
+										connectionHealthLabel.color,
+									)}
 								>
-									Attach to WhatsApp Cloud
-								</Button>
+									{connectionHealthLabel.text}
+								</span>
 							</div>
-						) : (
-							<div className="space-y-3">
-								<p className="text-muted-foreground text-xs">
-									Disconnect this account from the current Meta Cloud number.
-									Messaging stops until you attach again.
+							<p className="mt-2 text-muted-foreground text-xs">
+								{account.connectionHealthSummary ??
+									"Run checks after attach/reattach to validate Meta grants and subscriptions."}
+							</p>
+							{(account.connectionHealthIssues?.length ?? 0) > 0 && (
+								<p className="mt-1 text-muted-foreground text-xs">
+									Issues: {account.connectionHealthIssues?.join(", ")}
 								</p>
+							)}
+							<div className="mt-3 flex flex-wrap gap-2">
 								<Button
-									disabled={detachingCloud}
-									onClick={handleDetachCloud}
+									disabled={checkingConnectionHealth}
+									onClick={handleCheckConnectionHealth}
 									size="sm"
-									variant="destructive"
+									variant="outline"
 								>
-									{detachingCloud ? (
+									{checkingConnectionHealth ? (
 										<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-									) : null}
-									Detach from WhatsApp Cloud Configuration
+									) : (
+										<RefreshCcw className="mr-2 h-3.5 w-3.5" />
+									)}
+									Check now
 								</Button>
-							</div>
-						)}
-					</div>
-
-					{account.status === "detached" && showAttachFlow && (
-						<div className="rounded-lg border bg-card">
-							<SetupAccount
-								onComplete={() => {
-									setShowAttachFlow(false);
-									void checkConnectionHealth({ accountId });
-									toast.success("WhatsApp Cloud attached");
-								}}
-								reattachAccountId={accountId}
-							/>
-						</div>
-					)}
-				</div>
-
-				{/* Danger zone */}
-				<div className="space-y-3">
-					<Label className="text-destructive text-sm">Danger Zone</Label>
-					<div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-						<div className="flex items-center justify-between gap-4">
-							<div>
-								<p className="font-medium text-foreground text-sm">
-									Delete account
-								</p>
-								<p className="mt-0.5 text-muted-foreground text-xs">
-									Permanently delete this account, all conversations, messages,
-									and contacts. This cannot be undone.
-								</p>
-							</div>
-							<Dialog
-								onOpenChange={setDeleteDialogOpen}
-								open={deleteDialogOpen}
-							>
-								<DialogTrigger asChild>
+								{showRepairSubscriptions && (
 									<Button
-										className="shrink-0 gap-1.5"
+										disabled={repairingConnectionHealth}
+										onClick={handleRepairConnectionHealth}
+										size="sm"
+										variant="secondary"
+									>
+										{repairingConnectionHealth ? (
+											<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+										) : null}
+										Repair subscriptions
+									</Button>
+								)}
+								{showReauth && (
+									<Button
+										onClick={() => {
+											window.location.href = "/reauth";
+										}}
+										size="sm"
+										variant="ghost"
+									>
+										Re-auth with Meta
+									</Button>
+								)}
+								{showBusinessVerification && (
+									<Button asChild size="sm" variant="ghost">
+										<a
+											href="https://business.facebook.com/settings/security"
+											rel="noreferrer"
+											target="_blank"
+										>
+											Complete business verification
+											<ExternalLink className="ml-2 h-3.5 w-3.5" />
+										</a>
+									</Button>
+								)}
+								{showAssetTasks && (
+									<Button asChild size="sm" variant="ghost">
+										<a
+											href="https://business.facebook.com/settings/whatsapp-business-accounts"
+											rel="noreferrer"
+											target="_blank"
+										>
+											Review asset tasks
+											<ExternalLink className="ml-2 h-3.5 w-3.5" />
+										</a>
+									</Button>
+								)}
+							</div>
+						</div>
+
+						<div className="rounded-lg border bg-card p-3">
+							{account.status === "detached" ? (
+								<div className="space-y-3">
+									<p className="text-muted-foreground text-xs">
+										This account is currently detached from WhatsApp Cloud.
+									</p>
+									<Button
+										onClick={() => setShowAttachFlow((prev) => !prev)}
+										size="sm"
+										variant="secondary"
+									>
+										Attach to WhatsApp Cloud
+									</Button>
+								</div>
+							) : (
+								<div className="space-y-3">
+									<p className="text-muted-foreground text-xs">
+										Disconnect this account from the current Meta Cloud number.
+										Messaging stops until you attach again.
+									</p>
+									<Button
+										disabled={detachingCloud}
+										onClick={handleDetachCloud}
 										size="sm"
 										variant="destructive"
 									>
-										<Trash2 className="h-3.5 w-3.5" />
-										Delete
+										{detachingCloud ? (
+											<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+										) : null}
+										Detach from WhatsApp Cloud Configuration
 									</Button>
-								</DialogTrigger>
-								<DialogContent>
-									<DialogHeader>
-										<DialogTitle>Delete account</DialogTitle>
-										<DialogDescription>
-											This will permanently delete{" "}
-											<span className="font-medium text-foreground">
-												{account.name}
-											</span>{" "}
-											({account.phoneNumber}) and all associated data including
-											conversations, messages, contacts, and API keys. This
-											action cannot be undone.
-										</DialogDescription>
-									</DialogHeader>
-									<DialogFooter>
-										<DialogClose asChild>
-											<Button variant="outline">Cancel</Button>
-										</DialogClose>
+								</div>
+							)}
+						</div>
+
+						{account.status === "detached" && showAttachFlow && (
+							<div className="rounded-lg border bg-card">
+								<SetupAccount
+									onComplete={() => {
+										setShowAttachFlow(false);
+										void checkConnectionHealth({ accountId });
+										toast.success("WhatsApp Cloud attached");
+									}}
+									reattachAccountId={accountId}
+								/>
+							</div>
+						)}
+					</div>
+				)}
+
+				{section === "danger" && (
+					<div className="space-y-3">
+						<Label className="text-destructive text-sm">Danger Zone</Label>
+						<div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+							<div className="flex items-center justify-between gap-4">
+								<div>
+									<p className="font-medium text-foreground text-sm">
+										Delete account
+									</p>
+									<p className="mt-0.5 text-muted-foreground text-xs">
+										Permanently delete this account, all conversations,
+										messages, and contacts. This cannot be undone.
+									</p>
+								</div>
+								<Dialog
+									onOpenChange={setDeleteDialogOpen}
+									open={deleteDialogOpen}
+								>
+									<DialogTrigger asChild>
 										<Button
-											disabled={deleting}
-											onClick={async () => {
-												setDeleting(true);
-												try {
-													await deleteAccount({ accountId });
-													setDeleteDialogOpen(false);
-													toast.success("Account deleted");
-													router.push("/dashboard");
-												} catch (err) {
-													setError(
-														err instanceof Error
-															? err.message
-															: "Failed to delete account",
-													);
-													setDeleting(false);
-												}
-											}}
+											className="shrink-0 gap-1.5"
+											size="sm"
 											variant="destructive"
 										>
-											{deleting ? (
-												<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-											) : (
-												<Trash2 className="mr-2 h-4 w-4" />
-											)}
-											Delete permanently
+											<Trash2 className="h-3.5 w-3.5" />
+											Delete
 										</Button>
-									</DialogFooter>
-								</DialogContent>
-							</Dialog>
+									</DialogTrigger>
+									<DialogContent>
+										<DialogHeader>
+											<DialogTitle>Delete account</DialogTitle>
+											<DialogDescription>
+												This will permanently delete{" "}
+												<span className="font-medium text-foreground">
+													{account.name}
+												</span>{" "}
+												({account.phoneNumber}) and all associated data
+												including conversations, messages, contacts, and API
+												keys. This action cannot be undone.
+											</DialogDescription>
+										</DialogHeader>
+										<DialogFooter>
+											<DialogClose asChild>
+												<Button variant="outline">Cancel</Button>
+											</DialogClose>
+											<Button
+												disabled={deleting}
+												onClick={async () => {
+													setDeleting(true);
+													try {
+														await deleteAccount({ accountId });
+														setDeleteDialogOpen(false);
+														toast.success("Account deleted");
+														router.push("/dashboard");
+													} catch (err) {
+														setError(
+															err instanceof Error
+																? err.message
+																: "Failed to delete account",
+														);
+														setDeleting(false);
+													}
+												}}
+												variant="destructive"
+											>
+												{deleting ? (
+													<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+												) : (
+													<Trash2 className="mr-2 h-4 w-4" />
+												)}
+												Delete permanently
+											</Button>
+										</DialogFooter>
+									</DialogContent>
+								</Dialog>
+							</div>
 						</div>
 					</div>
-				</div>
+				)}
 			</div>
 		</div>
 	);

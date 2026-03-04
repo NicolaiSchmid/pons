@@ -183,7 +183,7 @@ export function AccountPageClient({
 						)}
 						Check Again
 					</Button>
-					<Link href={`/dashboard/${accountId}/settings#meta-connection`}>
+					<Link href={`/dashboard/${accountId}/settings/whatsapp_settings`}>
 						<Button className="gap-1.5" size="sm" variant="secondary">
 							<Settings className="h-3.5 w-3.5" />
 							Reconnect Number
@@ -215,7 +215,7 @@ export function AccountPageClient({
 						Re-attach it from settings to resume messaging.
 					</p>
 				</div>
-				<Link href={`/dashboard/${accountId}/settings#meta-connection`}>
+				<Link href={`/dashboard/${accountId}/settings/whatsapp_settings`}>
 					<Button className="gap-1.5" size="sm" variant="secondary">
 						<Settings className="h-3.5 w-3.5" />
 						Attach to WhatsApp Cloud
