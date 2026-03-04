@@ -76,7 +76,7 @@ const PonsSidebarContent: FC<{
 	return (
 		<div className="flex h-full flex-col">
 			{/* Account selector aligned with fixed sidebar toggle */}
-			<div className="mt-1.5 flex h-11 items-center justify-between px-3 pl-11">
+			<div className="mt-2.5 flex h-11 items-center justify-between px-3 pl-11">
 				<div className="flex min-w-0 items-center gap-2">
 					<PonsMark className="h-6 w-6" />
 					<AccountSelectorPreloaded
