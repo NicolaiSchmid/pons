@@ -6,25 +6,25 @@ export function PonsMark({ className }: { className?: string }) {
 			aria-hidden="true"
 			className={cn("shrink-0", className)}
 			fill="none"
-			viewBox="0 0 24 24"
+			viewBox="0 0 20 20"
 			xmlns="http://www.w3.org/2000/svg"
 		>
 			<rect
 				fill="rgb(253 242 248)"
-				height="20"
-				rx="6"
+				height="18"
+				rx="5"
 				stroke="rgb(251 207 232)"
 				strokeWidth="1"
-				width="20"
-				x="2"
-				y="2"
+				width="18"
+				x="1"
+				y="1"
 			/>
 			<path
-				d="M7.75 9.75C7.75 9.06 8.31 8.5 9 8.5H15C15.69 8.5 16.25 9.06 16.25 9.75V13.5C16.25 14.19 15.69 14.75 15 14.75H11.63L9.42 16.42C9.01 16.73 8.42 16.44 8.42 15.93V14.75H9C8.31 14.75 7.75 14.19 7.75 13.5V9.75Z"
+				d="M5.75 7.5C5.75 6.53 6.53 5.75 7.5 5.75H12.5C13.47 5.75 14.25 6.53 14.25 7.5V10.5C14.25 11.47 13.47 12.25 12.5 12.25H9.9L7.9 13.75C7.32 14.18 6.5 13.76 6.5 13.03V12.25H7.5C6.53 12.25 5.75 11.47 5.75 10.5V7.5Z"
 				stroke="rgb(236 72 153)"
 				strokeLinecap="round"
 				strokeLinejoin="round"
-				strokeWidth="1.6"
+				strokeWidth="2"
 			/>
 		</svg>
 	);
