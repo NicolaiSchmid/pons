@@ -177,12 +177,12 @@ const FixedSidebarButton: FC = () => {
 				transition={{ duration: 0.15, ease: EASE }}
 			>
 				<Button
-					className="h-12 w-12 p-0.5 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+					className="h-14 w-14 p-0 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
 					onClick={toggleSidebar}
 					size="icon"
 					variant="ghost"
 				>
-					<PonsMark className="h-10 w-10" />
+					<PonsMark className="h-12 w-12" />
 					<span className="sr-only">Toggle Sidebar</span>
 				</Button>
 			</motion.div>
