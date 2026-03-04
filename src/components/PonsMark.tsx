@@ -14,7 +14,7 @@ export function PonsMark({ className }: { className?: string }) {
 				height="18"
 				rx="5"
 				stroke="rgb(251 207 232)"
-				strokeWidth="1"
+				strokeWidth="0.8"
 				width="18"
 				x="1"
 				y="1"
@@ -24,7 +24,7 @@ export function PonsMark({ className }: { className?: string }) {
 				stroke="rgb(236 72 153)"
 				strokeLinecap="round"
 				strokeLinejoin="round"
-				strokeWidth="2"
+				strokeWidth="1.6"
 			/>
 		</svg>
 	);
