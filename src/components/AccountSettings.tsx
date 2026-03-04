@@ -131,6 +131,12 @@ function AccountSettingsContent({
 	const removeWebhookTarget = useMutation(api.webhookTargets.remove);
 	const rotateWebhookSecret = useMutation(api.webhookTargets.rotateSecret);
 	const recheckNameStatus = useAction(api.nameReview.recheckNameStatus);
+	const checkConnectionHealth = useAction(
+		api.whatsappDiscovery.checkConnectionHealth,
+	);
+	const repairConnectionSubscriptions = useAction(
+		api.whatsappDiscovery.repairConnectionSubscriptions,
+	);
 	const unsubscribeWaba = useAction(api.whatsappDiscovery.unsubscribeWaba);
 	const detachCloudConfiguration = useMutation(
 		api.accounts.detachCloudConfiguration,
@@ -160,6 +166,10 @@ function AccountSettingsContent({
 	const [updatingTargetEvents, setUpdatingTargetEvents] = useState(false);
 	const [recheckingNameStatus, setRecheckingNameStatus] = useState(false);
 	const [detachingCloud, setDetachingCloud] = useState(false);
+	const [checkingConnectionHealth, setCheckingConnectionHealth] =
+		useState(false);
+	const [repairingConnectionHealth, setRepairingConnectionHealth] =
+		useState(false);
 	const [showAttachFlow, setShowAttachFlow] = useState(false);
 
 	const [formData, setFormData] = useState({
@@ -431,6 +441,48 @@ function AccountSettingsContent({
 			setDetachingCloud(false);
 		}
 	};
+
+	const handleCheckConnectionHealth = async () => {
+		setCheckingConnectionHealth(true);
+		try {
+			const result = await checkConnectionHealth({ accountId });
+			if (result.status === "ok") {
+				toast.success("Meta connection looks healthy");
+			} else {
+				toast.warning("Meta connection needs attention");
+			}
+		} catch (err) {
+			toast.error(
+				err instanceof Error ? err.message : "Failed to run connection checks",
+			);
+		} finally {
+			setCheckingConnectionHealth(false);
+		}
+	};
+
+	const handleRepairConnectionHealth = async () => {
+		setRepairingConnectionHealth(true);
+		try {
+			await repairConnectionSubscriptions({ accountId });
+			await checkConnectionHealth({ accountId });
+			toast.success("Ran Meta subscription repair");
+		} catch (err) {
+			toast.error(
+				err instanceof Error ? err.message : "Failed to repair Meta connection",
+			);
+		} finally {
+			setRepairingConnectionHealth(false);
+		}
+	};
+
+	const connectionHealthLabel =
+		account.connectionHealthStatus === "ok"
+			? { text: "Healthy", color: "text-emerald-600" }
+			: account.connectionHealthStatus === "needs_reauth"
+				? { text: "Re-auth required", color: "text-red-500" }
+				: account.connectionHealthStatus === "attention"
+					? { text: "Needs attention", color: "text-yellow-600" }
+					: { text: "Unchecked", color: "text-muted-foreground" };
 
 	return (
 		<div className="mx-auto h-full max-w-lg overflow-y-auto p-6">
@@ -991,6 +1043,64 @@ function AccountSettingsContent({
 					</p>
 
 					<div className="rounded-lg border bg-card p-3">
+						<div className="flex items-center gap-2">
+							<p className="font-medium text-xs">Connection health</p>
+							<span
+								className={cn(
+									"ml-auto font-medium text-xs",
+									connectionHealthLabel.color,
+								)}
+							>
+								{connectionHealthLabel.text}
+							</span>
+						</div>
+						<p className="mt-2 text-muted-foreground text-xs">
+							{account.connectionHealthSummary ??
+								"Run checks after attach/reattach to validate Meta grants and subscriptions."}
+						</p>
+						{(account.connectionHealthIssues?.length ?? 0) > 0 && (
+							<p className="mt-1 text-muted-foreground text-xs">
+								Issues: {account.connectionHealthIssues?.join(", ")}
+							</p>
+						)}
+						<div className="mt-3 flex flex-wrap gap-2">
+							<Button
+								disabled={checkingConnectionHealth}
+								onClick={handleCheckConnectionHealth}
+								size="sm"
+								variant="outline"
+							>
+								{checkingConnectionHealth ? (
+									<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+								) : (
+									<RefreshCcw className="mr-2 h-3.5 w-3.5" />
+								)}
+								Check now
+							</Button>
+							<Button
+								disabled={repairingConnectionHealth}
+								onClick={handleRepairConnectionHealth}
+								size="sm"
+								variant="secondary"
+							>
+								{repairingConnectionHealth ? (
+									<Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+								) : null}
+								Repair subscriptions
+							</Button>
+							<Button
+								onClick={() => {
+									window.location.href = "/reauth";
+								}}
+								size="sm"
+								variant="ghost"
+							>
+								Re-auth with Meta
+							</Button>
+						</div>
+					</div>
+
+					<div className="rounded-lg border bg-card p-3">
 						{account.status === "detached" ? (
 							<div className="space-y-3">
 								<p className="text-muted-foreground text-xs">
@@ -1030,6 +1140,7 @@ function AccountSettingsContent({
 							<SetupAccount
 								onComplete={() => {
 									setShowAttachFlow(false);
+									void checkConnectionHealth({ accountId });
 									toast.success("WhatsApp Cloud attached");
 								}}
 								reattachAccountId={accountId}

@@ -7,7 +7,12 @@ import {
 	query,
 } from "./_generated/server";
 import { auth } from "./auth";
-import { registrationStep } from "./schema";
+import {
+	connectionHealthAction,
+	connectionHealthIssue,
+	connectionHealthStatus,
+	registrationStep,
+} from "./schema";
 
 // ── Types ──
 
@@ -30,6 +35,13 @@ type StrippedAccount = {
 	failedAt?: number;
 	// Name review (only when status = "pending_name_review")
 	nameReviewCheckCount?: number;
+	// Connection health (advisory diagnostics)
+	connectionHealthStatus?: Account["connectionHealthStatus"];
+	connectionHealthCheckedAt?: number;
+	connectionHealthIssues?: Account["connectionHealthIssues"];
+	connectionHealthActions?: Account["connectionHealthActions"];
+	connectionHealthSummary?: string;
+	connectionHealthChecks?: Account["connectionHealthChecks"];
 	// True when the Twilio SMS webhook has captured the Meta OTP
 	hasVerificationCode?: boolean;
 };
@@ -55,6 +67,13 @@ function stripSecrets(account: Account): StrippedAccount {
 		failedAt: account.failedAt,
 		// Include name review progress
 		nameReviewCheckCount: account.nameReviewCheckCount,
+		// Include connection diagnostics
+		connectionHealthStatus: account.connectionHealthStatus,
+		connectionHealthCheckedAt: account.connectionHealthCheckedAt,
+		connectionHealthIssues: account.connectionHealthIssues,
+		connectionHealthActions: account.connectionHealthActions,
+		connectionHealthSummary: account.connectionHealthSummary,
+		connectionHealthChecks: account.connectionHealthChecks,
 		// Let the frontend know the webhook captured the OTP (without leaking the code)
 		hasVerificationCode: !!account.verificationCode,
 	};
@@ -220,6 +239,7 @@ export const createExisting = mutation({
 			displayName: args.displayName,
 			status: needsRegistration ? "registering" : "active",
 			numberProvider: "existing",
+			connectionHealthStatus: "unchecked",
 		});
 
 		await ctx.db.insert("accountMembers", {
@@ -257,6 +277,7 @@ export const createByon = mutation({
 			countryCode: args.countryCode,
 			status: "adding_number",
 			numberProvider: "byon",
+			connectionHealthStatus: "unchecked",
 		});
 
 		await ctx.db.insert("accountMembers", {
@@ -302,6 +323,7 @@ export const createTwilio = mutation({
 			countryCode: args.countryCode,
 			status: "adding_number",
 			numberProvider: "twilio",
+			connectionHealthStatus: "unchecked",
 			twilioCredentialsId: args.twilioCredentialsId,
 			twilioPhoneNumberSid: args.twilioPhoneNumberSid,
 		});
@@ -534,6 +556,41 @@ export const updateNameReviewProgress = internalMutation({
 	},
 });
 
+/** Store advisory Meta connection health diagnostics (does not affect account status). */
+export const updateConnectionHealth = internalMutation({
+	args: {
+		accountId: v.id("accounts"),
+		status: connectionHealthStatus,
+		checkedAt: v.number(),
+		issues: v.array(connectionHealthIssue),
+		actions: v.array(connectionHealthAction),
+		summary: v.string(),
+		checks: v.object({
+			hasToken: v.boolean(),
+			tokenValid: v.boolean(),
+			hasRequiredScopes: v.boolean(),
+			hasWabaTarget: v.boolean(),
+			appWebhookActive: v.boolean(),
+			wabaSubscribed: v.boolean(),
+			phoneFound: v.boolean(),
+			phoneConnected: v.boolean(),
+			phoneCloudApi: v.boolean(),
+			ownerBusinessVerified: v.boolean(),
+			hasAssignedManager: v.boolean(),
+		}),
+	},
+	handler: async (ctx, args) => {
+		await ctx.db.patch(args.accountId, {
+			connectionHealthStatus: args.status,
+			connectionHealthCheckedAt: args.checkedAt,
+			connectionHealthIssues: args.issues,
+			connectionHealthActions: args.actions,
+			connectionHealthSummary: args.summary,
+			connectionHealthChecks: args.checks,
+		});
+	},
+});
+
 // ============================================================================
 // ACCOUNT UPDATES
 // ============================================================================
@@ -607,6 +664,12 @@ export const detachCloudConfiguration = mutation({
 			nameReviewCheckCount: undefined,
 			nameReviewMaxChecks: undefined,
 			nameReviewScheduledJobId: undefined,
+			connectionHealthStatus: "unchecked",
+			connectionHealthCheckedAt: undefined,
+			connectionHealthIssues: undefined,
+			connectionHealthActions: undefined,
+			connectionHealthSummary: undefined,
+			connectionHealthChecks: undefined,
 		});
 
 		return args.accountId;
@@ -665,6 +728,12 @@ export const prepareReattachByon = mutation({
 			nameReviewMaxChecks: undefined,
 			nameReviewScheduledJobId: undefined,
 			nameReviewNotifiedAt: undefined,
+			connectionHealthStatus: "unchecked",
+			connectionHealthCheckedAt: undefined,
+			connectionHealthIssues: undefined,
+			connectionHealthActions: undefined,
+			connectionHealthSummary: undefined,
+			connectionHealthChecks: undefined,
 		});
 
 		return args.accountId;
@@ -736,6 +805,12 @@ export const attachExistingConnection = mutation({
 			nameReviewMaxChecks: undefined,
 			nameReviewScheduledJobId: undefined,
 			nameReviewNotifiedAt: needsRegistration ? undefined : Date.now(),
+			connectionHealthStatus: "unchecked",
+			connectionHealthCheckedAt: undefined,
+			connectionHealthIssues: undefined,
+			connectionHealthActions: undefined,
+			connectionHealthSummary: undefined,
+			connectionHealthChecks: undefined,
 		});
 
 		return args.accountId;

@@ -16,6 +16,35 @@ export const accountStatus = v.union(
 	v.literal("failed"), // Something broke (see failedAtStep)
 );
 
+export const connectionHealthStatus = v.union(
+	v.literal("unchecked"),
+	v.literal("ok"),
+	v.literal("attention"),
+	v.literal("needs_reauth"),
+);
+
+export const connectionHealthIssue = v.union(
+	v.literal("token_missing"),
+	v.literal("token_invalid"),
+	v.literal("missing_required_scopes"),
+	v.literal("missing_waba_target"),
+	v.literal("app_webhook_inactive"),
+	v.literal("waba_not_subscribed"),
+	v.literal("phone_not_found"),
+	v.literal("phone_not_connected"),
+	v.literal("phone_not_cloud_api"),
+	v.literal("owner_business_unverified"),
+	v.literal("assigned_user_missing_manage"),
+);
+
+export const connectionHealthAction = v.union(
+	v.literal("reauth"),
+	v.literal("repair_subscriptions"),
+	v.literal("check_business_verification"),
+	v.literal("check_asset_tasks"),
+	v.literal("wait_and_retry"),
+);
+
 export const numberProvider = v.union(
 	v.literal("existing"), // Already on WABA (picked during discovery)
 	v.literal("byon"), // Bring Your Own Number
@@ -114,6 +143,28 @@ export default defineSchema({
 		nameReviewMaxChecks: v.optional(v.number()), // e.g. 120 (5 days hourly, covers weekends)
 		nameReviewScheduledJobId: v.optional(v.string()), // Convex scheduler ID
 		nameReviewNotifiedAt: v.optional(v.number()), // When we emailed the user
+
+		// ── Meta connection health (advisory, never drives account status machine) ──
+		connectionHealthStatus: v.optional(connectionHealthStatus),
+		connectionHealthCheckedAt: v.optional(v.number()),
+		connectionHealthIssues: v.optional(v.array(connectionHealthIssue)),
+		connectionHealthActions: v.optional(v.array(connectionHealthAction)),
+		connectionHealthSummary: v.optional(v.string()),
+		connectionHealthChecks: v.optional(
+			v.object({
+				hasToken: v.boolean(),
+				tokenValid: v.boolean(),
+				hasRequiredScopes: v.boolean(),
+				hasWabaTarget: v.boolean(),
+				appWebhookActive: v.boolean(),
+				wabaSubscribed: v.boolean(),
+				phoneFound: v.boolean(),
+				phoneConnected: v.boolean(),
+				phoneCloudApi: v.boolean(),
+				ownerBusinessVerified: v.boolean(),
+				hasAssignedManager: v.boolean(),
+			}),
+		),
 	})
 		.index("by_phone_number_id", ["phoneNumberId"])
 		.index("by_phone_number", ["phoneNumber"])
