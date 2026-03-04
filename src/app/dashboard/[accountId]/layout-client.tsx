@@ -3,18 +3,13 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { type Preloaded, usePreloadedQuery } from "convex/react";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-	AlertCircle,
-	FileText,
-	KeyRound,
-	PanelLeft,
-	Settings,
-} from "lucide-react";
+import { AlertCircle, FileText, KeyRound, Settings } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { type FC, useEffect } from "react";
 import { AccountSelectorPreloaded } from "@/components/AccountSelector";
 import { ConversationListPreloaded } from "@/components/ConversationList";
+import { PonsMark } from "@/components/PonsMark";
 import { Button } from "@/components/ui/button";
 import {
 	SidebarInset,
@@ -187,7 +182,7 @@ const FixedSidebarButton: FC = () => {
 					size="icon"
 					variant="ghost"
 				>
-					<PanelLeft size={18} />
+					<PonsMark className="h-[18px] w-[18px]" />
 					<span className="sr-only">Toggle Sidebar</span>
 				</Button>
 			</motion.div>

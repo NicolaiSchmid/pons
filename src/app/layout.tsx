@@ -24,7 +24,10 @@ export const metadata: Metadata = {
 	creator: "Nicolai Schmid",
 	publisher: "Pons",
 	category: "developer tools",
-	icons: [{ rel: "icon", url: "/favicon.ico" }],
+	icons: [
+		{ rel: "icon", type: "image/svg+xml", url: "/pons-icon.svg" },
+		{ rel: "icon", url: "/favicon.ico" },
+	],
 	robots: {
 		index: true,
 		follow: true,
