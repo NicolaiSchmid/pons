@@ -10,42 +10,22 @@ export function PonsMark({ className }: { className?: string }) {
 			xmlns="http://www.w3.org/2000/svg"
 		>
 			<rect
-				fill="url(#pons-mark-bg)"
+				fill="rgb(253 242 248)"
 				height="20"
 				rx="6"
+				stroke="rgb(251 207 232)"
+				strokeWidth="1"
 				width="20"
 				x="2"
 				y="2"
 			/>
-			<rect
-				fill="rgba(255,255,255,0.9)"
-				height="8"
-				rx="2.5"
-				width="6.5"
-				x="6"
-				y="7"
+			<path
+				d="M7.75 9.75C7.75 9.06 8.31 8.5 9 8.5H15C15.69 8.5 16.25 9.06 16.25 9.75V13.5C16.25 14.19 15.69 14.75 15 14.75H11.63L9.42 16.42C9.01 16.73 8.42 16.44 8.42 15.93V14.75H9C8.31 14.75 7.75 14.19 7.75 13.5V9.75Z"
+				stroke="rgb(236 72 153)"
+				strokeLinecap="round"
+				strokeLinejoin="round"
+				strokeWidth="1.6"
 			/>
-			<rect
-				fill="rgba(255,255,255,0.9)"
-				height="10"
-				rx="2.5"
-				width="6.5"
-				x="11.5"
-				y="7"
-			/>
-			<defs>
-				<linearGradient
-					gradientUnits="userSpaceOnUse"
-					id="pons-mark-bg"
-					x1="2"
-					x2="22"
-					y1="2"
-					y2="22"
-				>
-					<stop stopColor="#ff5ca8" />
-					<stop offset="1" stopColor="#f97316" />
-				</linearGradient>
-			</defs>
 		</svg>
 	);
 }
