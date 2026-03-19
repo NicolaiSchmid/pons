@@ -165,10 +165,6 @@ function FacebookIcon() {
 	);
 }
 
-function buildAuthCompletionUrl(nextPath: string) {
-	return `/auth/complete?next=${encodeURIComponent(nextPath)}`;
-}
-
 export default function Home() {
 	const { isAuthenticated, isLoading } = useConvexAuth();
 	const router = useRouter();
@@ -176,7 +172,7 @@ export default function Home() {
 	const handleSignIn = () => {
 		void authClient.signIn.social({
 			provider: "facebook",
-			callbackURL: buildAuthCompletionUrl("/dashboard"),
+			callbackURL: "/dashboard",
 		});
 	};
 

@@ -1,10 +1,7 @@
 "use client";
 
 import { oauthProviderClient } from "@better-auth/oauth-provider/client";
-import {
-	convexClient,
-	crossDomainClient,
-} from "@convex-dev/better-auth/client/plugins";
+import { convexClient } from "@convex-dev/better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { env } from "@/env";
 
@@ -13,5 +10,5 @@ export const authClient = createAuthClient({
 		typeof window === "undefined"
 			? env.NEXT_PUBLIC_APP_URL
 			: window.location.origin,
-	plugins: [convexClient(), crossDomainClient(), oauthProviderClient()],
+	plugins: [convexClient(), oauthProviderClient()],
 });
