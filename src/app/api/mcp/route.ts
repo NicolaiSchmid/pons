@@ -1,5 +1,12 @@
+import { oauthProviderResourceClient } from "@better-auth/oauth-provider/resource-client";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { type NextRequest, NextResponse } from "next/server";
+import {
+	getAuthIssuerUrl,
+	getAuthJwksUrl,
+	getMcpResourceUrl,
+	getProtectedResourceMetadataUrl,
+} from "../../../lib/mcp-oauth";
 import { createMcpServer } from "../../../lib/mcp-server";
 
 // ============================================
@@ -12,6 +19,7 @@ const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = 60; // 60 requests per minute per IP
 
 const requestCounts = new Map<string, { count: number; resetAt: number }>();
+const oauthResourceClient = oauthProviderResourceClient().getActions();
 
 function isRateLimited(ip: string): boolean {
 	const now = Date.now();
@@ -34,16 +42,118 @@ function getClientIp(request: NextRequest): string {
 	);
 }
 
-// Extract API key from Authorization header
-function extractApiKey(request: NextRequest): string | null {
+type McpRequestAuth =
+	| {
+			readonly kind: "apiKey";
+			readonly apiKey: string;
+	  }
+	| {
+			readonly kind: "oauth";
+			readonly betterAuthUserId: string;
+			readonly scopes: string[];
+	  };
+
+function extractBearerToken(request: NextRequest): string | null {
 	const authHeader = request.headers.get("authorization");
 	if (!authHeader) return null;
 
-	// Support both "Bearer <key>" and just "<key>"
 	if (authHeader.startsWith("Bearer ")) {
 		return authHeader.slice(7);
 	}
 	return authHeader;
+}
+
+function isApiKeyToken(token: string) {
+	return token.startsWith("pons_");
+}
+
+function getOAuthChallengeHeaders(request: NextRequest) {
+	return {
+		"WWW-Authenticate": `Bearer resource_metadata="${getProtectedResourceMetadataUrl(request.nextUrl.origin)}"`,
+	};
+}
+
+function unauthorizedResponse(request: NextRequest, message: string) {
+	return NextResponse.json(
+		{ error: message },
+		{
+			status: 401,
+			headers: getOAuthChallengeHeaders(request),
+		},
+	);
+}
+
+async function authenticateRequest(
+	request: NextRequest,
+): Promise<McpRequestAuth | NextResponse> {
+	const token = extractBearerToken(request);
+	if (!token) {
+		return unauthorizedResponse(
+			request,
+			"Missing bearer token. Use an API key (`Bearer pons_...`) or complete OAuth dynamic client registration.",
+		);
+	}
+
+	if (isApiKeyToken(token)) {
+		return {
+			kind: "apiKey",
+			apiKey: token,
+		};
+	}
+
+	try {
+		const jwt = await oauthResourceClient.verifyAccessToken(token, {
+			verifyOptions: {
+				audience: getMcpResourceUrl(request.nextUrl.origin),
+				issuer: getAuthIssuerUrl(request.nextUrl.origin),
+			},
+			jwksUrl: getAuthJwksUrl(request.nextUrl.origin),
+		});
+
+		if (typeof jwt.sub !== "string" || jwt.sub.length === 0) {
+			return unauthorizedResponse(
+				request,
+				"OAuth access token is missing a user subject.",
+			);
+		}
+
+		return {
+			kind: "oauth",
+			betterAuthUserId: jwt.sub,
+			scopes:
+				typeof jwt.scope === "string"
+					? jwt.scope.split(" ").filter((scope) => scope.length > 0)
+					: [],
+		};
+	} catch {
+		return unauthorizedResponse(request, "Invalid or expired bearer token.");
+	}
+}
+
+async function handleMcp(request: NextRequest, parsedBody?: unknown) {
+	const auth = await authenticateRequest(request);
+	if (auth instanceof NextResponse) {
+		return auth;
+	}
+
+	const mcpServer =
+		auth.kind === "apiKey"
+			? createMcpServer({ kind: "apiKey", apiKey: auth.apiKey })
+			: createMcpServer({
+					kind: "oauth",
+					betterAuthUserId: auth.betterAuthUserId,
+					scopes: auth.scopes,
+				});
+
+	const transport = new WebStandardStreamableHTTPServerTransport({
+		sessionIdGenerator: undefined,
+	});
+
+	await mcpServer.connect(transport);
+
+	return parsedBody === undefined
+		? await transport.handleRequest(request)
+		: await transport.handleRequest(request, { parsedBody });
 }
 
 // MCP endpoint - handles both GET (SSE) and POST (messages)
@@ -55,35 +165,8 @@ export async function POST(request: NextRequest) {
 		);
 	}
 
-	const apiKey = extractApiKey(request);
-	if (!apiKey) {
-		return NextResponse.json(
-			{
-				error:
-					"Missing API key. Set Authorization header to 'Bearer <your-api-key>'",
-			},
-			{ status: 401 },
-		);
-	}
-
-	// Create MCP server — all auth/scope validation happens inside the gateway
-	const mcpServer = createMcpServer(apiKey);
-
-	// Create transport for this request (stateless mode)
-	const transport = new WebStandardStreamableHTTPServerTransport({
-		sessionIdGenerator: undefined, // Stateless mode
-	});
-
-	// Connect server to transport
-	await mcpServer.connect(transport);
-
-	// Parse body
 	const body = await request.json();
-
-	// Handle the request and get response
-	const response = await transport.handleRequest(request, { parsedBody: body });
-
-	return response;
+	return await handleMcp(request, body);
 }
 
 // Handle GET for SSE connections
@@ -95,43 +178,16 @@ export async function GET(request: NextRequest) {
 		);
 	}
 
-	const apiKey = extractApiKey(request);
-	if (!apiKey) {
-		return NextResponse.json(
-			{
-				error:
-					"Missing API key. Set Authorization header to 'Bearer <your-api-key>'",
-			},
-			{ status: 401 },
-		);
-	}
-
-	// Create MCP server — all auth/scope validation happens inside the gateway
-	const mcpServer = createMcpServer(apiKey);
-
-	// Create transport for this request
-	const transport = new WebStandardStreamableHTTPServerTransport({
-		sessionIdGenerator: undefined,
-	});
-
-	// Connect server to transport
-	await mcpServer.connect(transport);
-
-	// Handle the request (returns SSE stream)
-	const response = await transport.handleRequest(request);
-
-	return response;
+	return await handleMcp(request);
 }
 
 // Handle DELETE for session termination (if needed)
 export async function DELETE(request: NextRequest) {
-	// Require API key even for DELETE to prevent unauthenticated session manipulation
-	const apiKey = extractApiKey(request);
-	if (!apiKey) {
-		return NextResponse.json({ error: "Missing API key" }, { status: 401 });
+	const auth = await authenticateRequest(request);
+	if (auth instanceof NextResponse) {
+		return auth;
 	}
 
-	// In stateless mode, we don't track sessions, so just return success
 	return NextResponse.json({ success: true });
 }
 

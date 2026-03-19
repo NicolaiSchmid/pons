@@ -153,7 +153,9 @@ function ApiKeyManagerContent({
 					API Keys
 				</h1>
 				<p className="mt-1 text-muted-foreground text-sm">
-					Create and manage API keys for MCP client access.
+					Create and manage API keys for MCP client access. OAuth dynamic client
+					registration is available in parallel, but API keys continue to work
+					exactly as before.
 				</p>
 			</div>
 
@@ -411,6 +413,14 @@ function McpConfigSnippet() {
 			<h3 className="mb-1 font-medium text-sm">MCP Configuration</h3>
 			<p className="mb-3 text-muted-foreground text-xs">
 				Add this to your Claude Desktop or Cursor config:
+			</p>
+			<p className="mb-3 text-muted-foreground text-xs leading-5">
+				For OAuth-aware MCP clients, you can also connect to the same MCP URL
+				and let the client discover
+				<code className="mx-1 rounded bg-background px-1 py-0.5 font-mono text-[11px]">
+					/.well-known/oauth-protected-resource/api/mcp
+				</code>
+				automatically.
 			</p>
 			<div className="relative">
 				<pre className="overflow-x-auto rounded-md bg-background p-3 pr-10 font-mono text-foreground text-xs leading-relaxed">

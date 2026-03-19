@@ -11,6 +11,7 @@
  */
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import {
 	internalAction,
 	internalMutation,
@@ -112,8 +113,9 @@ export const checkExpiringTokens = internalAction({
 
 			// Mark this tier as sent
 			await ctx.runMutation(internal.tokenExpiry.markTierSent, {
-				tokenId: token._id,
+				expiresAt: token.expiresAt,
 				tierId: tier.id,
+				userId: token.userId,
 			});
 		}
 	},
@@ -123,10 +125,17 @@ export const checkExpiringTokens = internalAction({
 
 export const listTokensWithExpiry = internalQuery({
 	args: {},
-	handler: async (ctx) => {
-		// Get all tokens that have an expiresAt
-		const tokens = await ctx.db.query("facebookTokens").collect();
-		return tokens.filter((t) => t.expiresAt != null);
+	handler: async (
+		ctx,
+	): Promise<
+		Array<{
+			userId: Id<"users">;
+			accessToken: string;
+			expiresAt: number;
+			lastExpiryEmailTier?: string;
+		}>
+	> => {
+		return await ctx.runQuery(internal.auth.listFacebookAccountsWithExpiry, {});
 	},
 });
 
@@ -139,12 +148,14 @@ export const getUser = internalQuery({
 
 export const markTierSent = internalMutation({
 	args: {
-		tokenId: v.id("facebookTokens"),
+		expiresAt: v.number(),
 		tierId: v.string(),
+		userId: v.id("users"),
 	},
 	handler: async (ctx, args) => {
-		await ctx.db.patch(args.tokenId, {
-			lastExpiryEmailTier: args.tierId,
+		await ctx.db.patch(args.userId, {
+			facebookTokenWarningExpiresAt: args.expiresAt,
+			facebookTokenWarningTier: args.tierId,
 		});
 	},
 });
