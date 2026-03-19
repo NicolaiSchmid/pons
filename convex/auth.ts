@@ -1,6 +1,6 @@
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { createClient, type GenericCtx } from "@convex-dev/better-auth";
-import { convex } from "@convex-dev/better-auth/plugins";
+import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
 import { betterAuth } from "better-auth";
 import { jwt } from "better-auth/plugins";
 import { v } from "convex/values";
@@ -47,6 +47,7 @@ export const createAuth = (ctx: GenericCtx<DataModel>) =>
 			},
 		},
 		plugins: [
+			crossDomain({ siteUrl: APP_URL }),
 			convex({ authConfig }),
 			jwt({
 				disableSettingJwtHeader: true,
