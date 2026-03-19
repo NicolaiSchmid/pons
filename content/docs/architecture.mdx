@@ -29,7 +29,7 @@ Pons is a Next.js application backed by [Convex](https://convex.dev) for real-ti
 |:------|:-----------|
 | Framework | Next.js 16 (App Router, Turbopack) |
 | Backend | Convex (database, auth, file storage, scheduled actions) |
-| Auth | Convex Auth (Google OAuth) |
+| Auth | Better Auth + Facebook OAuth |
 | MCP | `@modelcontextprotocol/sdk` — Streamable HTTP transport |
 | UI | shadcn/ui + Tailwind CSS v4 |
 | Hosting | Vercel (FRA1) + Convex Cloud (eu-west-1) |
@@ -91,7 +91,7 @@ Account (WhatsApp Business Account)
 ### MCP tool call
 
 1. Client sends HTTP request to `/api/mcp` with Bearer token
-2. Route validates the API key and resolves the account
+2. Route accepts either an API key or a Better Auth OAuth access token
 3. Creates a fresh `McpServer` instance scoped to that account
 4. Executes the requested tool against Convex queries/mutations/actions
 5. Returns the result
@@ -113,7 +113,7 @@ This is done per-account since each WhatsApp Business Account has its own app se
 pons/
 ├── convex/                    # Backend
 │   ├── schema.ts              # Database schema
-│   ├── auth.ts                # Convex Auth (Google OAuth)
+│   ├── auth.ts                # Better Auth + MCP OAuth provider
 │   ├── accounts.ts            # Account + member management
 │   ├── conversations.ts       # Conversation queries
 │   ├── messages.ts            # Message CRUD
