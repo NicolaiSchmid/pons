@@ -32,20 +32,21 @@ This will create a new Convex project and deploy the schema. Note the deployment
 Create `.env.local`:
 
 ```bash
+BETTER_AUTH_SECRET=<generate with: openssl rand -base64 32>
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_CONVEX_URL=https://your-deployment.convex.cloud
-CONVEX_AUTH_SECRET=<generate with: openssl rand -base64 32>
+NEXT_PUBLIC_CONVEX_SITE_URL=https://your-deployment.convex.site
 ```
 
-Also set `CONVEX_AUTH_SECRET` in the Convex dashboard under Settings > Environment Variables.
+Also set `BETTER_AUTH_SECRET` in your deployment environment.
 
-## 4. Configure Google OAuth
+## 4. Configure Facebook Login
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com)
-2. Create a new project or select an existing one
-3. Enable the Google+ API
-4. Create OAuth 2.0 credentials (Web application)
-5. Add your domain to Authorized redirect URIs
-6. Set `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` in Convex environment variables
+1. Go to [Meta for Developers](https://developers.facebook.com)
+2. Create or reuse a Meta app with Facebook Login and WhatsApp permissions
+3. Add your domain plus `http://localhost:3000` to the allowed OAuth redirect origins
+4. Set `FACEBOOK_APP_ID` and `FACEBOOK_APP_SECRET` in your environment
+5. Keep the WhatsApp webhook environment variables configured as usual
 
 ## 5. Run locally
 
@@ -65,6 +66,10 @@ Visit `http://localhost:3000` to see the app.
 2. Connect the repo to Vercel
 3. Set environment variables:
    - `NEXT_PUBLIC_CONVEX_URL` — your Convex deployment URL
+   - `NEXT_PUBLIC_CONVEX_SITE_URL` — your Convex site URL
+   - `NEXT_PUBLIC_APP_URL` — your public app URL
+   - `BETTER_AUTH_SECRET` — shared Better Auth secret
+   - `FACEBOOK_APP_ID` and `FACEBOOK_APP_SECRET` — Meta login credentials
    - `CONVEX_DEPLOY_KEY` — from Convex dashboard (Settings > Deploy Key)
 4. Build command is pre-configured: `pnpm convex deploy --cmd 'pnpm run build'`
 5. **Disable Deployment Protection** for production (WhatsApp webhooks need unauthenticated access to `/api/webhook`)

@@ -5,7 +5,7 @@ description: Connect Pons to Claude Desktop, Cursor, OpenCode, or any MCP client
 
 ## Overview
 
-Pons exposes a [Model Context Protocol](https://modelcontextprotocol.io/) server via Streamable HTTP transport. Any MCP-compatible client can connect to it using an API key.
+Pons exposes a [Model Context Protocol](https://modelcontextprotocol.io/) server via Streamable HTTP transport. You can connect either with a scoped API key or with OAuth dynamic client registration if your MCP client supports it.
 
 ## 1. Create an API Key
 
@@ -99,6 +99,23 @@ Edit `~/.config/opencode/config.json`:
 
 Pons uses **Streamable HTTP** transport at `https://pons.chat/api/mcp`. Pass the API key as a `Bearer` token in the `Authorization` header. No stdio, no SSE — just standard HTTP.
 
+## Optional: OAuth Dynamic Client Registration
+
+If your MCP client supports OAuth and dynamic client registration, you can use the same MCP endpoint without creating an API key first.
+
+- **Protected resource metadata:** `https://pons.chat/.well-known/oauth-protected-resource/api/mcp`
+- **Authorization server metadata:** `https://pons.chat/.well-known/oauth-authorization-server/api/auth`
+- **OpenID configuration:** `https://pons.chat/.well-known/openid-configuration/api/auth`
+- **Resource URL:** `https://pons.chat/api/mcp`
+
+The MCP route advertises the protected resource metadata via `WWW-Authenticate`, so compliant clients can usually start from `https://pons.chat/api/mcp` and discover the OAuth flow automatically.
+
+During authorization, Pons will:
+
+1. Redirect you to Facebook sign-in
+2. Show a consent screen listing the requested scopes
+3. Issue OAuth access and refresh tokens for the registered MCP client
+
 ## 3. Verify
 
 Ask your AI assistant:
@@ -109,7 +126,7 @@ It should call the `list_conversations` tool and return your recent chats.
 
 ## Scopes
 
-API keys are scoped to control what your AI can do:
+API keys and OAuth access tokens use the same MCP scopes to control what your AI can do:
 
 | Scope | Permissions |
 |:------|:-----------|
