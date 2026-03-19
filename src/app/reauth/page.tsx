@@ -17,8 +17,8 @@ export default function ReAuth() {
 	useEffect(() => {
 		if (triggered.current) return;
 		triggered.current = true;
-		void authClient.signIn.oauth2({
-			providerId: "facebook",
+		void authClient.signIn.social({
+			provider: "facebook",
 			callbackURL: "/dashboard",
 		});
 	}, []);
