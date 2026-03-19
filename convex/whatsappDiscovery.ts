@@ -70,11 +70,13 @@ type DebugTokenResponse = {
 
 export const getFacebookToken = internalQuery({
 	args: { userId: v.id("users") },
-	handler: async (ctx, { userId }) => {
-		const token = await ctx.db
-			.query("facebookTokens")
-			.withIndex("by_user", (q) => q.eq("userId", userId))
-			.first();
+	handler: async (ctx, { userId }): Promise<string | null> => {
+		const token: {
+			accessToken: string;
+			expiresAt?: number;
+		} | null = await ctx.runQuery(internal.auth.getFacebookAccount, {
+			userId,
+		});
 		return token?.accessToken ?? null;
 	},
 });

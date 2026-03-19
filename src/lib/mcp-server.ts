@@ -11,6 +11,17 @@ function getConvexUrl(): string {
 	return url;
 }
 
+type McpAuthContext =
+	| {
+			readonly kind: "apiKey";
+			readonly apiKey: string;
+	  }
+	| {
+			readonly kind: "oauth";
+			readonly betterAuthUserId: string;
+			readonly scopes: string[];
+	  };
+
 /** Disclosure response from gateway — all params optional, missing → options list. */
 type DisclosureResponse = {
 	readonly _disclosure: true;
@@ -36,7 +47,7 @@ const isGatewayError = (
 	(result as Record<string, unknown>).error === true;
 
 /** Format a disclosure response as user-friendly text. */
-const formatDisclosure = (d: DisclosureResponse): string => {
+const _formatDisclosure = (d: DisclosureResponse): string => {
 	const lines = [d.message];
 
 	if (d.options.length > 0) {
@@ -84,16 +95,24 @@ const formatDisclosure = (d: DisclosureResponse): string => {
  */
 async function callTool(
 	convex: ConvexHttpClient,
-	apiKey: string,
+	auth: McpAuthContext,
 	tool: string,
 	toolArgs: Record<string, unknown>,
 ): Promise<unknown> {
 	try {
-		const result = await convex.action(api.gateway.mcpTool, {
-			apiKey,
-			tool,
-			toolArgs,
-		});
+		const result =
+			auth.kind === "apiKey"
+				? await convex.action(api.gateway.mcpTool, {
+						apiKey: auth.apiKey,
+						tool,
+						toolArgs,
+					})
+				: await convex.action(api.gateway.mcpToolOAuth, {
+						betterAuthUserId: auth.betterAuthUserId,
+						scopes: auth.scopes,
+						tool,
+						toolArgs,
+					});
 
 		// Disclosures are NOT errors — return them for formatting
 		if (isDisclosure(result)) return result;
@@ -184,7 +203,7 @@ const PHONE_DESC =
 
 // ── Server factory ─────────────────────────────────────────
 
-export function createMcpServer(apiKey: string) {
+export function createMcpServer(auth: McpAuthContext) {
 	const convex = new ConvexHttpClient(getConvexUrl());
 
 	const server = new McpServer({
@@ -207,7 +226,7 @@ export function createMcpServer(apiKey: string) {
 		},
 		async ({ from, limit }) => {
 			try {
-				const result = await callTool(convex, apiKey, "list_conversations", {
+				const result = await callTool(convex, auth, "list_conversations", {
 					from,
 					limit: limit ?? 50,
 				});
@@ -262,7 +281,7 @@ export function createMcpServer(apiKey: string) {
 		},
 		async ({ from, limit }) => {
 			try {
-				const result = await callTool(convex, apiKey, "list_unanswered", {
+				const result = await callTool(convex, auth, "list_unanswered", {
 					from,
 					limit: limit ?? 20,
 				});
@@ -324,7 +343,7 @@ export function createMcpServer(apiKey: string) {
 		},
 		async ({ from, phone, messageLimit }) => {
 			try {
-				const result = await callTool(convex, apiKey, "get_conversation", {
+				const result = await callTool(convex, auth, "get_conversation", {
 					from,
 					phone,
 					messageLimit: messageLimit ?? 50,
@@ -391,7 +410,7 @@ ${messagesText || "No messages yet."}`;
 		},
 		async ({ from, query, limit }) => {
 			try {
-				const result = await callTool(convex, apiKey, "search_messages", {
+				const result = await callTool(convex, auth, "search_messages", {
 					from,
 					query,
 					limit: limit ?? 20,
@@ -436,7 +455,7 @@ ${messagesText || "No messages yet."}`;
 		},
 		async ({ from }) => {
 			try {
-				const result = await callTool(convex, apiKey, "list_templates", {
+				const result = await callTool(convex, auth, "list_templates", {
 					from,
 				});
 
@@ -509,7 +528,7 @@ ${messagesText || "No messages yet."}`;
 		},
 		async ({ from, phone, text: msgText, replyToMessageId }) => {
 			try {
-				const result = await callTool(convex, apiKey, "send_text", {
+				const result = await callTool(convex, auth, "send_text", {
 					from,
 					phone,
 					text: msgText,
@@ -583,7 +602,7 @@ ${messagesText || "No messages yet."}`;
 		},
 		async ({ from, phone, templateName, templateLanguage, components }) => {
 			try {
-				const result = await callTool(convex, apiKey, "send_template", {
+				const result = await callTool(convex, auth, "send_template", {
 					from,
 					phone,
 					templateName,
@@ -662,7 +681,7 @@ ${messagesText || "No messages yet."}`;
 		},
 		async ({ from, phone, url, mimeType, filename, caption }) => {
 			try {
-				const result = await callTool(convex, apiKey, "send_media", {
+				const result = await callTool(convex, auth, "send_media", {
 					from,
 					phone,
 					url,
@@ -719,7 +738,7 @@ ${messagesText || "No messages yet."}`;
 		},
 		async ({ from, phone, waMessageId, emoji }) => {
 			try {
-				const result = await callTool(convex, apiKey, "send_reaction", {
+				const result = await callTool(convex, auth, "send_reaction", {
 					from,
 					phone,
 					waMessageId,
@@ -754,7 +773,7 @@ ${messagesText || "No messages yet."}`;
 		},
 		async ({ from, phone, archived }) => {
 			try {
-				const result = await callTool(convex, apiKey, "updateConversation", {
+				const result = await callTool(convex, auth, "updateConversation", {
 					from,
 					phone,
 					archived,

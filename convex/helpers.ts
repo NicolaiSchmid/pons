@@ -1,3 +1,4 @@
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 
@@ -26,10 +27,9 @@ export async function getOwnerAccessToken(
 	ctx: QueryCtx | MutationCtx,
 	ownerId: Id<"users">,
 ): Promise<string> {
-	const token = await ctx.db
-		.query("facebookTokens")
-		.withIndex("by_user", (q) => q.eq("userId", ownerId))
-		.first();
+	const token = await ctx.runQuery(internal.auth.getFacebookAccount, {
+		userId: ownerId,
+	});
 	if (!token?.accessToken) {
 		throw new Error(
 			"No Facebook access token found for account owner. The owner needs to re-authenticate.",
