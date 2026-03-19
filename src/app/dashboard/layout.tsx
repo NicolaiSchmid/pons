@@ -1,13 +1,17 @@
+import { requireAuthenticatedUser } from "@/lib/auth-server";
+
 /**
  * Dashboard layout — Server Component.
  *
- * Auth is handled by middleware (redirects to / if unauthenticated),
- * so no client-side auth gate or spinner needed here.
+ * Guards dashboard routes server-side and links the Better Auth user
+ * to the existing app user record before child pages render.
  */
-export default function DashboardLayout({
+export default async function DashboardLayout({
 	children,
 }: {
 	children: React.ReactNode;
 }) {
+	await requireAuthenticatedUser("/");
+
 	return <div className="flex h-screen flex-col">{children}</div>;
 }

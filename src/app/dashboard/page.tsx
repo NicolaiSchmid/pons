@@ -1,6 +1,5 @@
-import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
-import { fetchQuery } from "convex/nextjs";
 import { redirect } from "next/navigation";
+import { fetchAuthQuery, requireAuthenticatedUser } from "@/lib/auth-server";
 import { api } from "../../../convex/_generated/api";
 
 /** Statuses that allow normal messaging */
@@ -16,8 +15,8 @@ const USABLE_STATUSES = new Set(["active", "pending_name_review"]);
  * No spinner needed — the redirect happens before any HTML is sent.
  */
 export default async function DashboardIndex() {
-	const token = await convexAuthNextjsToken();
-	const accounts = await fetchQuery(api.accounts.list, {}, { token });
+	await requireAuthenticatedUser("/");
+	const accounts = await fetchAuthQuery(api.accounts.list, {});
 
 	if (accounts.length === 0) {
 		redirect("/dashboard/setup");

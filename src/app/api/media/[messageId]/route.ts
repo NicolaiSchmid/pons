@@ -1,6 +1,5 @@
-import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
-import { fetchQuery } from "convex/nextjs";
 import { type NextRequest, NextResponse } from "next/server";
+import { fetchAuthMutation, fetchAuthQuery, getToken } from "@/lib/auth-server";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 
@@ -11,27 +10,25 @@ export async function GET(
 	const { messageId } = await context.params;
 	const download = request.nextUrl.searchParams.get("download") === "1";
 
-	const token = await convexAuthNextjsToken();
+	const token = await getToken();
 	if (!token) {
 		return new NextResponse("Unauthorized", { status: 401 });
 	}
 
-	const mediaUrl = await fetchQuery(
-		api.messages.getMediaUrl,
-		{ messageId: messageId as Id<"messages"> },
-		{ token },
-	);
+	await fetchAuthMutation(api.auth.ensureCurrentUser, {});
+
+	const mediaUrl = await fetchAuthQuery(api.messages.getMediaUrl, {
+		messageId: messageId as Id<"messages">,
+	});
 
 	if (!mediaUrl) {
 		return new NextResponse("Not found", { status: 404 });
 	}
 
 	if (download) {
-		const message = await fetchQuery(
-			api.messages.get,
-			{ messageId: messageId as Id<"messages"> },
-			{ token },
-		);
+		const message = await fetchAuthQuery(api.messages.get, {
+			messageId: messageId as Id<"messages">,
+		});
 
 		if (!message?.mediaId) {
 			return new NextResponse("Not found", { status: 404 });

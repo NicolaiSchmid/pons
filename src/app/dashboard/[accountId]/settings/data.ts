@@ -1,16 +1,15 @@
-import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
-import { preloadQuery } from "convex/nextjs";
+import { preloadAuthQuery, requireAuthenticatedUser } from "@/lib/auth-server";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 
 export async function loadSettingsData(accountId: Id<"accounts">) {
-	const token = await convexAuthNextjsToken();
+	await requireAuthenticatedUser("/");
 
 	const [preloadedAccount, preloadedMembers, preloadedWebhookTargets] =
 		await Promise.all([
-			preloadQuery(api.accounts.get, { accountId }, { token }),
-			preloadQuery(api.accounts.listMembers, { accountId }, { token }),
-			preloadQuery(api.webhookTargets.listByAccount, { accountId }, { token }),
+			preloadAuthQuery(api.accounts.get, { accountId }),
+			preloadAuthQuery(api.accounts.listMembers, { accountId }),
+			preloadAuthQuery(api.webhookTargets.listByAccount, { accountId }),
 		]);
 
 	return { preloadedAccount, preloadedMembers, preloadedWebhookTargets };

@@ -9,8 +9,7 @@ export const env = createEnv({
 		NODE_ENV: z
 			.enum(["development", "test", "production"])
 			.default("development"),
-		// Convex Auth secret (generate with: openssl rand -base64 32)
-		CONVEX_AUTH_SECRET: z.string().optional(),
+		BETTER_AUTH_SECRET: z.string().optional(),
 	},
 
 	/**
@@ -18,7 +17,9 @@ export const env = createEnv({
 	 * Exposed to the browser via NEXT_PUBLIC_ prefix.
 	 */
 	client: {
+		NEXT_PUBLIC_APP_URL: z.string().url().default("https://pons.chat"),
 		NEXT_PUBLIC_CONVEX_URL: z.string().url(),
+		NEXT_PUBLIC_CONVEX_SITE_URL: z.string().url(),
 	},
 
 	/**
@@ -26,8 +27,10 @@ export const env = createEnv({
 	 */
 	runtimeEnv: {
 		NODE_ENV: process.env.NODE_ENV,
-		CONVEX_AUTH_SECRET: process.env.CONVEX_AUTH_SECRET,
+		BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET,
+		NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL ?? "https://pons.chat",
 		NEXT_PUBLIC_CONVEX_URL: process.env.NEXT_PUBLIC_CONVEX_URL,
+		NEXT_PUBLIC_CONVEX_SITE_URL: process.env.NEXT_PUBLIC_CONVEX_SITE_URL,
 	},
 
 	/**

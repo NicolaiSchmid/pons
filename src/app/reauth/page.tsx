@@ -1,8 +1,8 @@
 "use client";
 
-import { useAuthActions } from "@convex-dev/auth/react";
 import { MessageSquare } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { authClient } from "@/lib/auth-client";
 
 /**
  * /reauth — Auto-triggers Facebook OAuth to refresh the session.
@@ -12,14 +12,16 @@ import { useEffect, useRef } from "react";
  * After authenticating, they're sent back to "/" (the dashboard).
  */
 export default function ReAuth() {
-	const { signIn } = useAuthActions();
 	const triggered = useRef(false);
 
 	useEffect(() => {
 		if (triggered.current) return;
 		triggered.current = true;
-		void signIn("facebook", { redirectTo: "/dashboard" });
-	}, [signIn]);
+		void authClient.signIn.social({
+			provider: "facebook",
+			callbackURL: "/dashboard",
+		});
+	}, []);
 
 	return (
 		<main className="flex min-h-screen items-center justify-center">

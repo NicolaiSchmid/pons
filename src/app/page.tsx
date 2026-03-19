@@ -1,6 +1,5 @@
 "use client";
 
-import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth } from "convex/react";
 import {
 	ArrowRight,
@@ -19,6 +18,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
+import { authClient } from "@/lib/auth-client";
 
 const mcpConfig = `{
   "mcpServers": {
@@ -167,11 +167,13 @@ function FacebookIcon() {
 
 export default function Home() {
 	const { isAuthenticated, isLoading } = useConvexAuth();
-	const { signIn } = useAuthActions();
 	const router = useRouter();
 
 	const handleSignIn = () => {
-		void signIn("facebook", { redirectTo: "/dashboard" });
+		void authClient.signIn.social({
+			provider: "facebook",
+			callbackURL: "/dashboard",
+		});
 	};
 
 	// Redirect authenticated users to /dashboard

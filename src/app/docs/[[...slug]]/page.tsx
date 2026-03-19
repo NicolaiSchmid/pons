@@ -5,7 +5,16 @@ import {
 	DocsTitle,
 } from "fumadocs-ui/layouts/docs/page";
 import { notFound } from "next/navigation";
+import type { ComponentType } from "react";
 import { source } from "@/lib/source";
+
+type DocsPageData = {
+	body: ComponentType;
+	description?: string;
+	full?: boolean;
+	title?: string;
+	toc?: unknown;
+};
 
 export default async function Page(props: {
 	params: Promise<{ slug?: string[] }>;
@@ -14,12 +23,13 @@ export default async function Page(props: {
 	const page = source.getPage(params.slug);
 	if (!page) notFound();
 
-	const MDX = page.data.body;
+	const pageData = page.data as DocsPageData;
+	const MDX = pageData.body;
 
 	return (
-		<DocsPage full={page.data.full} toc={page.data.toc}>
-			<DocsTitle>{page.data.title}</DocsTitle>
-			<DocsDescription>{page.data.description}</DocsDescription>
+		<DocsPage full={pageData.full} toc={pageData.toc as any}>
+			<DocsTitle>{pageData.title}</DocsTitle>
+			<DocsDescription>{pageData.description}</DocsDescription>
 			<DocsBody>
 				<MDX />
 			</DocsBody>
@@ -37,33 +47,34 @@ export async function generateMetadata(props: {
 	const params = await props.params;
 	const page = source.getPage(params.slug);
 	if (!page) notFound();
+	const pageData = page.data as DocsPageData;
 
 	return {
-		title: `${page.data.title} — Pons Docs`,
-		description: page.data.description,
+		title: `${pageData.title} — Pons Docs`,
+		description: pageData.description,
 		alternates: {
 			canonical: `https://pons.chat${page.url}`,
 		},
 		openGraph: {
-			title: `${page.data.title} — Pons Docs`,
-			description: page.data.description,
+			title: `${pageData.title} — Pons Docs`,
+			description: pageData.description,
 			url: `https://pons.chat${page.url}`,
 			type: "article",
 			images: [
 				{
-					url: `/api/og?title=${encodeURIComponent(`${page.data.title} — Pons Docs`)}&subtitle=${encodeURIComponent(page.data.description ?? "Documentation for Pons.")}`,
+					url: `/api/og?title=${encodeURIComponent(`${pageData.title} — Pons Docs`)}&subtitle=${encodeURIComponent(pageData.description ?? "Documentation for Pons.")}`,
 					width: 1200,
 					height: 630,
-					alt: `${page.data.title} — Pons Docs`,
+					alt: `${pageData.title} — Pons Docs`,
 				},
 			],
 		},
 		twitter: {
 			card: "summary_large_image",
-			title: `${page.data.title} — Pons Docs`,
-			description: page.data.description,
+			title: `${pageData.title} — Pons Docs`,
+			description: pageData.description,
 			images: [
-				`/api/og?title=${encodeURIComponent(`${page.data.title} — Pons Docs`)}&subtitle=${encodeURIComponent(page.data.description ?? "Documentation for Pons.")}`,
+				`/api/og?title=${encodeURIComponent(`${pageData.title} — Pons Docs`)}&subtitle=${encodeURIComponent(pageData.description ?? "Documentation for Pons.")}`,
 			],
 		},
 	};
