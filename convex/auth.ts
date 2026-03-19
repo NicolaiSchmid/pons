@@ -2,7 +2,7 @@ import { oauthProvider } from "@better-auth/oauth-provider";
 import { createClient, type GenericCtx } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
 import { betterAuth } from "better-auth";
-import { jwt } from "better-auth/plugins";
+import { genericOAuth, jwt } from "better-auth/plugins";
 import { v } from "convex/values";
 import { components, internal } from "./_generated/api";
 import type { DataModel, Doc, Id } from "./_generated/dataModel";
@@ -12,6 +12,9 @@ import authConfig from "./auth.config";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://pons.chat";
 const FACEBOOK_CONFIG_ID = "909601165285095";
+const FACEBOOK_GRAPH_VERSION = "v24.0";
+const FACEBOOK_AUTHORIZATION_URL = `https://www.facebook.com/${FACEBOOK_GRAPH_VERSION}/dialog/oauth`;
+const FACEBOOK_TOKEN_URL = `https://graph.facebook.com/${FACEBOOK_GRAPH_VERSION}/oauth/access_token`;
 const MCP_RESOURCE_URL = `${APP_URL}/api/mcp`;
 const MCP_SCOPES = [
 	"openid",
@@ -39,22 +42,6 @@ export const createAuth = (ctx: GenericCtx<DataModel>) =>
 				enabled: true,
 			},
 		},
-		socialProviders: {
-			facebook: {
-				clientId: process.env.FACEBOOK_APP_ID ?? "",
-				clientSecret: process.env.FACEBOOK_APP_SECRET ?? "",
-				scopes: [
-					"email",
-					"public_profile",
-					"business_management",
-					"whatsapp_business_management",
-					"whatsapp_business_messaging",
-				],
-				authorizationUrlParams: {
-					config_id: FACEBOOK_CONFIG_ID,
-				},
-			},
-		},
 		plugins: [
 			convex({ authConfig }),
 			jwt({
@@ -62,6 +49,68 @@ export const createAuth = (ctx: GenericCtx<DataModel>) =>
 				jwt: {
 					issuer: `${APP_URL}/api/auth`,
 				},
+			}),
+			genericOAuth({
+				config: [
+					{
+						providerId: "facebook",
+						clientId: process.env.FACEBOOK_APP_ID ?? "",
+						clientSecret: process.env.FACEBOOK_APP_SECRET ?? "",
+						authorizationUrl: FACEBOOK_AUTHORIZATION_URL,
+						tokenUrl: FACEBOOK_TOKEN_URL,
+						authentication: "post",
+						scopes: [
+							"email",
+							"public_profile",
+							"business_management",
+							"whatsapp_business_management",
+							"whatsapp_business_messaging",
+						],
+						authorizationUrlParams: {
+							config_id: FACEBOOK_CONFIG_ID,
+						},
+						getUserInfo: async (tokens) => {
+							if (!tokens.accessToken) {
+								return null;
+							}
+
+							const response = await fetch(
+								`https://graph.facebook.com/${FACEBOOK_GRAPH_VERSION}/me?fields=id,name,email,picture`,
+								{
+									headers: {
+										Authorization: `Bearer ${tokens.accessToken}`,
+									},
+								},
+							);
+							if (!response.ok) {
+								return null;
+							}
+
+							const profile = (await response.json()) as {
+								email?: string;
+								id?: string;
+								name?: string;
+								picture?: {
+									data?: {
+										url?: string;
+									};
+								};
+							};
+
+							if (!profile.id || !profile.name) {
+								return null;
+							}
+
+							return {
+								email: profile.email,
+								emailVerified: !!profile.email,
+								id: profile.id,
+								image: profile.picture?.data?.url,
+								name: profile.name,
+							};
+						},
+					},
+				],
 			}),
 			oauthProvider({
 				allowDynamicClientRegistration: true,

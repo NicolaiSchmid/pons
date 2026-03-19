@@ -23,8 +23,8 @@ export default function OAuthLoginPage() {
 
 	const handleSignIn = () => {
 		setLoading(true);
-		void authClient.signIn.social({
-			provider: "facebook",
+		void authClient.signIn.oauth2({
+			providerId: "facebook",
 			callbackURL:
 				typeof window === "undefined" ? "/oauth/login" : window.location.href,
 		});

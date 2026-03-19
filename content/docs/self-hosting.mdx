@@ -44,7 +44,9 @@ Also set `BETTER_AUTH_SECRET` in your deployment environment.
 
 1. Go to [Meta for Developers](https://developers.facebook.com)
 2. Create or reuse a Meta app with Facebook Login and WhatsApp permissions
-3. Add your domain plus `http://localhost:3000` to the allowed OAuth redirect origins
+3. Add your app domains and whitelist these exact OAuth redirect URIs:
+   - `http://localhost:3000/api/auth/oauth2/callback/facebook`
+   - `https://your-domain.example/api/auth/oauth2/callback/facebook`
 4. Set `FACEBOOK_APP_ID` and `FACEBOOK_APP_SECRET` in your environment
 5. Keep the WhatsApp webhook environment variables configured as usual
 

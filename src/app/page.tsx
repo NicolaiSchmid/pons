@@ -170,8 +170,8 @@ export default function Home() {
 	const router = useRouter();
 
 	const handleSignIn = () => {
-		void authClient.signIn.social({
-			provider: "facebook",
+		void authClient.signIn.oauth2({
+			providerId: "facebook",
 			callbackURL: "/dashboard",
 		});
 	};
