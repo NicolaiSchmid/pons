@@ -5,6 +5,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 
+function buildAuthCompletionUrl(nextPath: string) {
+	return `/auth/complete?next=${encodeURIComponent(nextPath)}`;
+}
+
 function FacebookIcon() {
 	return (
 		<svg
@@ -25,8 +29,9 @@ export default function OAuthLoginPage() {
 		setLoading(true);
 		void authClient.signIn.social({
 			provider: "facebook",
-			callbackURL:
+			callbackURL: buildAuthCompletionUrl(
 				typeof window === "undefined" ? "/oauth/login" : window.location.href,
+			),
 		});
 	};
 

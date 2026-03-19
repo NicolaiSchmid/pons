@@ -4,6 +4,10 @@ import { MessageSquare } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { authClient } from "@/lib/auth-client";
 
+function buildAuthCompletionUrl(nextPath: string) {
+	return `/auth/complete?next=${encodeURIComponent(nextPath)}`;
+}
+
 /**
  * /reauth — Auto-triggers Facebook OAuth to refresh the session.
  *
@@ -19,7 +23,7 @@ export default function ReAuth() {
 		triggered.current = true;
 		void authClient.signIn.social({
 			provider: "facebook",
-			callbackURL: "/dashboard",
+			callbackURL: buildAuthCompletionUrl("/dashboard"),
 		});
 	}, []);
 
