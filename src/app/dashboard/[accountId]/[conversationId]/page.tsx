@@ -1,5 +1,4 @@
-import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
-import { preloadQuery } from "convex/nextjs";
+import { preloadAuthQuery, requireAuthenticatedUser } from "@/lib/auth-server";
 import { api } from "../../../../../convex/_generated/api";
 import type { Id } from "../../../../../convex/_generated/dataModel";
 import { ConversationPageClient } from "./page-client";
@@ -14,21 +13,17 @@ export default async function ConversationPage({
 	params: Promise<{ accountId: string; conversationId: string }>;
 }) {
 	const { accountId, conversationId } = await params;
-	const token = await convexAuthNextjsToken();
+	await requireAuthenticatedUser("/");
 
 	const typedConversationId = conversationId as Id<"conversations">;
 
 	const [preloadedConversation, preloadedMessages] = await Promise.all([
-		preloadQuery(
-			api.conversations.get,
-			{ conversationId: typedConversationId },
-			{ token },
-		),
-		preloadQuery(
-			api.messages.list,
-			{ conversationId: typedConversationId },
-			{ token },
-		),
+		preloadAuthQuery(api.conversations.get, {
+			conversationId: typedConversationId,
+		}),
+		preloadAuthQuery(api.messages.list, {
+			conversationId: typedConversationId,
+		}),
 	]);
 
 	return (

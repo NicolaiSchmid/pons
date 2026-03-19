@@ -1,10 +1,10 @@
 import "@/styles/globals.css";
 
-import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Sora } from "next/font/google";
 
 import { Toaster } from "@/components/ui/sonner";
+import { getToken } from "@/lib/auth-server";
 import { ConvexClientProvider } from "./ConvexClientProvider";
 
 export const metadata: Metadata = {
@@ -86,20 +86,22 @@ const sora = Sora({
 	weight: ["400", "500", "600", "700"],
 });
 
-export default function RootLayout({
+export default async function RootLayout({
 	children,
 }: Readonly<{ children: React.ReactNode }>) {
+	const token = await getToken();
+
 	return (
-		<ConvexAuthNextjsServerProvider>
-			<html
-				className={`${geist.variable} ${geistMono.variable} ${sora.variable}`}
-				lang="en"
-			>
-				<body>
-					<ConvexClientProvider>{children}</ConvexClientProvider>
-					<Toaster position="top-center" />
-				</body>
-			</html>
-		</ConvexAuthNextjsServerProvider>
+		<html
+			className={`${geist.variable} ${geistMono.variable} ${sora.variable}`}
+			lang="en"
+		>
+			<body>
+				<ConvexClientProvider initialToken={token}>
+					{children}
+				</ConvexClientProvider>
+				<Toaster position="top-center" />
+			</body>
+		</html>
 	);
 }

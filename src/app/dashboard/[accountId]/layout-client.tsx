@@ -1,6 +1,5 @@
 "use client";
 
-import { useAuthActions } from "@convex-dev/auth/react";
 import { type Preloaded, usePreloadedQuery } from "convex/react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -21,6 +20,7 @@ import {
 	SidebarProvider,
 	useSidebar,
 } from "@/components/ui/sidebar";
+import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import type { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
@@ -69,7 +69,6 @@ const PonsSidebarContent: FC<{
 	preloadedAccounts,
 	preloadedConversations,
 }) => {
-	const { signOut } = useAuthActions();
 	const router = useRouter();
 
 	return (
@@ -155,7 +154,7 @@ const PonsSidebarContent: FC<{
 					</div>
 					<button
 						className="text-[11px] text-muted-foreground transition-colors hover:text-sidebar-foreground"
-						onClick={() => void signOut()}
+						onClick={() => void authClient.signOut()}
 						type="button"
 					>
 						Sign out

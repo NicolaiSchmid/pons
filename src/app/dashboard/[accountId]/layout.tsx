@@ -1,5 +1,4 @@
-import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
-import { preloadQuery } from "convex/nextjs";
+import { preloadAuthQuery, requireAuthenticatedUser } from "@/lib/auth-server";
 import { api } from "../../../../convex/_generated/api";
 import type { Id } from "../../../../convex/_generated/dataModel";
 import { AccountLayoutClient } from "./layout-client";
@@ -16,15 +15,13 @@ export default async function AccountLayout({
 	params: Promise<{ accountId: string }>;
 }) {
 	const { accountId } = await params;
-	const token = await convexAuthNextjsToken();
+	await requireAuthenticatedUser("/");
 
 	const [preloadedAccounts, preloadedConversations] = await Promise.all([
-		preloadQuery(api.accounts.list, {}, { token }),
-		preloadQuery(
-			api.conversations.list,
-			{ accountId: accountId as Id<"accounts"> },
-			{ token },
-		),
+		preloadAuthQuery(api.accounts.list, {}),
+		preloadAuthQuery(api.conversations.list, {
+			accountId: accountId as Id<"accounts">,
+		}),
 	]);
 
 	return (
