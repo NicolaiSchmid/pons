@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { action, internalAction } from "./_generated/server";
+import { type ActionCtx, action, internalAction } from "./_generated/server";
 import { auth } from "./auth";
 import { META_API_BASE, MetaApiRequestError, metaFetch } from "./metaFetch";
 
@@ -50,6 +50,45 @@ async function resolveAccessToken(ctx: any, ownerId: string): Promise<string> {
 		);
 	}
 	return token;
+}
+
+// Read receipts should never make a successful outbound send fail.
+// Meta can reject these for older or otherwise ineligible inbound message IDs.
+async function sendReadReceiptIfPossible(
+	ctx: Pick<ActionCtx, "runQuery">,
+	accountPhoneNumberId: string,
+	accessToken: string,
+	conversationId: Id<"conversations">,
+): Promise<void> {
+	const lastInboundWaId = await ctx.runQuery(
+		internal.messages.lastInboundWaMessageId,
+		{ conversationId },
+	);
+	if (!lastInboundWaId) {
+		return;
+	}
+
+	try {
+		await metaFetch<{ success: boolean }>(
+			`${accountPhoneNumberId}/messages`,
+			accessToken,
+			{
+				method: "POST",
+				body: {
+					messaging_product: "whatsapp",
+					status: "read",
+					message_id: lastInboundWaId,
+				},
+				tokenInBody: false,
+			},
+		);
+	} catch (error) {
+		const errorMessage =
+			error instanceof Error ? error.message : "Unknown error";
+		console.warn(
+			`Failed to send read receipt for conversation ${conversationId}: ${errorMessage}`,
+		);
+	}
 }
 
 // Send a text message (internal — called from MCP gateway or UI actions)
@@ -131,26 +170,12 @@ export const sendTextMessage = internalAction({
 				incrementUnread: false,
 			});
 
-			// Send read receipt for the last inbound message
-			const lastInboundWaId = await ctx.runQuery(
-				internal.messages.lastInboundWaMessageId,
-				{ conversationId: args.conversationId },
+			await sendReadReceiptIfPossible(
+				ctx,
+				account.phoneNumberId,
+				accessToken,
+				args.conversationId,
 			);
-			if (lastInboundWaId) {
-				await metaFetch<{ success: boolean }>(
-					`${account.phoneNumberId}/messages`,
-					accessToken,
-					{
-						method: "POST",
-						body: {
-							messaging_product: "whatsapp",
-							status: "read",
-							message_id: lastInboundWaId,
-						},
-						tokenInBody: false,
-					},
-				);
-			}
 
 			await ctx.runMutation(internal.forwarding.enqueueEvent, {
 				accountId: args.accountId,
@@ -345,26 +370,12 @@ export const sendMediaMessage = internalAction({
 				incrementUnread: false,
 			});
 
-			// Send read receipt for the last inbound message
-			const lastInboundWaId = await ctx.runQuery(
-				internal.messages.lastInboundWaMessageId,
-				{ conversationId: args.conversationId },
+			await sendReadReceiptIfPossible(
+				ctx,
+				account.phoneNumberId,
+				accessToken,
+				args.conversationId,
 			);
-			if (lastInboundWaId) {
-				await metaFetch<{ success: boolean }>(
-					`${account.phoneNumberId}/messages`,
-					accessToken,
-					{
-						method: "POST",
-						body: {
-							messaging_product: "whatsapp",
-							status: "read",
-							message_id: lastInboundWaId,
-						},
-						tokenInBody: false,
-					},
-				);
-			}
 
 			await ctx.runMutation(internal.forwarding.enqueueEvent, {
 				accountId: args.accountId,
@@ -514,26 +525,12 @@ export const sendTemplateMessage = internalAction({
 				incrementUnread: false,
 			});
 
-			// Send read receipt for the last inbound message
-			const lastInboundWaId = await ctx.runQuery(
-				internal.messages.lastInboundWaMessageId,
-				{ conversationId: args.conversationId },
+			await sendReadReceiptIfPossible(
+				ctx,
+				account.phoneNumberId,
+				accessToken,
+				args.conversationId,
 			);
-			if (lastInboundWaId) {
-				await metaFetch<{ success: boolean }>(
-					`${account.phoneNumberId}/messages`,
-					accessToken,
-					{
-						method: "POST",
-						body: {
-							messaging_product: "whatsapp",
-							status: "read",
-							message_id: lastInboundWaId,
-						},
-						tokenInBody: false,
-					},
-				);
-			}
 
 			await ctx.runMutation(internal.forwarding.enqueueEvent, {
 				accountId: args.accountId,
