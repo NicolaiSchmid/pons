@@ -1,8 +1,8 @@
 export const MCP_RESOURCE_PATH = "/api/mcp";
 export const AUTH_SERVER_PATH = "/api/auth";
-export const AUTH_JWKS_PATH = "/api/auth/jwks";
+export const AUTH_JWKS_PATH = "/api/auth/mcp/jwks";
 export const OAUTH_PROTECTED_RESOURCE_PATH =
-	"/.well-known/oauth-protected-resource/api/mcp";
+	"/api/auth/.well-known/oauth-protected-resource";
 
 export const MCP_OAUTH_SCOPES = [
 	"openid",

@@ -103,9 +103,9 @@ Pons uses **Streamable HTTP** transport at `https://pons.chat/api/mcp`. Pass the
 
 If your MCP client supports OAuth and dynamic client registration, you can use the same MCP endpoint without creating an API key first.
 
-- **Protected resource metadata:** `https://pons.chat/.well-known/oauth-protected-resource/api/mcp`
-- **Authorization server metadata:** `https://pons.chat/.well-known/oauth-authorization-server/api/auth`
-- **OpenID configuration:** `https://pons.chat/.well-known/openid-configuration/api/auth`
+- **Protected resource metadata:** `https://pons.chat/api/auth/.well-known/oauth-protected-resource`
+- **Authorization server metadata:** `https://pons.chat/api/auth/.well-known/oauth-authorization-server`
+- **JWKS:** `https://pons.chat/api/auth/mcp/jwks`
 - **Resource URL:** `https://pons.chat/api/mcp`
 
 The MCP route advertises the protected resource metadata via `WWW-Authenticate`, so compliant clients can usually start from `https://pons.chat/api/mcp` and discover the OAuth flow automatically.

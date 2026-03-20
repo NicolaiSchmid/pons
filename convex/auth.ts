@@ -1,8 +1,7 @@
-import { oauthProvider } from "@better-auth/oauth-provider";
 import { createClient, type GenericCtx } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
-import { betterAuth } from "better-auth";
-import { jwt } from "better-auth/plugins";
+import { betterAuth } from "better-auth/minimal";
+import { mcp } from "better-auth/plugins";
 import { v } from "convex/values";
 import { components, internal } from "./_generated/api";
 import type { DataModel, Doc, Id } from "./_generated/dataModel";
@@ -47,29 +46,27 @@ export const createAuth = (ctx: GenericCtx<DataModel>) =>
 			},
 		},
 		plugins: [
-			convex({ authConfig }),
-			jwt({
-				disableSettingJwtHeader: true,
-				jwt: {
-					issuer: `${APP_URL}/api/auth`,
+			mcp({
+				loginPage: "/oauth/login",
+				resource: MCP_RESOURCE_URL,
+				oidcConfig: {
+					consentPage: "/oauth/consent",
+					loginPage: "/oauth/login",
+					scopes: [
+						"read",
+						"write",
+						"send",
+						"messages:read",
+						"messages:write",
+						"conversations:read",
+						"templates:read",
+					],
+					metadata: {
+						scopes_supported: [...MCP_SCOPES],
+					},
 				},
 			}),
-			oauthProvider({
-				allowDynamicClientRegistration: true,
-				allowUnauthenticatedClientRegistration: true,
-				clientRegistrationAllowedScopes: [...MCP_SCOPES],
-				clientRegistrationDefaultScopes: [
-					"read",
-					"write",
-					"send",
-					"offline_access",
-				],
-				consentPage: "/oauth/consent",
-				grantTypes: ["authorization_code", "refresh_token"],
-				loginPage: "/oauth/login",
-				scopes: [...MCP_SCOPES],
-				validAudiences: [MCP_RESOURCE_URL],
-			}),
+			convex({ authConfig }),
 		],
 	});
 

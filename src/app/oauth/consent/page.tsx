@@ -4,23 +4,6 @@ import { CheckCircle2, Loader2, ShieldCheck, XCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 
-function getSignedOAuthQuery(search: string) {
-	const params = new URLSearchParams(search);
-	if (!params.has("sig")) {
-		return undefined;
-	}
-
-	const signedParams = new URLSearchParams();
-	for (const [key, value] of params.entries()) {
-		signedParams.append(key, value);
-		if (key === "sig") {
-			break;
-		}
-	}
-
-	return signedParams.toString();
-}
-
 const SCOPE_LABELS: Record<string, string> = {
 	read: "Read conversations and messages",
 	write: "Update conversations and react to messages",
@@ -39,14 +22,19 @@ export default function OAuthConsentPage() {
 	const [submitting, setSubmitting] = useState<"approve" | "deny" | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
-	const { clientId, scopes } = useMemo(() => {
+	const { clientId, consentCode, scopes } = useMemo(() => {
 		if (typeof window === "undefined") {
-			return { clientId: null, scopes: [] as string[] };
+			return {
+				clientId: null,
+				consentCode: null,
+				scopes: [] as string[],
+			};
 		}
 
 		const params = new URLSearchParams(window.location.search);
 		return {
 			clientId: params.get("client_id"),
+			consentCode: params.get("consent_code"),
 			scopes: (params.get("scope") ?? "")
 				.split(" ")
 				.map((scope) => scope.trim())
@@ -55,6 +43,11 @@ export default function OAuthConsentPage() {
 	}, []);
 
 	const submitConsent = async (accept: boolean) => {
+		if (!consentCode) {
+			setError("Consent request is missing a consent code.");
+			return;
+		}
+
 		setSubmitting(accept ? "approve" : "deny");
 		setError(null);
 
@@ -67,10 +60,7 @@ export default function OAuthConsentPage() {
 				credentials: "include",
 				body: JSON.stringify({
 					accept,
-					oauth_query:
-						typeof window === "undefined"
-							? undefined
-							: getSignedOAuthQuery(window.location.search),
+					consent_code: consentCode,
 				}),
 			});
 

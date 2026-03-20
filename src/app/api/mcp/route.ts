@@ -1,5 +1,5 @@
-import { oauthProviderResourceClient } from "@better-auth/oauth-provider/resource-client";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 import { type NextRequest, NextResponse } from "next/server";
 import {
 	getAuthIssuerUrl,
@@ -19,7 +19,10 @@ const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = 60; // 60 requests per minute per IP
 
 const requestCounts = new Map<string, { count: number; resetAt: number }>();
-const oauthResourceClient = oauthProviderResourceClient().getActions();
+const remoteJwksCache = new Map<
+	string,
+	ReturnType<typeof createRemoteJWKSet>
+>();
 
 function isRateLimited(ip: string): boolean {
 	const now = Date.now();
@@ -83,6 +86,17 @@ function unauthorizedResponse(request: NextRequest, message: string) {
 	);
 }
 
+function getRemoteJwks(jwksUrl: string) {
+	const cached = remoteJwksCache.get(jwksUrl);
+	if (cached) {
+		return cached;
+	}
+
+	const created = createRemoteJWKSet(new URL(jwksUrl));
+	remoteJwksCache.set(jwksUrl, created);
+	return created;
+}
+
 async function authenticateRequest(
 	request: NextRequest,
 ): Promise<McpRequestAuth | NextResponse> {
@@ -102,15 +116,16 @@ async function authenticateRequest(
 	}
 
 	try {
-		const jwt = await oauthResourceClient.verifyAccessToken(token, {
-			verifyOptions: {
+		const { payload } = await jwtVerify(
+			token,
+			getRemoteJwks(getAuthJwksUrl(request.nextUrl.origin)),
+			{
 				audience: getMcpResourceUrl(request.nextUrl.origin),
 				issuer: getAuthIssuerUrl(request.nextUrl.origin),
 			},
-			jwksUrl: getAuthJwksUrl(request.nextUrl.origin),
-		});
+		);
 
-		if (typeof jwt.sub !== "string" || jwt.sub.length === 0) {
+		if (typeof payload.sub !== "string" || payload.sub.length === 0) {
 			return unauthorizedResponse(
 				request,
 				"OAuth access token is missing a user subject.",
@@ -119,10 +134,10 @@ async function authenticateRequest(
 
 		return {
 			kind: "oauth",
-			betterAuthUserId: jwt.sub,
+			betterAuthUserId: payload.sub,
 			scopes:
-				typeof jwt.scope === "string"
-					? jwt.scope.split(" ").filter((scope) => scope.length > 0)
+				typeof payload.scope === "string"
+					? payload.scope.split(" ").filter((scope) => scope.length > 0)
 					: [],
 		};
 	} catch {

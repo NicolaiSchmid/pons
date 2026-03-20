@@ -418,7 +418,7 @@ function McpConfigSnippet() {
 				For OAuth-aware MCP clients, you can also connect to the same MCP URL
 				and let the client discover
 				<code className="mx-1 rounded bg-background px-1 py-0.5 font-mono text-[11px]">
-					/.well-known/oauth-protected-resource/api/mcp
+					/api/auth/.well-known/oauth-protected-resource
 				</code>
 				automatically.
 			</p>
