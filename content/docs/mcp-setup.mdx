@@ -5,101 +5,9 @@ description: Connect Pons to Claude Desktop, Cursor, OpenCode, or any MCP client
 
 ## Overview
 
-Pons exposes a [Model Context Protocol](https://modelcontextprotocol.io/) server via Streamable HTTP transport. You can connect either with a scoped API key or with OAuth dynamic client registration if your MCP client supports it.
+Pons exposes a [Model Context Protocol](https://modelcontextprotocol.io/) server via Streamable HTTP transport. If your MCP client supports OAuth, use dynamic client registration first. API keys are still supported as the fallback path for clients that only accept a static bearer token.
 
-## 1. Create an API Key
-
-1. Sign in to [pons.chat](https://pons.chat)
-2. Click the **key icon** in the top navigation bar to open the API Key Manager
-3. Click **Create Key**
-4. Choose a name and select the scopes you need:
-   - **read** — list conversations, search messages, view templates
-   - **write** — send reactions, archive/unarchive conversations
-   - **send** — send text and template messages
-5. Copy the key — it won't be shown again
-
-## 2. Configure your MCP client
-
-Add this to your MCP configuration:
-
-```json
-{
-  "mcpServers": {
-    "pons": {
-      "url": "https://pons.chat/api/mcp",
-      "headers": {
-        "Authorization": "Bearer pons_your_api_key_here"
-      }
-    }
-  }
-}
-```
-
-### Claude Desktop
-
-Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
-
-```json
-{
-  "mcpServers": {
-    "pons": {
-      "url": "https://pons.chat/api/mcp",
-      "headers": {
-        "Authorization": "Bearer pons_your_api_key_here"
-      }
-    }
-  }
-}
-```
-
-Restart Claude Desktop after saving.
-
-### Cursor
-
-Open Cursor Settings > MCP Servers > Add Server. Use:
-
-- **Type:** HTTP
-- **URL:** `https://pons.chat/api/mcp`
-- **Headers:** `Authorization: Bearer pons_your_api_key_here`
-
-Or edit `.cursor/mcp.json` in your project root:
-
-```json
-{
-  "mcpServers": {
-    "pons": {
-      "url": "https://pons.chat/api/mcp",
-      "headers": {
-        "Authorization": "Bearer pons_your_api_key_here"
-      }
-    }
-  }
-}
-```
-
-### OpenCode
-
-Edit `~/.config/opencode/config.json`:
-
-```json
-{
-  "mcp": {
-    "pons": {
-      "type": "remote",
-      "url": "https://pons.chat/api/mcp",
-      "headers": {
-        "Authorization": "Bearer pons_your_api_key_here"
-      }
-    }
-  }
-}
-```
-
-### Any MCP Client
-
-Pons uses **Streamable HTTP** transport at `https://pons.chat/api/mcp`. Pass the API key as a `Bearer` token in the `Authorization` header. No stdio, no SSE — just standard HTTP.
-
-## Optional: OAuth Dynamic Client Registration
+## 1. Recommended: OAuth Dynamic Client Registration
 
 If your MCP client supports OAuth and dynamic client registration, you can use the same MCP endpoint without creating an API key first.
 
@@ -224,12 +132,104 @@ Access tokens issued by Pons are validated against:
 https://pons.chat/api/auth/mcp/jwks
 ```
 
+## 2. Optional: API Keys
+
+Create an API key if your MCP client does not support OAuth DCR or if you want a simple static bearer token.
+
+1. Sign in to [pons.chat](https://pons.chat)
+2. Click the **key icon** in the top navigation bar to open the API Key Manager
+3. Click **Create Key**
+4. Choose a name and select the scopes you need:
+   - **read** — list conversations, search messages, view templates
+   - **write** — send reactions, archive/unarchive conversations
+   - **send** — send text and template messages
+5. Copy the key — it won't be shown again
+
+Add this to your MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "pons": {
+      "url": "https://pons.chat/api/mcp",
+      "headers": {
+        "Authorization": "Bearer pons_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+### Claude Desktop
+
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows):
+
+```json
+{
+  "mcpServers": {
+    "pons": {
+      "url": "https://pons.chat/api/mcp",
+      "headers": {
+        "Authorization": "Bearer pons_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop after saving.
+
+### Cursor
+
+Open Cursor Settings > MCP Servers > Add Server. Use:
+
+- **Type:** HTTP
+- **URL:** `https://pons.chat/api/mcp`
+- **Headers:** `Authorization: Bearer pons_your_api_key_here`
+
+Or edit `.cursor/mcp.json` in your project root:
+
+```json
+{
+  "mcpServers": {
+    "pons": {
+      "url": "https://pons.chat/api/mcp",
+      "headers": {
+        "Authorization": "Bearer pons_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+### OpenCode
+
+Edit `~/.config/opencode/config.json`:
+
+```json
+{
+  "mcp": {
+    "pons": {
+      "type": "remote",
+      "url": "https://pons.chat/api/mcp",
+      "headers": {
+        "Authorization": "Bearer pons_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+### Any MCP Client
+
+Pons uses **Streamable HTTP** transport at `https://pons.chat/api/mcp`. Pass the API key as a `Bearer` token in the `Authorization` header. No stdio, no SSE — just standard HTTP.
+
 ### What The MCP Server Accepts
 
 The Pons MCP endpoint accepts both of these in parallel:
 
-- `Authorization: Bearer pons_...` for existing API keys
 - `Authorization: Bearer <oauth access token>` for OAuth clients using DCR
+- `Authorization: Bearer pons_...` for existing API keys
 
 That means you can adopt OAuth-capable MCP clients without breaking existing API-key integrations.
 
