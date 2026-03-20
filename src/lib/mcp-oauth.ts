@@ -37,7 +37,7 @@ export function getMcpResourceUrl(origin?: string) {
 }
 
 export function getAuthIssuerUrl(origin?: string) {
-	return `${getBaseUrl(origin)}${AUTH_SERVER_PATH}`;
+	return getBaseUrl(origin);
 }
 
 export function getAuthJwksUrl(origin?: string) {
