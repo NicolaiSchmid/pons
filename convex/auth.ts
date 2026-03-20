@@ -115,6 +115,44 @@ async function findAppUserByAuthUser(
 		.first();
 }
 
+async function findAppUserByIdentity(
+	ctx: QueryCtx | MutationCtx,
+	identity: {
+		subject?: string;
+		email?: string;
+	} | null,
+) {
+	if (!identity) {
+		return null;
+	}
+
+	if (identity.subject) {
+		const byBetterAuthUserId = await ctx.db
+			.query("users")
+			.withIndex("by_better_auth_user", (q) =>
+				q.eq("betterAuthUserId", identity.subject),
+			)
+			.first();
+		if (byBetterAuthUserId) {
+			return byBetterAuthUserId;
+		}
+
+		const byDirectId = await ctx.db.get(identity.subject as Id<"users">);
+		if (byDirectId) {
+			return byDirectId;
+		}
+	}
+
+	if (!identity.email) {
+		return null;
+	}
+
+	return await ctx.db
+		.query("users")
+		.withIndex("email", (q) => q.eq("email", identity.email as string))
+		.first();
+}
+
 async function syncAppUserLink(
 	ctx: MutationCtx,
 	authUser: NonNullable<AuthUser>,
@@ -150,37 +188,36 @@ async function getFacebookAccountForAppUser(
 
 export const auth = {
 	async getUserId(ctx: GenericCtx<DataModel>): Promise<Id<"users"> | null> {
-		if (!("db" in ctx)) {
-			return await ctx.runQuery(internal.auth.resolveCurrentUserId, {});
-		}
-
-		const authUser = await authComponent.safeGetAuthUser(ctx);
-		if (!authUser) {
+		const identity = await ctx.auth.getUserIdentity();
+		if (!identity) {
 			return null;
 		}
 
-		if (authUser.userId) {
-			return authUser.userId as Id<"users">;
+		if (!("db" in ctx)) {
+			return await ctx.runQuery(internal.auth.resolveCurrentUserId, {
+				betterAuthUserId: identity.subject,
+				email: identity.email,
+			});
 		}
 
-		const appUser = await findAppUserByAuthUser(ctx, authUser);
+		const appUser = await findAppUserByIdentity(ctx, {
+			subject: identity.subject,
+			email: identity.email,
+		});
 		return appUser?._id ?? null;
 	},
 };
 
 export const resolveCurrentUserId = internalQuery({
-	args: {},
-	handler: async (ctx) => {
-		const authUser = await authComponent.safeGetAuthUser(ctx);
-		if (!authUser) {
-			return null;
-		}
-
-		if (authUser.userId) {
-			return authUser.userId as Id<"users">;
-		}
-
-		const appUser = await findAppUserByAuthUser(ctx, authUser);
+	args: {
+		betterAuthUserId: v.optional(v.string()),
+		email: v.optional(v.string()),
+	},
+	handler: async (ctx, args) => {
+		const appUser = await findAppUserByIdentity(ctx, {
+			subject: args.betterAuthUserId,
+			email: args.email,
+		});
 		return appUser?._id ?? null;
 	},
 });
