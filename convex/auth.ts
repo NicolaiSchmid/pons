@@ -2,6 +2,7 @@ import { oauthProvider } from "@better-auth/oauth-provider";
 import { createClient, type GenericCtx } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
 import { betterAuth } from "better-auth";
+import { jwt } from "better-auth/plugins";
 import { v } from "convex/values";
 import { components, internal } from "./_generated/api";
 import type { DataModel, Doc, Id } from "./_generated/dataModel";
@@ -47,6 +48,12 @@ export const createAuth = (ctx: GenericCtx<DataModel>) =>
 		},
 		plugins: [
 			convex({ authConfig }),
+			jwt({
+				disableSettingJwtHeader: true,
+				jwt: {
+					issuer: `${APP_URL}/api/auth`,
+				},
+			}),
 			oauthProvider({
 				allowDynamicClientRegistration: true,
 				allowUnauthenticatedClientRegistration: true,
