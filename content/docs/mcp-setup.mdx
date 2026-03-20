@@ -103,10 +103,13 @@ Pons uses **Streamable HTTP** transport at `https://pons.chat/api/mcp`. Pass the
 
 If your MCP client supports OAuth and dynamic client registration, you can use the same MCP endpoint without creating an API key first.
 
+- **MCP resource:** `https://pons.chat/api/mcp`
 - **Protected resource metadata:** `https://pons.chat/api/auth/.well-known/oauth-protected-resource`
 - **Authorization server metadata:** `https://pons.chat/api/auth/.well-known/oauth-authorization-server`
+- **Authorization endpoint:** `https://pons.chat/api/auth/mcp/authorize`
+- **Token endpoint:** `https://pons.chat/api/auth/mcp/token`
+- **Client registration endpoint:** `https://pons.chat/api/auth/mcp/register`
 - **JWKS:** `https://pons.chat/api/auth/mcp/jwks`
-- **Resource URL:** `https://pons.chat/api/mcp`
 
 The MCP route advertises the protected resource metadata via `WWW-Authenticate`, so compliant clients can usually start from `https://pons.chat/api/mcp` and discover the OAuth flow automatically.
 
@@ -115,6 +118,120 @@ During authorization, Pons will:
 1. Redirect you to Facebook sign-in
 2. Show a consent screen listing the requested scopes
 3. Issue OAuth access and refresh tokens for the registered MCP client
+
+### When To Use OAuth Instead Of API Keys
+
+Use OAuth DCR when your MCP client can manage:
+
+- dynamic client registration
+- authorization-code + refresh-token flows
+- browser sign-in and consent handoff
+
+Use API keys when you want the simplest setup or your MCP client only supports static bearer tokens.
+
+### Discovery
+
+A compliant MCP client can start from the MCP resource URL:
+
+```text
+https://pons.chat/api/mcp
+```
+
+If the request is unauthenticated, Pons responds with a `WWW-Authenticate` header pointing to:
+
+```text
+https://pons.chat/api/auth/.well-known/oauth-protected-resource
+```
+
+That metadata in turn points the client at the Pons authorization server and JWKS.
+
+### Dynamic Client Registration
+
+Pons accepts standard OAuth client registration at:
+
+```text
+POST https://pons.chat/api/auth/mcp/register
+```
+
+Typical registration body:
+
+```json
+{
+  "client_name": "Cursor",
+  "redirect_uris": [
+    "http://127.0.0.1:3000/callback"
+  ],
+  "grant_types": [
+    "authorization_code",
+    "refresh_token"
+  ],
+  "response_types": [
+    "code"
+  ],
+  "token_endpoint_auth_method": "none",
+  "scope": "openid profile email offline_access read write send"
+}
+```
+
+Pons supports these MCP-related scopes:
+
+- `read`
+- `write`
+- `send`
+- `messages:read`
+- `messages:write`
+- `conversations:read`
+- `templates:read`
+
+It also supports the standard OAuth scopes used by MCP clients:
+
+- `openid`
+- `profile`
+- `email`
+- `offline_access`
+
+### Authorization Flow
+
+After registration, the MCP client sends the user to:
+
+```text
+GET https://pons.chat/api/auth/mcp/authorize
+```
+
+Expected flow:
+
+1. The client starts an authorization-code flow for the resource `https://pons.chat/api/mcp`
+2. Pons redirects the user to Facebook sign-in if they are not already signed in
+3. Pons shows a consent screen at `/oauth/consent`
+4. Pons redirects back to the client with an authorization code
+
+### Token Exchange
+
+The client exchanges the authorization code at:
+
+```text
+POST https://pons.chat/api/auth/mcp/token
+```
+
+Pons returns:
+
+- an access token for `https://pons.chat/api/mcp`
+- a refresh token when `offline_access` is requested
+
+Access tokens issued by Pons are validated against:
+
+```text
+https://pons.chat/api/auth/mcp/jwks
+```
+
+### What The MCP Server Accepts
+
+The Pons MCP endpoint accepts both of these in parallel:
+
+- `Authorization: Bearer pons_...` for existing API keys
+- `Authorization: Bearer <oauth access token>` for OAuth clients using DCR
+
+That means you can adopt OAuth-capable MCP clients without breaking existing API-key integrations.
 
 ## 3. Verify
 
