@@ -81,13 +81,25 @@ const webhookMessageSchema = z
 	})
 	.passthrough();
 
-const webhookStatusSchema = z.object({
-	id: z.string(),
-	status: z.enum(["sent", "delivered", "read", "failed"]),
-	timestamp: z.string(),
-	recipient_id: z.string(),
-	errors: z.array(z.object({ code: z.number(), title: z.string() })).optional(),
-});
+const webhookStatusSchema = z
+	.object({
+		id: z.string(),
+		status: z.string(),
+		timestamp: z.string(),
+		recipient_id: z.string().optional(),
+		errors: z
+			.array(
+				z
+					.object({
+						code: z.union([z.number(), z.string()]).optional(),
+						title: z.string().optional(),
+						message: z.string().optional(),
+					})
+					.passthrough(),
+			)
+			.optional(),
+	})
+	.passthrough();
 
 const webhookValueSchema = z.object({
 	messaging_product: z.string(),
